@@ -1,9 +1,9 @@
 # Time Series Forecasting Strategies Library.
 
-A framework which provides instruments for the following time series forecasting tasks and strategies:
+A framework which provides instruments for the time series forecasting tasks and strategies.
 
 ## Quick tour
-[`Tutorial`](https://github.com/sb-ai-lab/tsururu/tutorial.ipynb)
+[`Tutorial`](https://github.com/sb-ai-lab/tsururu/blob/main/tutorial.ipynb)
 
 ## Ways to work with multiple time series:
 - _Local-modelling_:
