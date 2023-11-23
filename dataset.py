@@ -9,7 +9,7 @@ from pandas.api.types import is_datetime64_any_dtype as is_datetime
 
 class IndexSlicer:
     """A class that combines ways to create indexes and with the help
-        of which the data is manipulated.
+    of which the data is manipulated.
     """
 
     @staticmethod
@@ -118,16 +118,10 @@ class IndexSlicer:
         return ids
 
     def _rolling_window(
-        self,
-        a: NDArray[np.float],
-        window: int,
-        step: int,
-        from_last: bool = True
+        self, a: NDArray[np.float], window: int, step: int, from_last: bool = True
     ):
         sliding_window = np.lib.stride_tricks.sliding_window_view(a, window)
-        return sliding_window[
-            (len(a) - window) % step if from_last else 0:
-        ][::step]
+        return sliding_window[(len(a) - window) % step if from_last else 0:][::step]
 
     def _create_idx_data(
         self,
@@ -138,9 +132,7 @@ class IndexSlicer:
         _,
         __,
     ):
-        return self._rolling_window(
-            np.arange(len(data))[:-horizon], history, step
-        )
+        return self._rolling_window(np.arange(len(data))[:-horizon], history, step)
 
     def _create_idx_target(
         self,
@@ -151,8 +143,9 @@ class IndexSlicer:
         _,
         n_last_horizon: Optional[int],
     ):
-        return self._rolling_window(
-            np.arange(len(data))[history:], horizon, step)[:, -n_last_horizon:]
+        return self._rolling_window(np.arange(len(data))[history:], horizon, step)[
+            :, -n_last_horizon:
+        ]
 
     def _create_idx_test(
         self,
@@ -163,8 +156,9 @@ class IndexSlicer:
         _,
         __,
     ):
-        return self._rolling_window(
-            np.arange(len(data)), history, step)[-(horizon + 1): -horizon]
+        return self._rolling_window(np.arange(len(data)), history, step)[
+            -(horizon + 1): -horizon
+        ]
 
     def _get_ids(
         self,
@@ -185,9 +179,7 @@ class IndexSlicer:
             else:
                 segment = data.iloc[prev:split]
             if len(segment) >= cond:
-                ind = func(
-                    segment, horizon, history, step, i, n_last_horizon
-                ) + prev
+                ind = func(segment, horizon, history, step, i, n_last_horizon) + prev
                 inds.append(ind)
             prev = split
         inds = np.vstack(inds)
@@ -383,7 +375,7 @@ class TSDataset:
         ) -> NDArray[Optional[Union[np.float, np.str]]]:
             if test_last:
                 return segment[-self.history:]
-            return segment[-self.history - horizon:-horizon]
+            return segment[-self.history - horizon: -horizon]
 
         def _pad_segment(
             segment: NDArray[Optional[Union[np.float, np.str]]],
@@ -406,16 +398,12 @@ class TSDataset:
                         segment[0, id_col_id[i]], horizon
                     )
             else:
-                result[:, id_col_id] = np.repeat(
-                    segment[0, id_col_id], horizon
-                )
+                result[:, id_col_id] = np.repeat(segment[0, id_col_id], horizon)
             return result
 
         index_slicer = IndexSlicer()
         columns = self.seq_data.columns
-        date_col_id = index_slicer.get_cols_idx(
-            self.seq_data, self.date_column
-        )
+        date_col_id = index_slicer.get_cols_idx(self.seq_data, self.date_column)
         if id_col_name is None:
             id_col_name = self.id_column
         id_col_id = index_slicer.get_cols_idx(self.seq_data, id_col_name)
@@ -437,7 +425,5 @@ class TSDataset:
         ]
 
         # Concatenate together
-        result = np.vstack(
-            np.concatenate((segments, padded_segments_results), axis=1)
-        )
+        result = np.vstack(np.concatenate((segments, padded_segments_results), axis=1))
         return pd.DataFrame(result, columns=columns)

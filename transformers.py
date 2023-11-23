@@ -27,9 +27,7 @@ def _seq_mult_ts(data, idx_data):
     data_seq = np.array([])
 
     for idx in range(len(data)):
-        current_data_seq = index_slicer.get_slice(
-            data[idx], (idx_data[idx], None)
-        )
+        current_data_seq = index_slicer.get_slice(data[idx], (idx_data[idx], None))
         if data_seq.shape[0] == 0:
             data_seq = current_data_seq
         else:
@@ -39,7 +37,7 @@ def _seq_mult_ts(data, idx_data):
 
 class SeriesToFeaturesTransformer:
     """A transformer that is trained on the raw time series,
-        and applied to generated features, targets, or both.
+    and applied to generated features, targets, or both.
     """
 
     def __init__(self):
@@ -121,7 +119,7 @@ class SeriesToFeaturesTransformer:
 
 class SeriesToSeriesTransformer(SeriesToFeaturesTransformer):
     """A transformer that is trained on the raw time series
-        and applied to it."""
+    and applied to it."""
 
     def transform(
         self,
@@ -132,13 +130,9 @@ class SeriesToSeriesTransformer(SeriesToFeaturesTransformer):
         X_only: bool,
     ) -> Tuple[pd.DataFrame]:
         if self.transform_train:
-            raw_ts_X = raw_ts_X.groupby(self.id_column).apply(
-                self._transform_segment
-            )
+            raw_ts_X = raw_ts_X.groupby(self.id_column).apply(self._transform_segment)
         if self.transform_target and not X_only:
-            raw_ts_y = raw_ts_y.groupby(self.id_column).apply(
-                self._transform_segment
-            )
+            raw_ts_y = raw_ts_y.groupby(self.id_column).apply(self._transform_segment)
         return raw_ts_X, raw_ts_y, features_X, y
 
     def inverse_transform_y(self, y: pd.DataFrame) -> pd.DataFrame:
@@ -147,7 +141,7 @@ class SeriesToSeriesTransformer(SeriesToFeaturesTransformer):
 
 class FeaturesToFeaturesTransformer(SeriesToFeaturesTransformer):
     """A transformer that is trained on generated features,
-        and applied to either features or targets, or both."""
+    and applied to either features or targets, or both."""
 
     def __init__(self):
         self.transform_train = None
@@ -185,7 +179,8 @@ class FeaturesToFeaturesTransformer(SeriesToFeaturesTransformer):
 
 class FeaturesGenerator(SeriesToFeaturesTransformer):
     """A transformer that is trained both on the raw time series
-        or features, and used for generating new features."""
+    or features, and used for generating new features."""
+
     def __init__(self):
         pass
 
@@ -237,14 +232,9 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
         self.params = {}
 
     def _get_mask_mean_std(self, segment, column_name, current_id):
-        column_mask = [
-            segment.columns.str.contains(column_name)][0]
-        mean = self.params[current_id][(
-            column_name, "mean"
-        )]
-        std = self.params[current_id][(
-            column_name, "std"
-        )]
+        column_mask = [segment.columns.str.contains(column_name)][0]
+        mean = self.params[current_id][(column_name, "mean")]
+        std = self.params[current_id][(column_name, "std")]
         return column_mask, mean, std
 
     def _transform_segment(self, segment: pd.Series) -> pd.Series:
@@ -257,9 +247,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
                 column_name=column_name,
                 current_id=current_id,
             )
-            segment.loc[:, column_mask] = (
-                segment.loc[:, column_mask] - mean
-            ) / std
+            segment.loc[:, column_mask] = (segment.loc[:, column_mask] - mean) / std
         return segment
 
     def _inverse_transform_segment(self, segment: pd.Series) -> pd.Series:
@@ -272,9 +260,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
                 column_name=column_name,
                 current_id=current_id,
             )
-            segment.loc[:, column_mask] = (
-                segment.loc[:, column_mask] * std + mean
-            )
+            segment.loc[:, column_mask] = segment.loc[:, column_mask] * std + mean
         return segment
 
     def fit(
@@ -304,9 +290,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
             if issubclass(raw_ts_X[column].dtype.type, np.integer)
             or issubclass(raw_ts_X[column].dtype.type, np.float)
         ]
-        stat_df = raw_ts_X.groupby(id_column)[self.columns].agg(
-            ["mean", "std"]
-        )
+        stat_df = raw_ts_X.groupby(id_column)[self.columns].agg(["mean", "std"])
         self.params = stat_df.to_dict(orient="index")
         return self
 
@@ -345,8 +329,7 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
         current_id = segment[self.id_column].values[0]
 
         for current_column_name in self.columns:
-            current_columns_mask = [
-                segment.columns.str.contains(current_column_name)][0]
+            current_columns_mask = [segment.columns.str.contains(current_column_name)][0]
             current_last_value = self.params[current_id][current_column_name]
             if self.type == "delta":
                 segment.loc[:, current_columns_mask] = (
@@ -402,6 +385,7 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
 
     self.params: dict with last values by each column
     """
+
     def __init__(
         self,
         regime: str = "ratio",
@@ -435,8 +419,8 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         )
         for column_name in columns:
             last_column_name = features_X.columns[
-                (features_X.columns.str.contains(column_name)) &
-                (features_X.columns.str.contains(self.last_lag_substring))
+                (features_X.columns.str.contains(column_name))
+                & (features_X.columns.str.contains(self.last_lag_substring))
             ]
             self.params[column_name] = features_X[last_column_name].values
         return self
@@ -474,16 +458,12 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         if self.regime == "delta":
             y.loc[:, column_name] = y[column_name] + np.repeat(
                 self.params[column_name].reshape(-1),
-                len(y[column_name]) // len(
-                    self.params[column_name].reshape(-1)
-                ),
+                len(y[column_name]) // len(self.params[column_name].reshape(-1)),
             )
         if self.regime == "ratio":
             y.loc[:, column_name] = y[column_name] * np.repeat(
                 self.params[column_name].reshape(-1),
-                len(y[column_name]) // len(
-                    self.params[column_name].reshape(-1)
-                ),
+                len(y[column_name]) // len(self.params[column_name].reshape(-1)),
             )
         return y
 
@@ -532,10 +512,7 @@ class TimeToNumGenerator(FeaturesGenerator):
             transform_train,
             transform_target,
         )
-        self._features = [
-            f"time_to_num__{column_name}"
-            for column_name in self.columns
-        ]
+        self._features = [f"time_to_num__{column_name}" for column_name in self.columns]
         return self
 
     def transform(
@@ -551,17 +528,13 @@ class TimeToNumGenerator(FeaturesGenerator):
             time_col = raw_ts_X[column_name]
             index_slicer = IndexSlicer()
 
-            str_time_col = time_col.apply(
-                lambda x: str(x).split(" ")[0]
-            )
+            str_time_col = time_col.apply(lambda x: str(x).split(" ")[0])
             _, time_delta = index_slicer.timedelta(str_time_col)
 
             if self.from_target_date:
                 time_col = time_col + self.horizon * time_delta
 
-            data = pd.to_datetime(
-                time_col.to_numpy().reshape(-1), origin="unix"
-            )
+            data = pd.to_datetime(time_col.to_numpy().reshape(-1), origin="unix")
             data_transformed = (
                 (data - np.datetime64(self.basic_date))
                 / np.timedelta64(1, self.basic_interval)
@@ -657,9 +630,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
                 time_col = time_col + self.horizon * time_delta
             time_col = pd.to_datetime(time_col.to_numpy(), origin="unix")
 
-            new_arr = np.empty(
-                (time_col.shape[0], len(self._features)), np.int32
-            )
+            new_arr = np.empty((time_col.shape[0], len(self._features)), np.int32)
 
             n = 0
             for seas in self.seasonalities:
@@ -734,19 +705,13 @@ class LagTransformer(SeriesToFeaturesTransformer):
 
         if isinstance(data, list):
             # (1 observation, history, features)
-            sample_data = index_slicer.get_slice(
-                data[0], (self.idx_data[0][0], None)
-            )
+            sample_data = index_slicer.get_slice(data[0], (self.idx_data[0][0], None))
         else:
-            sample_data = index_slicer.get_slice(
-                data, (self.idx_data[0], None)
-            )
+            sample_data = index_slicer.get_slice(data, (self.idx_data[0], None))
 
         # convert to accepted dtype and get attributes
         # leave only correct lags (< number of points in sample_data)
-        self.current_correct_lags = self.lags.copy()[
-            self.lags < sample_data.shape[1]
-        ]
+        self.current_correct_lags = self.lags.copy()[self.lags < sample_data.shape[1]]
 
         feats = []
 
@@ -778,9 +743,7 @@ class LagTransformer(SeriesToFeaturesTransformer):
         else:
             data_seq = index_slicer.get_slice(data, (self.idx_data, None))
 
-        data = data_seq[
-            :, (data_seq.shape[1] - 1) - self.current_correct_lags[::-1], :
-        ]
+        data = data_seq[:, (data_seq.shape[1] - 1) - self.current_correct_lags[::-1], :]
         data = np.moveaxis(data, 1, 2).reshape(len(data), -1)
         features_X = pd.DataFrame(data, columns=self._features)
         return raw_ts_X, raw_ts_y, features_X, y
@@ -802,6 +765,4 @@ class TransformersFactory:
         return sorted(list(self.models.keys()))
 
     def __getitem__(self, params):
-        return self.models[params["transformer_name"]](
-            **params["transformer_params"]
-        )
+        return self.models[params["transformer_name"]](**params["transformer_params"])

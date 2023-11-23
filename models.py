@@ -15,23 +15,24 @@ except PackageNotFoundError:
 
 
 class Estimator:
-    """"A class of underlying model that is used to derive predictions
-        using a feature format and targets defined by the strategy.
+    """ "A class of underlying model that is used to derive predictions
+    using a feature format and targets defined by the strategy.
 
-        Arguments:
-            get_num_iterations: whether to get total number of trees.
-            validation_params: execution params (type, cv, loss),
-                for example: {
-                    "type": "KFold",
-                    "n_splits": 3,
-                    "loss_function": "MAE",
-                }.
-            model_params: base model's params,
-                for example: {
-                    "loss_function": "MultiRMSE",
-                    "early_stopping_rounds": 100,
-                }.
+    Arguments:
+        get_num_iterations: whether to get total number of trees.
+        validation_params: execution params (type, cv, loss),
+            for example: {
+                "type": "KFold",
+                "n_splits": 3,
+                "loss_function": "MAE",
+            }.
+        model_params: base model's params,
+            for example: {
+                "loss_function": "MultiRMSE",
+                "early_stopping_rounds": 100,
+            }.
     """
+
     def __init__(
         self,
         get_num_iterations: bool,
@@ -63,14 +64,10 @@ class Estimator:
                 if self.validation_params.get(param) is None:
                     self.validation_params[param] = default_value
 
-            cv = KFold(**{
-                k: v for k, v in self.validation_params.items() if k != "type"
-            })
+            cv = KFold(**{k: v for k, v in self.validation_params.items() if k != "type"})
 
         elif self.validation_params["type"] == "TS_expanding_window":
-            cv = TimeSeriesSplit(
-                n_splits=self.validation_params["n_splits"]
-            )
+            cv = TimeSeriesSplit(n_splits=self.validation_params["n_splits"])
         return cv
 
     def fit(self, X: pd.DataFrame, y: NDArray[np.float]) -> None:
@@ -102,11 +99,7 @@ class CatBoostRegressor_CV(Estimator):
         validation_params: Dict[str, Union[str, int]],
         model_params: Dict[str, Union[str, int]],
     ):
-        super().__init__(
-            get_num_iterations,
-            validation_params,
-            model_params
-        )
+        super().__init__(get_num_iterations, validation_params, model_params)
 
     def fit(self, X: pd.DataFrame, y: NDArray[np.float]) -> None:
         # Initialize cv object
@@ -125,7 +118,7 @@ class CatBoostRegressor_CV(Estimator):
                 ("loss_function", "MultiRMSE"),
                 ("thread_count", -1),
                 ("random_state", 42),
-                ("early_stopping_rounds", 100)
+                ("early_stopping_rounds", 100),
             ]:
                 if self.model_params.get(param) is None:
                     self.model_params[param] = default_value
@@ -150,13 +143,14 @@ class CatBoostRegressor_CV(Estimator):
             print(f"{self.model_params['loss_function']}: {score}")
 
         if self.get_num_iterations:
-            self.num_iterations = sum([
-                self.models[i_cv].get_best_iteration()
-                for i_cv in range(self.validation_params["n_splits"])
-            ])
+            self.num_iterations = sum(
+                [
+                    self.models[i_cv].get_best_iteration()
+                    for i_cv in range(self.validation_params["n_splits"])
+                ]
+            )
 
-        print(f"Mean {self.model_params['loss_function']}: \
-            {np.mean(self.scores).round(4)}")
+        print(f"Mean {self.model_params['loss_function']}: {np.mean(self.scores).round(4)}")
         print(f"Std: {np.std(self.scores).round(4)}")
 
     def predict(self, X: pd.DataFrame) -> NDArray[np.float]:
