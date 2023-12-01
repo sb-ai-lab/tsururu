@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import holidays
 
-from dataset import IndexSlicer
+from .dataset import IndexSlicer
 
 date_attrs = {
     "y": "year",
@@ -46,9 +46,7 @@ class SeriesToFeaturesTransformer:
         self.transform_train = None
         self.transform_target = None
 
-    def _fit_segment(
-        self, segment: pd.Series, columns: List[str], id_column: str
-    ) -> pd.Series:
+    def _fit_segment(self, segment: pd.Series, columns: List[str], id_column: str) -> pd.Series:
         pass
 
     def _transform_segment(
@@ -84,10 +82,7 @@ class SeriesToFeaturesTransformer:
         """
         self.columns = raw_ts_X.columns[
             np.hstack(
-                [
-                    raw_ts_X.columns.str.contains(raw_column_name)
-                    for raw_column_name in columns
-                ]
+                [raw_ts_X.columns.str.contains(raw_column_name) for raw_column_name in columns]
             )
         ]
         self.id_column = id_column
@@ -536,8 +531,7 @@ class TimeToNumGenerator(FeaturesGenerator):
 
             data = pd.to_datetime(time_col.to_numpy().reshape(-1), origin="unix")
             data_transformed = (
-                (data - np.datetime64(self.basic_date))
-                / np.timedelta64(1, self.basic_interval)
+                (data - np.datetime64(self.basic_date)) / np.timedelta64(1, self.basic_interval)
             ).values.astype(np.float32)
             result_data.append(data_transformed)
         raw_ts_X[:, self._features] = result_data
@@ -601,13 +595,9 @@ class DateSeasonsGenerator(FeaturesGenerator):
         self._features = []
 
         for s in self.seasonalities:
-            self._features.extend(
-                [f"season_{s}__{column_name}" for column_name in self.columns]
-            )
+            self._features.extend([f"season_{s}__{column_name}" for column_name in self.columns])
         if self._country is not None:
-            self._features.extend(
-                [f"season_hol__{column_name}" for column_name in self.columns]
-            )
+            self._features.extend([f"season_hol__{column_name}" for column_name in self.columns])
         return self
 
     def transform(
@@ -720,10 +710,7 @@ class LagTransformer(SeriesToFeaturesTransformer):
 
         for feat in data.columns:
             feats.extend(
-                [
-                    "lag" + f"_{i}" + "__" + feat
-                    for i in reversed(self.current_correct_lags)
-                ]
+                ["lag" + f"_{i}" + "__" + feat for i in reversed(self.current_correct_lags)]
             )
         self._features = list(feats)
         return self

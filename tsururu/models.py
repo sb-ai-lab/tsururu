@@ -134,9 +134,7 @@ class CatBoostRegressor_CV(Estimator):
 
             self.models.append(model)
 
-            score = model.best_score_["validation"][
-                f"{self.model_params['loss_function']}"
-            ]
+            score = model.best_score_["validation"][f"{self.model_params['loss_function']}"]
             self.scores.append(score)
 
             print(f"Fold {i}:")

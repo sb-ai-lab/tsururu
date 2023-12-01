@@ -156,9 +156,7 @@ class IndexSlicer:
         _,
         __,
     ):
-        return self._rolling_window(np.arange(len(data)), history, step)[
-            -(horizon + 1): -horizon
-        ]
+        return self._rolling_window(np.arange(len(data)), history, step)[-(horizon + 1):-horizon]
 
     def _get_ids(
         self,
@@ -370,33 +368,29 @@ class TSDataset:
         """
 
         def _crop_segment(
-            segment: NDArray[Optional[Union[np.float, np.str]]],
+            segment: NDArray[Union[np.float, np.str]],
             test_last: bool,
-        ) -> NDArray[Optional[Union[np.float, np.str]]]:
+        ) -> NDArray[Union[np.float, np.str]]:
             if test_last:
                 return segment[-self.history:]
-            return segment[-self.history - horizon: -horizon]
+            return segment[-self.history - horizon:-horizon]
 
         def _pad_segment(
-            segment: NDArray[Optional[Union[np.float, np.str]]],
+            segment: NDArray[Union[np.float, np.str]],
             horizon: int,
             time_delta: pd.Timedelta,
             date_col_id: Optional[int],
             id_col_id: Optional[Union[str, NDArray[np.str]]],
-        ) -> NDArray[Optional[Union[np.float, np.str]]]:
+        ) -> NDArray[Union[np.float, np.str]]:
             result = np.full((horizon, segment.shape[1]), None)
 
             last_date = segment[-1, date_col_id]
-            new_dates = pd.date_range(
-                last_date + time_delta, periods=horizon, freq=time_delta
-            )
+            new_dates = pd.date_range(last_date + time_delta, periods=horizon, freq=time_delta)
             result[:, date_col_id] = new_dates
 
             if isinstance(id_col_id, np.ndarray):
                 for i in range(len(id_col_id)):
-                    result[:, id_col_id[i]] = np.repeat(
-                        segment[0, id_col_id[i]], horizon
-                    )
+                    result[:, id_col_id[i]] = np.repeat(segment[0, id_col_id[i]], horizon)
             else:
                 result[:, id_col_id] = np.repeat(segment[0, id_col_id], horizon)
             return result

@@ -7,15 +7,15 @@ from itertools import product
 import numpy as np
 import pandas as pd
 
-from transformers import (
+from .transformers import (
     StandardScalerTransformer,
     LastKnownNormalizer,
     TransformersFactory,
     DifferenceNormalizer,
 )
 
-from dataset import TSDataset, IndexSlicer
-from models import ModelsFactory
+from .dataset import TSDataset, IndexSlicer
+from .models import ModelsFactory
 
 
 def timing_decorator(func: Callable) -> Callable:
@@ -205,10 +205,7 @@ class Strategy:
 
             if self.get_num_iterations:
                 num_iterations = sum(
-                    [
-                        self.models[i_model].num_iterations
-                        for i_model in range(len(self.models))
-                    ]
+                    [self.models[i_model].num_iterations for i_model in range(len(self.models))]
                 )
                 num_iterations_list.append(num_iterations)
 
@@ -293,17 +290,13 @@ class RecursiveStrategy(Strategy):
         date_features_colname = X.columns[X.columns.str.contains(date_column)].values
         other_features_colname = np.setdiff1d(
             X.columns.values,
-            np.concatenate(
-                [self.id_feature_column.columns.values, date_features_colname]
-            ),
+            np.concatenate([self.id_feature_column.columns.values, date_features_colname]),
         )
 
         date_features_idx = idx_slicer.get_cols_idx(X, date_features_colname)
         other_features_idx = idx_slicer.get_cols_idx(X, other_features_colname)
 
-        segments_ids = np.append(
-            np.unique(self.id_feature_column, return_index=1)[1], len(X)
-        )
+        segments_ids = np.append(np.unique(self.id_feature_column, return_index=1)[1], len(X))
         segments_ids_array = np.array(
             [
                 np.arange(segments_ids[segment_id - 1], segments_ids[segment_id])
@@ -402,9 +395,7 @@ class RecursiveStrategy(Strategy):
                         self.id_feature_column = current_X
                     final_X = pd.concat((final_X, current_X), axis=1)
             else:
-                for transformer_name, transformer_params in column_params[
-                    "features"
-                ].items():
+                for transformer_name, transformer_params in column_params["features"].items():
                     transformer_init_params = {
                         "transformer_name": transformer_name,
                         "transformer_params": {
@@ -416,13 +407,10 @@ class RecursiveStrategy(Strategy):
 
                     # Add additional params to certain transformers
                     if (
-                        transformer_name
-                        in ["DateSeasonsGenerator", "TimeToNumGenerator"]
+                        transformer_name in ["DateSeasonsGenerator", "TimeToNumGenerator"]
                         and transformer_params.get("from_target_date") is not None
                     ):
-                        transformer_init_params["transformer_params"][
-                            "horizon"
-                        ] = self.horizon
+                        transformer_init_params["transformer_params"]["horizon"] = self.horizon
 
                     if transformer_name == "LagTransformer":
                         transformer_init_params["transformer_params"]["idx_data"] = idx
@@ -452,18 +440,14 @@ class RecursiveStrategy(Strategy):
 
                             if transformer_params.get("transform_target"):
                                 if len(self.inverse_transformers) == 0:
-                                    self.inverse_transformers.append(
-                                        current_transformer
-                                    )
+                                    self.inverse_transformers.append(current_transformer)
                                 else:
                                     for i in range(len(self.inverse_transformers)):
                                         if isinstance(
                                             self.inverse_transformers[i],
                                             StandardScalerTransformer,
                                         ):
-                                            self.inverse_transformers[
-                                                i
-                                            ] = current_transformer
+                                            self.inverse_transformers[i] = current_transformer
                         else:
                             current_transformer = self.fitted_transformers[
                                 tuple(column_params["column"])
@@ -481,8 +465,7 @@ class RecursiveStrategy(Strategy):
                         )
 
                     if (
-                        transformer_name
-                        in ["LastKnownNormalizer", "DifferenceNormalizer"]
+                        transformer_name in ["LastKnownNormalizer", "DifferenceNormalizer"]
                         and not is_train
                         and transformer_params.get("transform_target")
                     ):
@@ -506,9 +489,7 @@ class RecursiveStrategy(Strategy):
                     ).any().any():
                         target_dataset = deepcopy(dataset)
                         target_dataset.seq_data = raw_ts_y
-                        y = self._generate_y(
-                            target_dataset, target_horizon, n_last_horizon
-                        )
+                        y = self._generate_y(target_dataset, target_horizon, n_last_horizon)
                 final_X = pd.concat((final_X, current_X), axis=1)
         return final_X, y
 
@@ -583,16 +564,12 @@ class RecursiveStrategy(Strategy):
             X_only=True,
         )
         if self.is_multivariate:
-            X_current = self._make_multivariate_X_y(
-                X_current, date_column=dataset.date_column
-            )
+            X_current = self._make_multivariate_X_y(X_current, date_column=dataset.date_column)
         current_pred = self.models[0].predict(X_current)
         dataset.seq_data.loc[
             current_target_ids.reshape(-1), dataset.target_column
         ] = current_pred.reshape(-1)
-        dataset.seq_data.loc[
-            current_target_ids.reshape(-1)
-        ] = self._inverse_transform_y(
+        dataset.seq_data.loc[current_target_ids.reshape(-1)] = self._inverse_transform_y(
             dataset.seq_data.loc[current_target_ids.reshape(-1)]
         )
         return dataset
@@ -609,9 +586,7 @@ class RecursiveStrategy(Strategy):
                 date_column=dataset.date_column,
             )
 
-            extended_data = index_slicer.get_slice(
-                dataset.seq_data, (current_test_ids, None)
-            )
+            extended_data = index_slicer.get_slice(dataset.seq_data, (current_test_ids, None))
             extended_data = pd.DataFrame(
                 extended_data.reshape(-1, extended_data.shape[-1]),
                 columns=dataset.seq_data.columns,
@@ -660,9 +635,7 @@ class RecursiveStrategy(Strategy):
             if self.is_multivariate:
                 X = self._make_multivariate_X_y(X, date_column=dataset.date_column)
             pred = self.models[0].predict(X)
-            nan_mask = np.isnan(
-                new_dataset.seq_data[dataset.target_column].astype("float")
-            )
+            nan_mask = np.isnan(new_dataset.seq_data[dataset.target_column].astype("float"))
             new_dataset.seq_data.loc[nan_mask, dataset.target_column] = np.hstack(pred)
             new_dataset.seq_data.loc[nan_mask] = self._inverse_transform_y(
                 new_dataset.seq_data.loc[nan_mask]
@@ -674,9 +647,7 @@ class RecursiveStrategy(Strategy):
 
         # Get dataframe with predictions only
         if train:
-            pred_df = self._make_preds_df(
-                new_dataset, self.horizon, id_column_name="segment_col"
-            )
+            pred_df = self._make_preds_df(new_dataset, self.horizon, id_column_name="segment_col")
             pred_df = pred_df.merge(
                 new_dataset.seq_data[["date", "segment_col", "id"]],
                 on=("date", "segment_col"),
@@ -821,18 +792,14 @@ class DirectStrategy(RecursiveStrategy):
         )
 
         if self.is_multivariate:
-            current_X = self._make_multivariate_X_y(
-                current_X, date_column=dataset.date_column
-            )
+            current_X = self._make_multivariate_X_y(current_X, date_column=dataset.date_column)
 
         current_pred = self.models[step].predict(current_X)
 
         dataset.seq_data.loc[
             current_target_ids.reshape(-1), dataset.target_column
         ] = current_pred.reshape(-1)
-        dataset.seq_data.loc[
-            current_target_ids.reshape(-1)
-        ] = self._inverse_transform_y(
+        dataset.seq_data.loc[current_target_ids.reshape(-1)] = self._inverse_transform_y(
             dataset.seq_data.loc[current_target_ids.reshape(-1)]
         )
         return dataset
@@ -916,9 +883,7 @@ class MIMOStrategy(RecursiveStrategy):
         )
 
         if self.is_multivariate:
-            current_X = self._make_multivariate_X_y(
-                current_X, date_column=date_column_name
-            )
+            current_X = self._make_multivariate_X_y(current_X, date_column=date_column_name)
         current_pred = self.models[0].predict(current_X)
 
         nan_mask = np.isnan(new_dataset.seq_data[target_column_name].astype("float"))
@@ -992,8 +957,7 @@ class DirRecStrategy(RecursiveStrategy):
                 column_name,
                 column_dict,
             ) in dataset.columns_and_features_params.items()
-            if column_dict.get("features")
-            and column_dict["features"].get("LagTransformer")
+            if column_dict.get("features") and column_dict["features"].get("LagTransformer")
         }
 
         for horizon in range(1, self.horizon + 1):
@@ -1008,9 +972,9 @@ class DirRecStrategy(RecursiveStrategy):
 
             # Update lags for each feature
             for column_name in self.true_lags.keys():
-                dataset.columns_and_features_params[column_name]["features"][
-                    "LagTransformer"
-                ]["lags"] += 1
+                dataset.columns_and_features_params[column_name]["features"]["LagTransformer"][
+                    "lags"
+                ] += 1
 
             if self.is_multivariate:
                 X, y = self._make_multivariate_X_y(X, y, dataset.date_column)
@@ -1028,9 +992,9 @@ class DirRecStrategy(RecursiveStrategy):
 
         # Return true lags
         for column_name in self.true_lags.keys():
-            dataset.columns_and_features_params[column_name]["features"][
-                "LagTransformer"
-            ]["lags"] = self.true_lags[column_name]
+            dataset.columns_and_features_params[column_name]["features"]["LagTransformer"][
+                "lags"
+            ] = self.true_lags[column_name]
         return self
 
     def make_step(self, step, dataset, _):
@@ -1051,16 +1015,14 @@ class DirRecStrategy(RecursiveStrategy):
             X_only=True,
         )
         if self.is_multivariate:
-            current_X = self._make_multivariate_X_y(
-                current_X, date_column=dataset.date_column
-            )
+            current_X = self._make_multivariate_X_y(current_X, date_column=dataset.date_column)
         current_pred = self.models[step].predict(current_X)
 
         # Update lags for each feature
         for column_name in self.true_lags.keys():
-            dataset.columns_and_features_params[column_name]["features"][
-                "LagTransformer"
-            ]["lags"] += 1
+            dataset.columns_and_features_params[column_name]["features"]["LagTransformer"][
+                "lags"
+            ] += 1
 
         dataset.seq_data.loc[
             step + dataset.history::dataset.history + self.horizon,
@@ -1069,9 +1031,7 @@ class DirRecStrategy(RecursiveStrategy):
         dataset.seq_data.loc[
             step + dataset.history::dataset.history + self.horizon
         ] = self._inverse_transform_y(
-            dataset.seq_data.loc[
-                step + dataset.history::dataset.history + self.horizon
-            ]
+            dataset.seq_data.loc[step + dataset.history::dataset.history + self.horizon]
         )
         return dataset
 
@@ -1131,18 +1091,14 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         date_features_colname = X.columns[X.columns.str.contains(date_column)].values
         other_features_colname = np.setdiff1d(
             X.columns.values,
-            np.concatenate(
-                [id_feature_colname, date_features_colname, fh_feature_colname]
-            ),
+            np.concatenate([id_feature_colname, date_features_colname, fh_feature_colname]),
         )
 
         date_features_idx = idx_slicer.get_cols_idx(X, date_features_colname)
         other_features_idx = idx_slicer.get_cols_idx(X, other_features_colname)
         fh_feature_idx = idx_slicer.get_cols_idx(X, fh_feature_colname)
 
-        segments_ids = np.append(
-            np.unique(X[id_feature_colname], return_index=1)[1], len(X)
-        )
+        segments_ids = np.append(np.unique(X[id_feature_colname], return_index=1)[1], len(X))
 
         segments_ids_array = np.array(
             [
@@ -1227,9 +1183,7 @@ class FlatWideMIMOStrategy(MIMOStrategy):
             np.repeat(direct_df.values, self.horizon, axis=0),
             columns=direct_df.columns,
         )
-        final_df = direct_lag_index_df.merge(
-            features_df, left_index=True, right_index=True
-        )
+        final_df = direct_lag_index_df.merge(features_df, left_index=True, right_index=True)
 
         final_y = direct_y.reshape(-1, 1)
         return final_df, final_y
