@@ -3,7 +3,7 @@
 A framework which provides instruments for the time series forecasting tasks and strategies.
 
 ## Quick tour
-[`Tutorial`](https://github.com/sb-ai-lab/tsururu/blob/main/tutorial.ipynb)
+[`Tutorial`](https://github.com/sb-ai-lab/tsururu/blob/main/Tutorial_1_Basics.ipynb)
 
 ## Ways to work with multiple time series:
 - _Local-modelling_:
