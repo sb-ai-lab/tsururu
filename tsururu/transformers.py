@@ -125,13 +125,13 @@ class SeriesToSeriesTransformer(SeriesToFeaturesTransformer):
         X_only: bool,
     ) -> Tuple[pd.DataFrame]:
         if self.transform_train:
-            raw_ts_X = raw_ts_X.groupby(self.id_column).apply(self._transform_segment)
+            raw_ts_X = raw_ts_X.groupby(self.id_column).apply(self._transform_segment).reset_index(level=self.id_column, drop=True)
         if self.transform_target and not X_only:
-            raw_ts_y = raw_ts_y.groupby(self.id_column).apply(self._transform_segment)
+            raw_ts_y = raw_ts_y.groupby(self.id_column).apply(self._transform_segment).reset_index(level=self.id_column, drop=True)
         return raw_ts_X, raw_ts_y, features_X, y
 
     def inverse_transform_y(self, y: pd.DataFrame) -> pd.DataFrame:
-        return y.groupby(self.id_column).apply(self._inverse_transform_segment)
+        return y.groupby(self.id_column).apply(self._inverse_transform_segment).reset_index(level=self.id_column, drop=True)
 
 
 class FeaturesToFeaturesTransformer(SeriesToFeaturesTransformer):
@@ -283,7 +283,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
             column
             for column in self.columns
             if issubclass(raw_ts_X[column].dtype.type, np.integer)
-            or issubclass(raw_ts_X[column].dtype.type, np.float)
+            or issubclass(raw_ts_X[column].dtype.type, np.floating)
         ]
         stat_df = raw_ts_X.groupby(id_column)[self.columns].agg(["mean", "std"])
         self.params = stat_df.to_dict(orient="index")
@@ -297,7 +297,7 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
         type: "delta" to take the difference or "ratio" -- ratio
             between the current and the previous value.
 
-    self.params: dict with first values by each id
+    self.params: dict with last values by each id (for targets' inverse transform)
     """
 
     def __init__(self, regime: str = "delta"):
@@ -327,13 +327,9 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
             current_columns_mask = [segment.columns.str.contains(current_column_name)][0]
             current_last_value = self.params[current_id][current_column_name]
             if self.type == "delta":
-                segment.loc[:, current_columns_mask] = (
-                    segment.loc[:, current_columns_mask] + current_last_value
-                )
+                segment.loc[:, current_columns_mask] = np.cumsum(np.append(current_last_value, segment.loc[:, current_columns_mask].values))[1:]
             if self.type == "ratio":
-                segment.loc[:, current_columns_mask] = (
-                    segment.loc[:, current_columns_mask] * current_last_value
-                )
+                segment.loc[:, current_columns_mask] = np.cumprod(np.append(current_last_value, segment.loc[:, current_columns_mask].values))[1:]
         return segment
 
     def fit(
@@ -361,7 +357,7 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
             column
             for column in self.columns
             if issubclass(raw_ts_X[column].dtype.type, np.integer)
-            or issubclass(raw_ts_X[column].dtype.type, np.float)
+            or issubclass(raw_ts_X[column].dtype.type, np.floating)
         ]
         last_values_df = raw_ts_X.groupby(self.id_column)[self.columns].last()
         self.params = last_values_df.to_dict(orient="index")
@@ -438,7 +434,7 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
                         features_X[columns_to_transform] - last_values
                     )
                 if self.transform_target and not X_only:
-                    y.loc[:, column_name] = y[column_name] - last_values
+                    y = y - last_values
             elif self.regime == "ratio":
                 if self.transform_train:
                     features_X.loc[:, columns_to_transform] = (
@@ -656,7 +652,7 @@ class LagTransformer(SeriesToFeaturesTransformer):
         self,
         lags: Union[int, List[int], np.ndarray],
         drop_raw_features: bool,
-        idx_data: NDArray[np.float],
+        idx_data: NDArray[np.floating],
     ):
         super().__init__()
         if isinstance(lags, list):
