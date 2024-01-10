@@ -151,8 +151,8 @@ class Strategy:
 
     @staticmethod
     def _make_multivariate_X_y(
-        X: pd.DataFrame, y: NDArray[np.float]
-    ) -> Tuple[pd.DataFrame, NDArray[np.float]]:
+        X: pd.DataFrame, y: NDArray[np.floating]
+    ) -> Tuple[pd.DataFrame, NDArray[np.floating]]:
         raise NotImplementedError()
 
     def _generate_X_y(
@@ -162,7 +162,7 @@ class Strategy:
         target_horizon: int,
         is_train: bool,
         history: str = None,
-        idx: Optional[NDArray[np.float]] = None,
+        idx: Optional[NDArray[np.floating]] = None,
         n_last_horizon: Optional[int] = None,
         X_only: bool = False,
     ):
@@ -177,7 +177,7 @@ class Strategy:
 
     def back_test(
         self, dataset: TSDataset, cv: int
-    ) -> Union[List, NDArray[Union[np.float, np.str]]]:
+    ) -> Union[List, NDArray[Union[np.floating, np.str_]]]:
         ids_list = []
         test_list = []
         preds_list = []
@@ -221,7 +221,7 @@ class Strategy:
         )
 
     @timing_decorator
-    def predict(self, dataset: TSDataset) -> NDArray[np.float]:
+    def predict(self, dataset: TSDataset) -> NDArray[np.floating]:
         raise NotImplementedError()
 
 
@@ -283,7 +283,7 @@ class RecursiveStrategy(Strategy):
         self,
         X: pd.DataFrame,
         date_column: "str",
-        y: Optional[NDArray[np.float]] = None,
+        y: Optional[NDArray[np.floating]] = None,
     ):
         idx_slicer = IndexSlicer()
 
@@ -337,7 +337,7 @@ class RecursiveStrategy(Strategy):
         target_horizon: int,
         is_train: bool,
         history: str = None,
-        idx: Optional[NDArray[np.float]] = None,
+        idx: Optional[NDArray[np.floating]] = None,
         n_last_horizon: Optional[int] = None,
         X_only: bool = False,
     ):
@@ -1148,7 +1148,7 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         target_horizon: int,
         is_train: bool,
         history: str = None,
-        idx: Optional[NDArray[np.float]] = None,
+        idx: Optional[NDArray[np.floating]] = None,
         n_last_horizon: Optional[int] = None,
         X_only: bool = False,
     ):
