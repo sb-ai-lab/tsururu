@@ -40,10 +40,10 @@ class Estimator:
     """
 
     def __init__(
-            self,
-            get_num_iterations: bool,
-            validation_params: Dict[str, Union[str, int]],
-            model_params: Dict[str, Union[str, int]],
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
     ):
         self.models = []
         self.scores = []
@@ -76,7 +76,7 @@ class Estimator:
             cv = TimeSeriesSplit(n_splits=self.validation_params["n_splits"])
         return cv
 
-    def fit(self, X: pd.DataFrame, y: NDArray[np.float32]) -> None:
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
         """Initialization and training of the model according to the
             passed parameters.
 
@@ -86,7 +86,7 @@ class Estimator:
         """
         raise NotImplementedError()
 
-    def predict(self, X: pd.DataFrame) -> NDArray[np.float32]:
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
         """Obtaining model predictions.
 
         Arguments:
@@ -100,14 +100,14 @@ class Estimator:
 
 class CatBoostRegressor_CV(Estimator):
     def __init__(
-            self,
-            get_num_iterations: bool,
-            validation_params: Dict[str, Union[str, int]],
-            model_params: Dict[str, Union[str, int]],
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
     ):
         super().__init__(get_num_iterations, validation_params, model_params)
 
-    def fit(self, X: pd.DataFrame, y: NDArray[np.float32]) -> None:
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
         # Initialize cv object
         cv = self.initialize_validator()
 
@@ -157,7 +157,7 @@ class CatBoostRegressor_CV(Estimator):
         print(f"Mean {self.model_params['loss_function']}: {np.mean(self.scores).round(4)}")
         print(f"Std: {np.std(self.scores).round(4)}")
 
-    def predict(self, X: pd.DataFrame) -> NDArray[np.float32]:
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
         models_preds = [model.predict(X) for model in self.models]
         y_pred = np.mean(models_preds, axis=0)
         return y_pred
@@ -255,14 +255,14 @@ class DriftMethod:
 
 class LinearRegression_CV(Estimator):
     def __init__(
-            self,
-            get_num_iterations: bool,
-            validation_params: Dict[str, Union[str, int]],
-            model_params: Dict[str, Union[str, int]],
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
     ):
         super().__init__(get_num_iterations, validation_params, model_params)
 
-    def fit(self, X: pd.DataFrame, y: NDArray[np.float32]) -> None:
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
         cv = self.initialize_validator()
         self.models = []
         self.scores = []
@@ -286,21 +286,21 @@ class LinearRegression_CV(Estimator):
         print(f"Mean score: {np.mean(self.scores)}")
         print(f"Std: {np.std(self.scores)}")
 
-    def predict(self, X: pd.DataFrame) -> NDArray[np.float32]:
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
         predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
         return np.mean(predictions, axis=0)
 
 
 class Lasso_CV(Estimator):
     def __init__(
-            self,
-            get_num_iterations: bool,
-            validation_params: Dict[str, Union[str, int]],
-            model_params: Dict[str, Union[str, int]],
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
     ):
         super().__init__(get_num_iterations, validation_params, model_params)
 
-    def fit(self, X: pd.DataFrame, y: NDArray[np.float32]) -> None:
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
         cv = self.initialize_validator()
         self.models = []
         self.scores = []
@@ -324,21 +324,21 @@ class Lasso_CV(Estimator):
         print(f"Mean score: {np.mean(self.scores)}")
         print(f"Std: {np.std(self.scores)}")
 
-    def predict(self, X: pd.DataFrame) -> NDArray[np.float32]:
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
         predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
         return np.mean(predictions, axis=0)
 
 
 class Ridge_CV(Estimator):
     def __init__(
-            self,
-            get_num_iterations: bool,
-            validation_params: Dict[str, Union[str, int]],
-            model_params: Dict[str, Union[str, int]],
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
     ):
         super().__init__(get_num_iterations, validation_params, model_params)
 
-    def fit(self, X: pd.DataFrame, y: NDArray[np.float32]) -> None:
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
         cv = self.initialize_validator()
         self.models = []
         self.scores = []
@@ -362,21 +362,21 @@ class Ridge_CV(Estimator):
         print(f"Mean score: {np.mean(self.scores)}")
         print(f"Std: {np.std(self.scores)}")
 
-    def predict(self, X: pd.DataFrame) -> NDArray[np.float32]:
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
         predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
         return np.mean(predictions, axis=0)
 
 
 class RandomForest_CV(Estimator):
     def __init__(
-            self,
-            get_num_iterations: bool,
-            validation_params: Dict[str, Union[str, int]],
-            model_params: Dict[str, Union[str, int]],
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
     ):
         super().__init__(get_num_iterations, validation_params, model_params)
 
-    def fit(self, X: pd.DataFrame, y: NDArray[np.float32]) -> None:
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
         cv = self.initialize_validator()
 
         for i, (train_idx, test_idx) in enumerate(cv.split(X)):
@@ -407,7 +407,7 @@ class RandomForest_CV(Estimator):
         print(f"Mean Score: {np.mean(self.scores).round(4)}")
         print(f"Std: {np.std(self.scores).round(4)}")
 
-    def predict(self, X: pd.DataFrame) -> NDArray[np.float32]:
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
         models_preds = [grid_search.predict(X) for grid_search in self.models]
         y_pred = np.mean(models_preds, axis=0)
         return y_pred
