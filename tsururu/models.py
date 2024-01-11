@@ -274,7 +274,7 @@ class LinearRegression_CV(Estimator):
             y_train, y_test = y[train_idx], y[test_idx]
 
             model = LinearRegression(**self.model_params)
-            grid_search = GridSearchCV(model, param_grid=param_grid, cv=cv, scoring='r2')
+            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
             grid_search.fit(X_train, y_train)
 
             self.models.append(grid_search)
@@ -312,7 +312,7 @@ class Lasso_CV(Estimator):
             y_train, y_test = y[train_idx], y[test_idx]
 
             model = Lasso(**self.model_params)
-            grid_search = GridSearchCV(model, param_grid=param_grid, cv=cv, scoring='r2')
+            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
             grid_search.fit(X_train, y_train)
 
             self.models.append(grid_search)
@@ -350,7 +350,7 @@ class Ridge_CV(Estimator):
             y_train, y_test = y[train_idx], y[test_idx]
 
             model = Ridge(**self.model_params)
-            grid_search = GridSearchCV(model, param_grid=param_grid, cv=cv, scoring='r2')
+            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
             grid_search.fit(X_train, y_train)
 
             self.models.append(grid_search)
@@ -395,7 +395,7 @@ class RandomForest_CV(Estimator):
                     self.model_params[param] = default_value
 
             model = RandomForestRegressor(**self.model_params)
-            grid_search = GridSearchCV(model, param_grid=self.model_params, cv=cv, scoring="r2")
+            grid_search = GridSearchCV(model, param_grid=self.model_params, scoring="neg_mean_absolute_error")
             grid_search.fit(X_train, y_train)
 
             self.models.append(grid_search)
