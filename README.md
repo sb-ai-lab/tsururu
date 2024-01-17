@@ -1,4 +1,4 @@
-# Time Series Forecasting Strategies Library.
+# Time Series Forecasting Strategies Library
 
 A framework which provides instruments for the time series forecasting tasks and strategies.
 
