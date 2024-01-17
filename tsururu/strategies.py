@@ -15,7 +15,7 @@ from .transformers import (
 )
 
 from .dataset import TSDataset, IndexSlicer
-from .models import ModelsFactory
+from .model_factory import ModelsFactory
 
 
 def timing_decorator(func: Callable) -> Callable:
@@ -151,8 +151,8 @@ class Strategy:
 
     @staticmethod
     def _make_multivariate_X_y(
-        X: pd.DataFrame, y: NDArray[np.float]
-    ) -> Tuple[pd.DataFrame, NDArray[np.float]]:
+        X: pd.DataFrame, y: NDArray[np.floating]
+    ) -> Tuple[pd.DataFrame, NDArray[np.floating]]:
         raise NotImplementedError()
 
     def _generate_X_y(
@@ -162,7 +162,7 @@ class Strategy:
         target_horizon: int,
         is_train: bool,
         history: str = None,
-        idx: Optional[NDArray[np.float]] = None,
+        idx: Optional[NDArray[np.floating]] = None,
         n_last_horizon: Optional[int] = None,
         X_only: bool = False,
     ):
@@ -177,7 +177,7 @@ class Strategy:
 
     def back_test(
         self, dataset: TSDataset, cv: int
-    ) -> Union[List, NDArray[Union[np.float, np.str]]]:
+    ) -> Union[List, NDArray[Union[np.floating, np.str_]]]:
         ids_list = []
         test_list = []
         preds_list = []
@@ -221,7 +221,7 @@ class Strategy:
         )
 
     @timing_decorator
-    def predict(self, dataset: TSDataset) -> NDArray[np.float]:
+    def predict(self, dataset: TSDataset) -> NDArray[np.floating]:
         raise NotImplementedError()
 
 
@@ -283,7 +283,7 @@ class RecursiveStrategy(Strategy):
         self,
         X: pd.DataFrame,
         date_column: "str",
-        y: Optional[NDArray[np.float]] = None,
+        y: Optional[NDArray[np.floating]] = None,
     ):
         idx_slicer = IndexSlicer()
 
@@ -337,7 +337,7 @@ class RecursiveStrategy(Strategy):
         target_horizon: int,
         is_train: bool,
         history: str = None,
-        idx: Optional[NDArray[np.float]] = None,
+        idx: Optional[NDArray[np.floating]] = None,
         n_last_horizon: Optional[int] = None,
         X_only: bool = False,
     ):
@@ -518,10 +518,10 @@ class RecursiveStrategy(Strategy):
         if horizon is None:
             horizon = self.k
 
-        X, y = self._generate_X_y(dataset, horizon, horizon, is_train=True)
+        # X, y = self._generate_X_y(dataset, horizon, horizon, is_train=True)
 
-        if self.is_multivariate:
-            X, y = self._make_multivariate_X_y(X, y, dataset.date_column)
+        # if self.is_multivariate:
+        #     X, y = self._make_multivariate_X_y(X, y, dataset.date_column)
 
         factory = ModelsFactory()
         model_params = {
@@ -531,7 +531,7 @@ class RecursiveStrategy(Strategy):
             "get_num_iterations": self.get_num_iterations,
         }
         model = factory[model_params]
-        model.fit(X, y)
+        model.fit(dataset.seq_data)
         self.models.append(model)
         return self
 
@@ -864,37 +864,45 @@ class MIMOStrategy(RecursiveStrategy):
         new_data = dataset.make_padded_test(self.horizon)
         new_dataset = deepcopy(dataset)
         new_dataset.seq_data = new_data
+        
+        if self.model_name.endswith("NN"):
+            current_pred = self.models[0].predict(new_data)
+            current_pred.reset_index(inplace=True)
+            current_pred.columns = ['unique_id', 'ds', 'y']
+            return current_pred
+        
+        else:
+            index_slicer = IndexSlicer()
+            current_test_ids = index_slicer.create_idx_test(
+                new_dataset.seq_data,
+                self.horizon,
+                dataset.history,
+                dataset.step,
+                date_column=dataset.date_column,
+            )
+            current_X, _ = self._generate_X_y(
+                new_dataset,
+                train_horizon=self.horizon,
+                target_horizon=self.horizon,
+                is_train=False,
+                idx=current_test_ids,
+                X_only=True,
+            )
 
-        index_slicer = IndexSlicer()
-        current_test_ids = index_slicer.create_idx_test(
-            new_dataset.seq_data,
-            self.horizon,
-            dataset.history,
-            dataset.step,
-            date_column=dataset.date_column,
-        )
-        current_X, _ = self._generate_X_y(
-            new_dataset,
-            train_horizon=self.horizon,
-            target_horizon=self.horizon,
-            is_train=False,
-            idx=current_test_ids,
-            X_only=True,
-        )
+            if self.is_multivariate:
+                current_X = self._make_multivariate_X_y(current_X, date_column=date_column_name)
+            current_pred = self.models[0].predict(current_X)
 
-        if self.is_multivariate:
-            current_X = self._make_multivariate_X_y(current_X, date_column=date_column_name)
-        current_pred = self.models[0].predict(current_X)
+            nan_mask = np.isnan(new_dataset.seq_data[target_column_name].astype("float"))
+            new_dataset.seq_data.loc[nan_mask, target_column_name] = np.hstack(current_pred)
+            new_dataset.seq_data.loc[nan_mask] = self._inverse_transform_y(
+                new_dataset.seq_data.loc[nan_mask]
+            )
 
-        nan_mask = np.isnan(new_dataset.seq_data[target_column_name].astype("float"))
-        new_dataset.seq_data.loc[nan_mask, target_column_name] = np.hstack(current_pred)
-        new_dataset.seq_data.loc[nan_mask] = self._inverse_transform_y(
-            new_dataset.seq_data.loc[nan_mask]
-        )
-
-        # Get dataframe with predictions only
-        pred_df = self._make_preds_df(new_dataset, self.horizon)
-        return pred_df
+            # Get dataframe with predictions only
+            pred_df = self._make_preds_df(new_dataset, self.horizon)
+            return pred_df
+      
 
 
 class DirRecStrategy(RecursiveStrategy):
@@ -1148,7 +1156,7 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         target_horizon: int,
         is_train: bool,
         history: str = None,
-        idx: Optional[NDArray[np.float]] = None,
+        idx: Optional[NDArray[np.floating]] = None,
         n_last_horizon: Optional[int] = None,
         X_only: bool = False,
     ):

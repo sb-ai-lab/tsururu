@@ -13,7 +13,7 @@ class IndexSlicer:
     """
 
     @staticmethod
-    def timedelta(x: Tuple[NDArray[Union[np.int, np.float]], pd.Timedelta]):
+    def timedelta(x: Tuple[NDArray[Union[np.integer, np.floating]], pd.Timedelta]):
         """
         Returns the difference between neighboring observations
             in the array in terms of delta and the delta itself.
@@ -67,7 +67,7 @@ class IndexSlicer:
     @staticmethod
     def get_slice(
         data: pd.DataFrame,
-        k: Tuple[NDArray[np.int], NDArray[np.int]],
+        k: Tuple[NDArray[int], NDArray[int]],
     ) -> pd.DataFrame:
         """Get 3d slice.
 
@@ -118,14 +118,14 @@ class IndexSlicer:
         return ids
 
     def _rolling_window(
-        self, a: NDArray[np.float], window: int, step: int, from_last: bool = True
+        self, a: NDArray[np.floating], window: int, step: int, from_last: bool = True
     ):
         sliding_window = np.lib.stride_tricks.sliding_window_view(a, window)
-        return sliding_window[(len(a) - window) % step if from_last else 0:][::step]
+        return sliding_window[(len(a) - window) % step if from_last else 0 :][::step]
 
     def _create_idx_data(
         self,
-        data: NDArray[np.float],
+        data: NDArray[np.floating],
         horizon: int,
         history: int,
         step: int,
@@ -136,7 +136,7 @@ class IndexSlicer:
 
     def _create_idx_target(
         self,
-        data: NDArray[np.float],
+        data: NDArray[np.floating],
         horizon: int,
         history: int,
         step: int,
@@ -149,23 +149,23 @@ class IndexSlicer:
 
     def _create_idx_test(
         self,
-        data: NDArray[np.float],
+        data: NDArray[np.floating],
         horizon: int,
         history: int,
         step: int,
         _,
         __,
     ):
-        return self._rolling_window(np.arange(len(data)), history, step)[-(horizon + 1):-horizon]
+        return self._rolling_window(np.arange(len(data)), history, step)[-(horizon + 1) : -horizon]
 
     def _get_ids(
         self,
         func,
-        data: NDArray[np.float],
+        data: NDArray[np.floating],
         horizon: int,
         history: int,
         step: int,
-        ids: NDArray[np.int],
+        ids: NDArray[np.integer],
         cond: int = 0,
         n_last_horizon: Optional[int] = None,
     ):
@@ -185,11 +185,11 @@ class IndexSlicer:
 
     def create_idx_data(
         self,
-        data: NDArray[np.float],
+        data: NDArray[np.floating],
         horizon: int,
         history: int,
         step: int,
-        ids: Optional[NDArray[np.int]] = None,
+        ids: Optional[NDArray[np.integer]] = None,
         date_column: Optional[str] = None,
     ):
         """Find indices that, when applied to the original dataset,
@@ -224,11 +224,11 @@ class IndexSlicer:
 
     def create_idx_test(
         self,
-        data: NDArray[np.float],
+        data: NDArray[np.floating],
         horizon: int,
         history: int,
         step: int,
-        ids: Optional[NDArray[np.int]] = None,
+        ids: Optional[NDArray[np.integer]] = None,
         date_column: Optional[str] = None,
     ):
         """Find indices that, when applied to the original dataset,
@@ -263,11 +263,11 @@ class IndexSlicer:
 
     def create_idx_target(
         self,
-        data: NDArray[np.float],
+        data: NDArray[np.floating],
         horizon: int,
         history: int,
         step: int,
-        ids: Optional[NDArray[np.int]] = None,
+        ids: Optional[NDArray[np.integer]] = None,
         date_column: Optional[str] = None,
         n_last_horizon: Optional[int] = None,
     ):
@@ -368,21 +368,21 @@ class TSDataset:
         """
 
         def _crop_segment(
-            segment: NDArray[Union[np.float, np.str]],
+            segment: NDArray[Union[np.floating, np.str_]],
             test_last: bool,
-        ) -> NDArray[Union[np.float, np.str]]:
+        ) -> NDArray[Union[np.floating, np.str_]]:
             if test_last:
-                return segment[-self.history:]
-            return segment[-self.history - horizon:-horizon]
+                return segment[-self.history :]
+            return segment[-self.history - horizon : -horizon]
 
         def _pad_segment(
-            segment: NDArray[Union[np.float, np.str]],
+            segment: NDArray[Union[np.floating, np.str_]],
             horizon: int,
             time_delta: pd.Timedelta,
             date_col_id: Optional[int],
-            id_col_id: Optional[Union[str, NDArray[np.str]]],
-        ) -> NDArray[Union[np.float, np.str]]:
-            result = np.full((horizon, segment.shape[1]), None)
+            id_col_id: Optional[Union[str, NDArray[np.str_]]],
+        ) -> NDArray[Union[np.floating, np.str_]]:
+            result = np.full((horizon, segment.shape[1]), np.nan)
 
             last_date = segment[-1, date_col_id]
             new_dates = pd.date_range(last_date + time_delta, periods=horizon, freq=time_delta)
@@ -420,4 +420,9 @@ class TSDataset:
 
         # Concatenate together
         result = np.vstack(np.concatenate((segments, padded_segments_results), axis=1))
-        return pd.DataFrame(result, columns=columns)
+        result = pd.DataFrame(result, columns=columns)
+        result[self.date_column] = pd.to_datetime(result[self.date_column])
+        result[self.id_column] = result[self.id_column].astype("int")
+        other = [col for col in columns if col not in [self.id_column, self.date_column]]
+        result[other] = result[other].astype("float")
+        return result
