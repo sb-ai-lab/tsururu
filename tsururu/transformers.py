@@ -475,12 +475,14 @@ class TimeToNumGenerator(FeaturesGenerator):
         basic_interval: str = "D",
         from_target_date: bool = False,
         horizon: Optional[int] = None,
+        delta: Optional[pd.DateOffset] = None,
     ):
         super().__init__()
         self.basic_date = basic_date
         self.basic_interval = basic_interval
         self.from_target_date = from_target_date
         self.horizon = horizon
+        self.delta = delta
 
     def fit(
         self,
@@ -520,7 +522,7 @@ class TimeToNumGenerator(FeaturesGenerator):
             index_slicer = IndexSlicer()
 
             str_time_col = time_col.apply(lambda x: str(x).split(" ")[0])
-            _, time_delta = index_slicer.timedelta(str_time_col)
+            _, time_delta = index_slicer.timedelta(str_time_col, delta=self.delta)
 
             if self.from_target_date:
                 time_col = time_col + self.horizon * time_delta
@@ -557,6 +559,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
         country: Optional[str] = None,
         prov: Optional[str] = None,
         state: Optional[str] = None,
+        delta: Optional[pd.DateOffset] = None
     ):
         super().__init__()
         self.seasonalities = seasonalities
@@ -566,6 +569,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
         self._prov = prov
         self._state = state
         self._features = []
+        self.delta = delta
 
     def fit(
         self,
@@ -610,8 +614,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
             time_col = raw_ts_X[column_name]
             index_slicer = IndexSlicer()
 
-            str_time_col = time_col.apply(lambda x: str(x).split(" ")[0])
-            _, time_delta = index_slicer.timedelta(str_time_col)
+            _, time_delta = index_slicer.timedelta(time_col, delta=self.delta)
             if self.from_target_date:
                 time_col = time_col + self.horizon * time_delta
             time_col = pd.to_datetime(time_col.to_numpy(), origin="unix")

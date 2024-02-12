@@ -91,6 +91,7 @@ class Strategy:
             history=dataset.history,
             step=horizon + dataset.history,
             date_column=dataset.date_column,
+            delta=dataset.delta,
         )
 
         columns_ids = index_slicer.get_cols_idx(dataset.seq_data, columns_list)
@@ -111,6 +112,7 @@ class Strategy:
         segments_ids = index_slicer.ids_from_date(
             dataset.seq_data,
             dataset.date_column,
+            delta=dataset.delta
         )
         segments_ids = [0] + segments_ids + [len(dataset.seq_data)]
 
@@ -355,6 +357,7 @@ class RecursiveStrategy(Strategy):
                 history,
                 dataset.step,
                 date_column=dataset.date_column,
+                delta=dataset.delta,
             )
 
         final_X = pd.DataFrame()
@@ -406,6 +409,11 @@ class RecursiveStrategy(Strategy):
                     }
 
                     # Add additional params to certain transformers
+                    if (
+                        transformer_name in ["DateSeasonsGenerator", "TimeToNumGenerator"]
+                    ):
+                        transformer_init_params["transformer_params"]["delta"] = dataset.delta
+
                     if (
                         transformer_name in ["DateSeasonsGenerator", "TimeToNumGenerator"]
                         and transformer_params.get("from_target_date") is not None
@@ -507,6 +515,7 @@ class RecursiveStrategy(Strategy):
             dataset.history,
             dataset.step,
             date_column=dataset.date_column,
+            delta=dataset.delta,
             n_last_horizon=n_last_horizon,
         )
         return index_slicer.get_slice(
@@ -545,6 +554,7 @@ class RecursiveStrategy(Strategy):
             dataset.history,
             dataset.step,
             date_column=dataset.date_column,
+            delta=dataset.delta,
         )
 
         # which NaN observations we should replace with preds
@@ -554,6 +564,7 @@ class RecursiveStrategy(Strategy):
             dataset.history,
             dataset.step,
             date_column=dataset.date_column,
+            delta=dataset.delta,
         )[:, self.k * step:self.k * (step + 1)]
         X_current, _ = self._generate_X_y(
             dataset,
@@ -584,6 +595,7 @@ class RecursiveStrategy(Strategy):
                 dataset.history,
                 self.k,
                 date_column=dataset.date_column,
+                delta=dataset.delta,
             )
 
             extended_data = index_slicer.get_slice(dataset.seq_data, (current_test_ids, None))
@@ -623,6 +635,7 @@ class RecursiveStrategy(Strategy):
                 new_dataset.history,
                 self.k,
                 date_column=dataset.date_column,
+                delta=dataset.delta,
             )
             X, _ = self._generate_X_y(
                 new_dataset,
@@ -773,6 +786,7 @@ class DirectStrategy(RecursiveStrategy):
             dataset.history,
             dataset.step,
             date_column=dataset.date_column,
+            delta=dataset.delta,
         )
         current_target_ids = index_slicer.create_idx_target(
             dataset.seq_data,
@@ -780,6 +794,7 @@ class DirectStrategy(RecursiveStrategy):
             dataset.history,
             dataset.step,
             date_column=dataset.date_column,
+            delta=dataset.delta,
         )[:, self.k * step:self.k * (step + 1)]
 
         current_X, _ = self._generate_X_y(
@@ -872,6 +887,7 @@ class MIMOStrategy(RecursiveStrategy):
             dataset.history,
             dataset.step,
             date_column=dataset.date_column,
+            delta=dataset.delta,
         )
         current_X, _ = self._generate_X_y(
             new_dataset,
@@ -1005,6 +1021,7 @@ class DirRecStrategy(RecursiveStrategy):
             dataset.history + step,
             dataset.step,
             date_column=dataset.date_column,
+            delta=dataset.delta,
         )
         current_X, _ = self._generate_X_y(
             dataset,
@@ -1202,6 +1219,7 @@ class FlatWideMIMOStrategy(MIMOStrategy):
             dataset.history,
             dataset.step,
             date_column=dataset.date_column,
+            delta=dataset.delta,
         )
         X, _ = self._generate_X_y(
             new_dataset,
