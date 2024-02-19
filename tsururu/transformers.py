@@ -1,12 +1,16 @@
 from __future__ import annotations
 from typing import List, Union, Tuple, Optional
 from numpy.typing import NDArray
+import re
 
 import numpy as np
 import pandas as pd
 import holidays
 
 from .dataset import IndexSlicer
+
+LAG_TRANSFORMER_MASK = r"lag_\d+__"
+SEASON_TRANSFORMER_MASK = r"season_\w+__"
 
 date_attrs = {
     "y": "year",
@@ -81,10 +85,14 @@ class SeriesToFeaturesTransformer:
             Fitted transformer.
         """
         self.columns = raw_ts_X.columns[
-            np.hstack(
-                [raw_ts_X.columns.str.contains(raw_column_name) for raw_column_name in columns]
+            np.any(
+                [raw_ts_X.columns.str.contains(
+                    fr"{LAG_TRANSFORMER_MASK}{re.escape(raw_column_name)}$|{SEASON_TRANSFORMER_MASK}{re.escape(raw_column_name)}$|^{re.escape(raw_column_name)}$"
+                ) for raw_column_name in columns],
+                axis=0
             )
         ]
+
         self.id_column = id_column
         self.transform_train = transform_train
         self.transform_target = transform_target

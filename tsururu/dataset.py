@@ -343,13 +343,13 @@ class TSDataset:
             elif column_type == "datetime":
                 data[column_name] = pd.to_datetime(data[column_name])
 
-        self.seq_data = data
         self.columns_and_features_params = columns_and_features_params
         self.history = history
         self.step = step
         self.id_column = columns_and_features_params["id"]["column"][0]
         self.target_column = columns_and_features_params["target"]["column"][0]
         self.date_column = columns_and_features_params["date"]["column"][0]
+        self.seq_data = data.sort_values(["id", "date"])
 
     def make_padded_test(
         self,
