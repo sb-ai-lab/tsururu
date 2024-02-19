@@ -5,12 +5,19 @@ import re
 
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import holidays
 
 from .dataset import IndexSlicer
 
-LAG_TRANSFORMER_MASK = r"lag_\d+__"
-SEASON_TRANSFORMER_MASK = r"season_\w+__"
+transformers_masks = {
+    "raw": r"^",
+    "LAG": r"lag_\d+__",
+    "SEASON": r"season_\w+__",
+    "TIMETONUM": r"time_to_num__",
+    "LABEL": r"label_encoder__",
+    "OHE": r"ohe_encoder_\S+__",
+}
 
 date_attrs = {
     "y": "year",
@@ -84,18 +91,15 @@ class SeriesToFeaturesTransformer:
         Returns:
             Fitted transformer.
         """
-        self.columns = raw_ts_X.columns[
-            np.any(
-                [raw_ts_X.columns.str.contains(
-                    fr"{LAG_TRANSFORMER_MASK}{re.escape(raw_column_name)}$|{SEASON_TRANSFORMER_MASK}{re.escape(raw_column_name)}$|^{re.escape(raw_column_name)}$"
-                ) for raw_column_name in columns],
-                axis=0
-            )
-        ]
+        appropriate_columns_list = []
+        for raw_column_name in columns:
+            column_mask = ""
+            for _, transformer_mask in transformers_masks.items():
+                column_mask += fr"{transformer_mask}{re.escape(raw_column_name)}$|"
+            column_mask = column_mask[:-1]
+            appropriate_columns_list.append(raw_ts_X.columns.str.contains(column_mask))
 
-        self.id_column = id_column
-        self.transform_train = transform_train
-        self.transform_target = transform_target
+        self.columns = raw_ts_X.columns[np.any(appropriate_columns_list, axis=0)]
 
     def transform(
         self,
@@ -650,6 +654,131 @@ class DateSeasonsGenerator(FeaturesGenerator):
         return raw_ts_X, raw_ts_y, features_X, y
 
 
+class LabelEncodingTransformer(SeriesToSeriesTransformer):
+    """Transform categories of features into integer values.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def fit(
+        self,
+        raw_ts_X: pd.DataFrame,
+        raw_ts_y: pd.DataFrame,
+        features_X: pd.DataFrame,
+        y: pd.DataFrame,
+        columns: List[str],
+        id_column: str,
+        transform_train: bool,
+        transform_target: bool,
+    ) -> FeaturesGenerator:
+        super().fit(
+            raw_ts_X,
+            raw_ts_y,
+            features_X,
+            y,
+            columns,
+            id_column,
+            transform_train,
+            transform_target,
+        )
+        self._features = [f"label_encoder__{column_name}" for column_name in self.columns]
+        return self
+
+    def transform(
+        self,
+        raw_ts_X: pd.DataFrame,
+        raw_ts_y: pd.DataFrame,
+        features_X: pd.DataFrame,
+        y: pd.DataFrame,
+        X_only: bool,
+    ) -> Tuple[pd.DataFrame]:
+        new_arr = np.empty((len(raw_ts_X), len(self._features)), np.int32)
+        for i, column_name in enumerate(self.columns):
+            new_arr[:, i] = LabelEncoder().fit_transform(raw_ts_X[column_name])
+        raw_ts_X[self._features] = new_arr
+        return raw_ts_X, raw_ts_y, features_X, y
+
+
+class OneHotEncodingTransformer(SeriesToSeriesTransformer):
+    """Transform categorical features as a one-hot numeric array.
+
+    Arguments:
+        - drop: one from ['first', 'if_binary', None] or array-list of shape (n_features, )
+            None : retain all features.
+            ‘first’ : drop the first category in each feature. 
+            ‘if_binary’ : drop the first category in each feature with two categories.
+            array : drop[i] is the category in feature X[:, i] that should be dropped.
+    """
+
+    def __init__(self, drop: str = None):
+        super().__init__()
+        self.drop = drop
+
+    def fit(
+        self,
+        raw_ts_X: pd.DataFrame,
+        raw_ts_y: pd.DataFrame,
+        features_X: pd.DataFrame,
+        y: pd.DataFrame,
+        columns: List[str],
+        id_column: str,
+        transform_train: bool,
+        transform_target: bool,
+    ) -> FeaturesGenerator:
+        super().fit(
+            raw_ts_X,
+            raw_ts_y,
+            features_X,
+            y,
+            columns,
+            id_column,
+            transform_train,
+            transform_target,
+        )
+        self._features = []
+
+        if self.drop == "first":
+            for column_name in self.columns:
+                for id_name in raw_ts_X[column_name].unique()[1:]:
+                    self._features.append(f"ohe_encoder_{id_name}__{column_name}")
+
+        elif self.drop == "is_binary":
+            for column_name in self.columns:
+                if raw_ts_X[column_name].nunique() == 2:
+                    for id_name in raw_ts_X[column_name].unique()[1:]:
+                        self._features.append(f"ohe_encoder_{id_name}__{column_name}")
+                else:
+                    for id_name in raw_ts_X[column_name].unique():
+                        self._features.append(f"ohe_encoder_{id_name}__{column_name}")
+
+        elif isinstance(self.drop, np.ndarray):
+            for column_i, column_name in enumerate(self.columns):
+                for id_name in np.delete(raw_ts_X[column_name].unique(), np.where(raw_ts_X[column_name].unique() == self.drop[column_i])):
+                    self._features.append(f"ohe_encoder_{id_name}__{column_name}")
+
+        else:
+            for column_i, column_name in enumerate(self.columns):
+                for id_name in raw_ts_X[column_name].unique():
+                    self._features.append(f"ohe_encoder_{id_name}__{column_name}")
+        return self
+
+    def transform(
+        self,
+        raw_ts_X: pd.DataFrame,
+        raw_ts_y: pd.DataFrame,
+        features_X: pd.DataFrame,
+        y: pd.DataFrame,
+        X_only: bool,
+    ) -> Tuple[pd.DataFrame]:
+        result_data = [OneHotEncoder(drop=self.drop).fit_transform(raw_ts_X[column_name].values.reshape(-1, 1)).todense() for i, column_name in enumerate(self.columns)]
+        raw_ts_X[self._features] = np.hstack(result_data)
+        # new_arr = np.empty((len(raw_ts_X), len(self._features)), np.int32)
+        # for i, column_name in enumerate(self.columns):
+        #     new_arr[:, i] = OneHotEncoder(drop=self.drop).fit_transform(raw_ts_X[column_name].values.reshape(-1, 1))
+        # raw_ts_X[self._features] = new_arr
+        return raw_ts_X, raw_ts_y, features_X, y
+
+
 class LagTransformer(SeriesToFeaturesTransformer):
     """Generate lag features.
 
@@ -748,6 +877,8 @@ class TransformersFactory:
     def __init__(self):
         self.models = {
             "StandardScalerTransformer": StandardScalerTransformer,
+            "LabelEncodingTransformer": LabelEncodingTransformer,
+            "OneHotEncodingTransformer": OneHotEncodingTransformer,
             "LastKnownNormalizer": LastKnownNormalizer,
             "DifferenceNormalizer": DifferenceNormalizer,
             "TimeToNumGenerator": TimeToNumGenerator,
