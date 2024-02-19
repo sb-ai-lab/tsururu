@@ -403,9 +403,9 @@ class TSDataset:
         self.id_column = columns_and_features_params["id"]["column"][0]
         self.target_column = columns_and_features_params["target"]["column"][0]
         self.date_column = columns_and_features_params["date"]["column"][0]
+        self.seq_data = data.sort_values(["id", "date"])
         self.delta = delta
         self.print_freq_period_info()
-        self.seq_data = data.sort_values(["id", "date"])
 
     def make_padded_test(
         self,
