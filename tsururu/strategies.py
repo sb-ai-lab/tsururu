@@ -396,9 +396,12 @@ class RecursiveStrategy(Strategy):
                     )
                     if role == "id":
                         self.id_feature_column = current_X
-                    final_X = pd.concat((final_X, current_X), axis=1)
+                    if not column_params["drop_raw_feature"]:
+                        final_X = pd.concat((final_X, current_X), axis=1)
             else:
                 for transformer_name, transformer_params in column_params["features"].items():
+                    assert not (role != "target" and transformer_params.get("transform_target")), "It is not possible to use transform_target=True with transformers for exogenous variables"
+
                     transformer_init_params = {
                         "transformer_name": transformer_name,
                         "transformer_params": {

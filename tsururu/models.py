@@ -46,6 +46,7 @@ class Estimator:
         self.get_num_iterations = get_num_iterations
         if self.get_num_iterations:
             self.num_iterations = []
+        self.columns = None
 
     def initialize_validator(self):
         """Initialization of the sample generator for training the model
@@ -102,6 +103,10 @@ class CatBoostRegressor_CV(Estimator):
         super().__init__(get_num_iterations, validation_params, model_params)
 
     def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
+        # Initialize columns' order and reorder columns
+        self.columns = sorted(X.columns)
+        X = X[self.columns]
+
         # Initialize cv object
         cv = self.initialize_validator()
 
@@ -152,6 +157,9 @@ class CatBoostRegressor_CV(Estimator):
         print(f"Std: {np.std(self.scores).round(4)}")
 
     def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
+        # Reorder columns
+        X = X[self.columns]
+
         models_preds = [model.predict(X) for model in self.models]
         y_pred = np.mean(models_preds, axis=0)
         return y_pred
