@@ -100,6 +100,9 @@ class SeriesToFeaturesTransformer:
             appropriate_columns_list.append(raw_ts_X.columns.str.contains(column_mask))
 
         self.columns = raw_ts_X.columns[np.any(appropriate_columns_list, axis=0)]
+        self.id_column = id_column
+        self.transform_train = transform_train
+        self.transform_target = transform_target
 
     def transform(
         self,
