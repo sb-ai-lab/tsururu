@@ -6,6 +6,8 @@ import pandas as pd
 
 from pandas.api.types import is_datetime64_any_dtype as is_datetime
 
+import re
+from pandas.tseries.offsets import MonthEnd
 
 class IndexSlicer:
     """A class that combines ways to create indexes and with the help
@@ -13,7 +15,11 @@ class IndexSlicer:
     """
 
     @staticmethod
-    def timedelta(x: Tuple[NDArray[Union[np.integer, np.floating]], pd.Timedelta]):
+    def timedelta(
+        x: NDArray[Union[np.str_, np.datetime64]],
+        delta: Optional[pd.DateOffset] = None,
+        return_freq_period_info: bool = False,
+    ):
         """
         Returns the difference between neighboring observations
             in the array in terms of delta and the delta itself.
@@ -22,30 +28,68 @@ class IndexSlicer:
 
         Arguments:
             x: array with datetime points.
+            delta: custom offset if needed.
+            return_freq_period_info: either to return information about time stamps.
 
         Returns:
             The difference and the delta.
         """
+        def timedelta_above_daily_freq(d_multiplier, check_end_regex, d_from_series, freq_name, inferred_freq):
+            if inferred_freq and re.match(check_end_regex, inferred_freq):
+                delta = MonthEnd(d_multiplier * d_from_series)
+                freq_period_info = f"freq: {freq_name}End; period: {d_from_series}"
+
+            else:
+                delta = pd.DateOffset(months=d_multiplier * d_from_series)
+                freq_period_info = f"freq: {freq_name}; period: {d_from_series}"
+            return delta, freq_period_info
+
         if not is_datetime(x):
             x = pd.to_datetime(x)
 
-        delta = x.diff().iloc[-1]
+        if delta is None:
+            inferred_freq = pd.infer_freq(x[-4:])
+            delta = x.diff().iloc[-1]
 
-        if delta <= pd.Timedelta(days=1):
-            return x.diff().fillna(delta).values, delta
+            # N Years
+            if delta > pd.Timedelta(days=360) and (delta.days % 365 == 0 or delta.days % 366 == 0):  
+                delta, freq_period_info = timedelta_above_daily_freq(
+                    d_multiplier=12, 
+                    check_end_regex=r"\b\d*A-", 
+                    d_from_series=x.dt.year.diff().values[-1], 
+                    freq_name="Year",
+                    inferred_freq=inferred_freq   
+                )
 
-        if delta > pd.Timedelta(days=360):
-            d = x.dt.year.diff()
-            delta = d.iloc[-1]
-            return d.fillna(delta).values, delta
+            # N Quarters and Months
+            elif delta > pd.Timedelta(days=27):
+                if delta > pd.Timedelta(days=88):
+                    check_end_regex = r"\b\d*Q-"
+                else:
+                    check_end_regex = r"\b\d*M\b"
+                delta, freq_period_info = timedelta_above_daily_freq(
+                    d_multiplier=1,
+                    check_end_regex=check_end_regex,
+                    d_from_series=x.dt.month.diff().values[-1], 
+                    freq_name="Month",
+                    inferred_freq=inferred_freq   
+                )
 
-        elif delta > pd.Timedelta(days=27):
-            d = x.dt.month.diff() + 12 * x
-            delta = d.iloc[-1]
-            return d.fillna(delta).values, delta
+            # N Days
+            elif delta >= pd.Timedelta(days=1):
+                freq_period_info = f"freq: Day; period: {delta.days}"
 
+            # N Hours; Min; Sec; etc
+            elif delta <= pd.Timedelta(days=1):
+                freq_period_info = f"freq: less then Day (Hour, Min, Sec, etc); period: {delta.total_seconds()} seconds"
         else:
-            return x.diff().fillna(delta).values, delta
+            freq_period_info = f"Custom OffSet: {delta}"
+
+        assert delta, "either or both frequency and period are failed to be defined."
+
+        if return_freq_period_info:
+            return x.diff().fillna(delta).values, delta, freq_period_info
+        return x.diff().fillna(delta).values, delta
 
     @staticmethod
     def get_cols_idx(data: pd.DataFrame, columns: List):
@@ -98,6 +142,7 @@ class IndexSlicer:
         self,
         data: pd.DataFrame,
         date_column: str,
+        delta: bool = None, 
         return_delta: bool = False,
     ) -> List[int]:
         """Find indexes by which the dataset can be divided into
@@ -111,7 +156,7 @@ class IndexSlicer:
         Returns:
             Indexes of the ends of segments.
         """
-        vals, time_delta = self.timedelta(pd.to_datetime(data[date_column]))
+        vals, time_delta = self.timedelta(pd.to_datetime(data[date_column]), delta=delta)
         ids = list(np.argwhere(vals != time_delta).flatten())
         if return_delta:
             return ids, time_delta
@@ -185,12 +230,13 @@ class IndexSlicer:
 
     def create_idx_data(
         self,
-        data: NDArray[np.floating],
+        data: pd.DataFrame,
         horizon: int,
         history: int,
         step: int,
         ids: Optional[NDArray[np.integer]] = None,
         date_column: Optional[str] = None,
+        delta: Optional[pd.DateOffset] = None,
     ):
         """Find indices that, when applied to the original dataset,
             can be used to obtain windows for building
@@ -209,7 +255,7 @@ class IndexSlicer:
             indices of train observations' windows.
         """
         if ids is None:
-            ids = self.ids_from_date(data, date_column)
+            ids = self.ids_from_date(data, date_column, delta=delta)
 
         seq_idx_data = self._get_ids(
             self._create_idx_data,
@@ -224,12 +270,13 @@ class IndexSlicer:
 
     def create_idx_test(
         self,
-        data: NDArray[np.floating],
+        data: pd.DataFrame,
         horizon: int,
         history: int,
         step: int,
         ids: Optional[NDArray[np.integer]] = None,
         date_column: Optional[str] = None,
+        delta: Optional[pd.DateOffset] = None,
     ):
         """Find indices that, when applied to the original dataset,
             can be used to obtain windows for building
@@ -248,7 +295,7 @@ class IndexSlicer:
             indices of test observations' windows.
         """
         if ids is None:
-            ids = self.ids_from_date(data, date_column)
+            ids = self.ids_from_date(data, date_column, delta=delta)
 
         seq_idx_test = self._get_ids(
             self._create_idx_test,
@@ -263,12 +310,13 @@ class IndexSlicer:
 
     def create_idx_target(
         self,
-        data: NDArray[np.floating],
+        data: pd.DataFrame,
         horizon: int,
         history: int,
         step: int,
         ids: Optional[NDArray[np.integer]] = None,
         date_column: Optional[str] = None,
+        delta: Optional[pd.DateOffset] = None,
         n_last_horizon: Optional[int] = None,
     ):
         """Find indices that, when applied to the original dataset,
@@ -288,7 +336,7 @@ class IndexSlicer:
             indices of targets.
         """
         if ids is None:
-            ids = self.ids_from_date(data, date_column)
+            ids = self.ids_from_date(data, date_column, delta=delta)
 
         if n_last_horizon is None:
             n_last_horizon = horizon
@@ -327,12 +375,18 @@ class TSDataset:
         step: number of points to take the next observation.
     """
 
+    def print_freq_period_info(self):
+        slicer = IndexSlicer()
+        _, _, info = slicer.timedelta(self.seq_data[self.date_column], delta=self.delta, return_freq_period_info=True)
+        print(info)
+
     def __init__(
         self,
         data: pd.DataFrame,
         columns_and_features_params: dict,
         history: int,
         step: int = 1,
+        delta: pd.DateOffset = None,
     ):
         # Columns typing
         for _, role_dict in columns_and_features_params.items():
@@ -343,13 +397,15 @@ class TSDataset:
             elif column_type == "datetime":
                 data[column_name] = pd.to_datetime(data[column_name])
 
-        self.seq_data = data
         self.columns_and_features_params = columns_and_features_params
         self.history = history
         self.step = step
         self.id_column = columns_and_features_params["id"]["column"][0]
         self.target_column = columns_and_features_params["target"]["column"][0]
         self.date_column = columns_and_features_params["date"]["column"][0]
+        self.seq_data = data.sort_values(["id", "date"])
+        self.delta = delta
+        self.print_freq_period_info()
 
     def make_padded_test(
         self,
@@ -404,7 +460,7 @@ class TSDataset:
 
         # Find indices for segments
         ids, time_delta = index_slicer.ids_from_date(
-            self.seq_data, self.date_column, return_delta=True
+            self.seq_data, self.date_column, delta=self.delta, return_delta=True
         )
 
         data = self.seq_data.to_numpy()

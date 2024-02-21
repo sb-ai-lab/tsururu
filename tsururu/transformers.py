@@ -1,12 +1,16 @@
 from __future__ import annotations
 from typing import List, Union, Tuple, Optional
 from numpy.typing import NDArray
+import re
 
 import numpy as np
 import pandas as pd
 import holidays
 
 from .dataset import IndexSlicer
+
+LAG_TRANSFORMER_MASK = r"lag_\d+__"
+SEASON_TRANSFORMER_MASK = r"season_\w+__"
 
 date_attrs = {
     "y": "year",
@@ -81,10 +85,14 @@ class SeriesToFeaturesTransformer:
             Fitted transformer.
         """
         self.columns = raw_ts_X.columns[
-            np.hstack(
-                [raw_ts_X.columns.str.contains(raw_column_name) for raw_column_name in columns]
+            np.any(
+                [raw_ts_X.columns.str.contains(
+                    fr"{LAG_TRANSFORMER_MASK}{re.escape(raw_column_name)}$|{SEASON_TRANSFORMER_MASK}{re.escape(raw_column_name)}$|^{re.escape(raw_column_name)}$"
+                ) for raw_column_name in columns],
+                axis=0
             )
         ]
+
         self.id_column = id_column
         self.transform_train = transform_train
         self.transform_target = transform_target
@@ -475,12 +483,14 @@ class TimeToNumGenerator(FeaturesGenerator):
         basic_interval: str = "D",
         from_target_date: bool = False,
         horizon: Optional[int] = None,
+        delta: Optional[pd.DateOffset] = None,
     ):
         super().__init__()
         self.basic_date = basic_date
         self.basic_interval = basic_interval
         self.from_target_date = from_target_date
         self.horizon = horizon
+        self.delta = delta
 
     def fit(
         self,
@@ -520,7 +530,7 @@ class TimeToNumGenerator(FeaturesGenerator):
             index_slicer = IndexSlicer()
 
             str_time_col = time_col.apply(lambda x: str(x).split(" ")[0])
-            _, time_delta = index_slicer.timedelta(str_time_col)
+            _, time_delta = index_slicer.timedelta(str_time_col, delta=self.delta)
 
             if self.from_target_date:
                 time_col = time_col + self.horizon * time_delta
@@ -557,6 +567,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
         country: Optional[str] = None,
         prov: Optional[str] = None,
         state: Optional[str] = None,
+        delta: Optional[pd.DateOffset] = None
     ):
         super().__init__()
         self.seasonalities = seasonalities
@@ -566,6 +577,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
         self._prov = prov
         self._state = state
         self._features = []
+        self.delta = delta
 
     def fit(
         self,
@@ -610,8 +622,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
             time_col = raw_ts_X[column_name]
             index_slicer = IndexSlicer()
 
-            str_time_col = time_col.apply(lambda x: str(x).split(" ")[0])
-            _, time_delta = index_slicer.timedelta(str_time_col)
+            _, time_delta = index_slicer.timedelta(time_col, delta=self.delta)
             if self.from_target_date:
                 time_col = time_col + self.horizon * time_delta
             time_col = pd.to_datetime(time_col.to_numpy(), origin="unix")
