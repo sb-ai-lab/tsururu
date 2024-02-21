@@ -1,12 +1,16 @@
 from __future__ import annotations
 from typing import List, Union, Tuple, Optional
 from numpy.typing import NDArray
+import re
 
 import numpy as np
 import pandas as pd
 import holidays
 
 from .dataset import IndexSlicer
+
+LAG_TRANSFORMER_MASK = r"lag_\d+__"
+SEASON_TRANSFORMER_MASK = r"season_\w+__"
 
 date_attrs = {
     "y": "year",
@@ -81,10 +85,14 @@ class SeriesToFeaturesTransformer:
             Fitted transformer.
         """
         self.columns = raw_ts_X.columns[
-            np.hstack(
-                [raw_ts_X.columns.str.contains(raw_column_name) for raw_column_name in columns]
+            np.any(
+                [raw_ts_X.columns.str.contains(
+                    fr"{LAG_TRANSFORMER_MASK}{re.escape(raw_column_name)}$|{SEASON_TRANSFORMER_MASK}{re.escape(raw_column_name)}$|^{re.escape(raw_column_name)}$"
+                ) for raw_column_name in columns],
+                axis=0
             )
         ]
+
         self.id_column = id_column
         self.transform_train = transform_train
         self.transform_target = transform_target
@@ -125,13 +133,13 @@ class SeriesToSeriesTransformer(SeriesToFeaturesTransformer):
         X_only: bool,
     ) -> Tuple[pd.DataFrame]:
         if self.transform_train:
-            raw_ts_X = raw_ts_X.groupby(self.id_column).apply(self._transform_segment)
+            raw_ts_X = raw_ts_X.groupby(self.id_column).apply(self._transform_segment).reset_index(level=self.id_column, drop=True)
         if self.transform_target and not X_only:
-            raw_ts_y = raw_ts_y.groupby(self.id_column).apply(self._transform_segment)
+            raw_ts_y = raw_ts_y.groupby(self.id_column).apply(self._transform_segment).reset_index(level=self.id_column, drop=True)
         return raw_ts_X, raw_ts_y, features_X, y
 
     def inverse_transform_y(self, y: pd.DataFrame) -> pd.DataFrame:
-        return y.groupby(self.id_column).apply(self._inverse_transform_segment)
+        return y.groupby(self.id_column).apply(self._inverse_transform_segment).reset_index(level=self.id_column, drop=True)
 
 
 class FeaturesToFeaturesTransformer(SeriesToFeaturesTransformer):
@@ -283,7 +291,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
             column
             for column in self.columns
             if issubclass(raw_ts_X[column].dtype.type, np.integer)
-            or issubclass(raw_ts_X[column].dtype.type, np.float)
+            or issubclass(raw_ts_X[column].dtype.type, np.floating)
         ]
         stat_df = raw_ts_X.groupby(id_column)[self.columns].agg(["mean", "std"])
         self.params = stat_df.to_dict(orient="index")
@@ -297,7 +305,7 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
         type: "delta" to take the difference or "ratio" -- ratio
             between the current and the previous value.
 
-    self.params: dict with first values by each id
+    self.params: dict with last values by each id (for targets' inverse transform)
     """
 
     def __init__(self, regime: str = "delta"):
@@ -327,13 +335,9 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
             current_columns_mask = [segment.columns.str.contains(current_column_name)][0]
             current_last_value = self.params[current_id][current_column_name]
             if self.type == "delta":
-                segment.loc[:, current_columns_mask] = (
-                    segment.loc[:, current_columns_mask] + current_last_value
-                )
+                segment.loc[:, current_columns_mask] = np.cumsum(np.append(current_last_value, segment.loc[:, current_columns_mask].values))[1:]
             if self.type == "ratio":
-                segment.loc[:, current_columns_mask] = (
-                    segment.loc[:, current_columns_mask] * current_last_value
-                )
+                segment.loc[:, current_columns_mask] = np.cumprod(np.append(current_last_value, segment.loc[:, current_columns_mask].values))[1:]
         return segment
 
     def fit(
@@ -361,7 +365,7 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
             column
             for column in self.columns
             if issubclass(raw_ts_X[column].dtype.type, np.integer)
-            or issubclass(raw_ts_X[column].dtype.type, np.float)
+            or issubclass(raw_ts_X[column].dtype.type, np.floating)
         ]
         last_values_df = raw_ts_X.groupby(self.id_column)[self.columns].last()
         self.params = last_values_df.to_dict(orient="index")
@@ -438,7 +442,7 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
                         features_X[columns_to_transform] - last_values
                     )
                 if self.transform_target and not X_only:
-                    y.loc[:, column_name] = y[column_name] - last_values
+                    y = y - last_values
             elif self.regime == "ratio":
                 if self.transform_train:
                     features_X.loc[:, columns_to_transform] = (
@@ -479,12 +483,14 @@ class TimeToNumGenerator(FeaturesGenerator):
         basic_interval: str = "D",
         from_target_date: bool = False,
         horizon: Optional[int] = None,
+        delta: Optional[pd.DateOffset] = None,
     ):
         super().__init__()
         self.basic_date = basic_date
         self.basic_interval = basic_interval
         self.from_target_date = from_target_date
         self.horizon = horizon
+        self.delta = delta
 
     def fit(
         self,
@@ -524,7 +530,7 @@ class TimeToNumGenerator(FeaturesGenerator):
             index_slicer = IndexSlicer()
 
             str_time_col = time_col.apply(lambda x: str(x).split(" ")[0])
-            _, time_delta = index_slicer.timedelta(str_time_col)
+            _, time_delta = index_slicer.timedelta(str_time_col, delta=self.delta)
 
             if self.from_target_date:
                 time_col = time_col + self.horizon * time_delta
@@ -561,6 +567,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
         country: Optional[str] = None,
         prov: Optional[str] = None,
         state: Optional[str] = None,
+        delta: Optional[pd.DateOffset] = None
     ):
         super().__init__()
         self.seasonalities = seasonalities
@@ -570,6 +577,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
         self._prov = prov
         self._state = state
         self._features = []
+        self.delta = delta
 
     def fit(
         self,
@@ -614,8 +622,7 @@ class DateSeasonsGenerator(FeaturesGenerator):
             time_col = raw_ts_X[column_name]
             index_slicer = IndexSlicer()
 
-            str_time_col = time_col.apply(lambda x: str(x).split(" ")[0])
-            _, time_delta = index_slicer.timedelta(str_time_col)
+            _, time_delta = index_slicer.timedelta(time_col, delta=self.delta)
             if self.from_target_date:
                 time_col = time_col + self.horizon * time_delta
             time_col = pd.to_datetime(time_col.to_numpy(), origin="unix")
@@ -656,7 +663,7 @@ class LagTransformer(SeriesToFeaturesTransformer):
         self,
         lags: Union[int, List[int], np.ndarray],
         drop_raw_features: bool,
-        idx_data: NDArray[np.float],
+        idx_data: NDArray[np.floating],
     ):
         super().__init__()
         if isinstance(lags, list):

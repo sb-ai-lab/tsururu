@@ -46,6 +46,7 @@ class Estimator:
         self.get_num_iterations = get_num_iterations
         if self.get_num_iterations:
             self.num_iterations = []
+        self.columns = None
 
     def initialize_validator(self):
         """Initialization of the sample generator for training the model
@@ -70,7 +71,7 @@ class Estimator:
             cv = TimeSeriesSplit(n_splits=self.validation_params["n_splits"])
         return cv
 
-    def fit(self, X: pd.DataFrame, y: NDArray[np.float]) -> None:
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
         """Initialization and training of the model according to the
             passed parameters.
 
@@ -80,7 +81,7 @@ class Estimator:
         """
         raise NotImplementedError()
 
-    def predict(self, X: pd.DataFrame) -> NDArray[np.float]:
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
         """Obtaining model predictions.
 
         Arguments:
@@ -101,7 +102,11 @@ class CatBoostRegressor_CV(Estimator):
     ):
         super().__init__(get_num_iterations, validation_params, model_params)
 
-    def fit(self, X: pd.DataFrame, y: NDArray[np.float]) -> None:
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
+        # Initialize columns' order and reorder columns
+        self.columns = sorted(X.columns)
+        X = X[self.columns]
+
         # Initialize cv object
         cv = self.initialize_validator()
 
@@ -151,7 +156,10 @@ class CatBoostRegressor_CV(Estimator):
         print(f"Mean {self.model_params['loss_function']}: {np.mean(self.scores).round(4)}")
         print(f"Std: {np.std(self.scores).round(4)}")
 
-    def predict(self, X: pd.DataFrame) -> NDArray[np.float]:
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
+        # Reorder columns
+        X = X[self.columns]
+
         models_preds = [model.predict(X) for model in self.models]
         y_pred = np.mean(models_preds, axis=0)
         return y_pred
