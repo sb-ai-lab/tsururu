@@ -284,8 +284,8 @@ class RecursiveStrategy(Strategy):
     def _make_multivariate_X_y(
         self,
         X: pd.DataFrame,
-        date_column: "str",
         y: Optional[NDArray[np.floating]] = None,
+        date_column: Optional[str] = None,
     ):
         idx_slicer = IndexSlicer()
 
@@ -1103,7 +1103,7 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         self.strategy_name = "FlatWideMIMOStrategy"
 
     @staticmethod
-    def _make_multivariate_X_y(X, date_column, y=None):
+    def _make_multivariate_X_y(X, y=None, date_column=None):
         idx_slicer = IndexSlicer()
 
         id_feature_colname = np.array(["ID"])
