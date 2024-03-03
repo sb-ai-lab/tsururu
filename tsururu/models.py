@@ -1,5 +1,5 @@
 from importlib.metadata import PackageNotFoundError
-from typing import Dict, Union
+from typing import Dict, List, Union
 from numpy.typing import NDArray
 
 import numpy as np
@@ -11,6 +11,11 @@ try:
     from catboost import CatBoostRegressor
     from sklearn.linear_model import LinearRegression, Lasso, Ridge
     from sklearn.ensemble import RandomForestRegressor
+    from statsforecast import StatsForecast
+    from statsforecast.models import AutoARIMA
+    from statsforecast.models import AutoETS
+    from statsforecast.models import AutoTheta
+
 except PackageNotFoundError:
     Pool = None
     CatBoostRegressor = None
@@ -18,6 +23,9 @@ except PackageNotFoundError:
     Lasso = None
     Ridge = None
     RandomForestRegressor = None
+    AutoARIMA = None
+    AutoETS = None
+    AutoTheta = None
 
 
 class Estimator:
@@ -52,6 +60,7 @@ class Estimator:
         self.get_num_iterations = get_num_iterations
         if self.get_num_iterations:
             self.num_iterations = []
+        self.columns = None
 
     def initialize_validator(self):
         """Initialization of the sample generator for training the model
@@ -108,6 +117,10 @@ class CatBoostRegressor_CV(Estimator):
         super().__init__(get_num_iterations, validation_params, model_params)
 
     def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
+        # Initialize columns' order and reorder columns
+        self.columns = sorted(X.columns)
+        X = X[self.columns]
+
         # Initialize cv object
         cv = self.initialize_validator()
 
@@ -158,10 +171,253 @@ class CatBoostRegressor_CV(Estimator):
         print(f"Std: {np.std(self.scores).round(4)}")
 
     def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
+        # Reorder columns
+        X = X[self.columns]
+
         models_preds = [model.predict(X) for model in self.models]
         y_pred = np.mean(models_preds, axis=0)
         return y_pred
 
+
+class LinearRegression_CV(Estimator):
+    def __init__(
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
+    ):
+        super().__init__(get_num_iterations, validation_params, model_params)
+
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
+        cv = self.initialize_validator()
+        param_grid = {**self.model_params}
+
+        for train_idx, test_idx in cv.split(X):
+            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+            y_train, y_test = y[train_idx], y[test_idx]
+
+            model = LinearRegression()
+            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
+            grid_search.fit(X_train, y_train)
+
+            self.models.append(grid_search)
+            score = grid_search.best_score_
+            self.scores.append(score)
+
+            print(f"Fold {len(self.models)}: Best Score: {score}")
+
+        print(f"Mean score: {np.mean(self.scores)}")
+        print(f"Std: {np.std(self.scores)}")
+
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]: 
+        predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
+        y_pred = np.mean(predictions, axis=0)
+        return y_pred
+
+
+class Lasso_CV(Estimator):
+    def __init__(
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
+    ):
+        super().__init__(get_num_iterations, validation_params, model_params)
+
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
+        cv = self.initialize_validator()
+        param_grid = {**self.model_params}
+
+        for train_idx, test_idx in cv.split(X):
+            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+            y_train, y_test = y[train_idx], y[test_idx]
+
+            model = Lasso()
+            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
+            grid_search.fit(X_train, y_train)
+
+            self.models.append(grid_search)
+            score = grid_search.best_score_
+            self.scores.append(score)
+
+            print(f"Fold {len(self.models)}: Best Score: {score}")
+
+        print(f"Mean score: {np.mean(self.scores)}")
+        print(f"Std: {np.std(self.scores)}")
+
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
+        predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
+        y_pred = np.mean(predictions, axis=0)
+        return y_pred
+
+
+class Ridge_CV(Estimator):
+    def __init__(
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
+    ):
+        super().__init__(get_num_iterations, validation_params, model_params)
+
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
+        cv = self.initialize_validator()
+        param_grid = {**self.model_params}
+
+        for train_idx, test_idx in cv.split(X):
+            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+            y_train, y_test = y[train_idx], y[test_idx]
+
+            model = Ridge()
+            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
+            grid_search.fit(X_train, y_train)
+
+            self.models.append(grid_search)
+            score = grid_search.best_score_
+            self.scores.append(score)
+
+            print(f"Fold {len(self.models)}: Best Score: {score}")
+
+        print(f"Mean score: {np.mean(self.scores)}")
+        print(f"Std: {np.std(self.scores)}")
+
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
+        predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
+        y_pred = np.mean(predictions, axis=0)
+        return y_pred
+
+
+class RandomForest_CV(Estimator):
+    def __init__(
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
+    ):
+        super().__init__(get_num_iterations, validation_params, model_params)
+
+    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None: 
+        cv = self.initialize_validator()
+
+        for i, (train_idx, test_idx) in enumerate(cv.split(X)):
+            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+            y_train, y_test = y[train_idx], y[test_idx]
+
+            for param, default_value in [
+                ("n_estimators", 100),
+                ("criterion", 'squared_error'),
+                ("random_state", 42),
+                ("max_features", 1.0),
+                ("verbose", 2),
+                ("n_jobs", -1),
+            ]:
+                if self.model_params.get(param) is None:
+                    self.model_params[param] = default_value
+
+            model = RandomForestRegressor(**self.model_params)
+
+            model.fit(X_train, y_train)
+
+            self.models.append(model)
+            score = model.score(X_test, y_test)
+            self.scores.append(score)
+
+            print(f"Fold {i}: Score: {score}")
+
+        print(f"Mean Score: {np.mean(self.scores).round(4)}")
+        print(f"Std: {np.std(self.scores).round(4)}")
+
+    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:     
+        models_preds = [model.predict(X) for model in self.models]
+        y_pred = np.mean(models_preds, axis=0)
+        return y_pred
+
+
+class ETS_Model(Estimator):
+    def __init__(
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
+    ):
+        super().__init__(get_num_iterations, validation_params, model_params)
+
+    def fit(self, X: np.array) -> None:
+        model = AutoETS(**self.model_params)
+        unique_ids = X['id'].unique()
+
+        for unique_id in unique_ids:
+            series_data = X[X['id'] == unique_id]['value']
+            fitted_model = model.fit(series_data.values)
+            self.models.append((unique_id, fitted_model))
+            #print(f'Model {unique_id+1} has been fitted!')
+
+    def predict(self, horizon) -> List:
+        frc = []
+        for model_id, model in self.models:
+            forecast = model.predict(h=horizon)
+            frc.append(forecast)
+        return frc
+    
+
+class AutoARIMA_Model(Estimator):
+    def __init__(
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
+    ):
+        super().__init__(get_num_iterations, validation_params, model_params)
+
+    def fit(self, X: np.array) -> None:
+        model = AutoARIMA(**self.model_params)
+        unique_ids = X['id'].unique()
+
+        for unique_id in unique_ids:
+            series_data = X[X['id'] == unique_id]['value']
+            fitted_model = model.fit(series_data.values)
+            self.models.append((unique_id, fitted_model))
+            #print(f'Model {unique_id+1} has been fitted!')
+
+    def predict(self, horizon) -> List:
+        frc = []
+        for model_id, model in self.models:
+            forecast = model.predict(h=horizon)
+            frc.append(forecast)
+        return frc
+    
+
+class AutoTheta_Model(Estimator):
+    def __init__(
+        self,
+        get_num_iterations: bool,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
+    ):
+        super().__init__(get_num_iterations, validation_params, model_params)
+
+    def fit(self, X: np.array) -> None:
+        model = AutoTheta(**self.model_params)
+        unique_ids = X['id'].unique()
+
+        for unique_id in unique_ids:
+            series_data = X[X['id'] == unique_id]['value']
+            if len(series_data) >= 20000:
+                fitted_model = model.fit(series_data[:20000].values)
+                self.models.append((unique_id, fitted_model))
+                print(f'Model {unique_id+1} has been fitted!')
+            else:
+                fitted_model = model.fit(series_data.values)
+                self.models.append((unique_id, fitted_model))
+                print(f'Model {unique_id+1} has been fitted!')
+
+    def predict(self, horizon) -> List:
+        frc = []
+        for model_id, model in self.models:
+            forecast = model.predict(h=horizon)
+            frc.append(forecast)
+        return frc
+    
 
 class MeanMethod:
     """
@@ -170,7 +426,7 @@ class MeanMethod:
     This approach simplifies forecasts by assuming a constant value.
     """
 
-    def __init__(self, dataframe):
+    def __init__(self, dataframe: pd.DataFrame):
         self.dataframe = dataframe
 
     def predict(self):
@@ -185,7 +441,7 @@ class NaiveMethod:
     For naive forecasts, we simply set all forecasts to be the value of the last observation
     """
 
-    def __init__(self, dataframe):
+    def __init__(self, dataframe: pd.DataFrame):
         self.dataframe = dataframe
 
     def predict(self):
@@ -201,7 +457,7 @@ class SeasonalNaiveMethod:
     based on the values from the corresponding season in the previous cycle.
     """
 
-    def __init__(self, dataframe, season_length):
+    def __init__(self, dataframe: pd.DataFrame, season_length: int):
         self.dataframe = dataframe
         self.season_length = season_length
 
@@ -225,7 +481,7 @@ class DriftMethod:
     where the drift is the average change seen in the historical data.
     """
 
-    def __init__(self, dataframe):
+    def __init__(self, dataframe: pd.DataFrame):
         self.dataframe = dataframe
 
     def predict(self):
@@ -251,181 +507,20 @@ class DriftMethod:
                 df_filled.at[i, 'value'] = y_t + h * drift
 
         return df_filled
-
-
-class LinearRegression_CV(Estimator):
-    def __init__(
-        self,
-        get_num_iterations: bool,
-        validation_params: Dict[str, Union[str, int]],
-        model_params: Dict[str, Union[str, int]],
-    ):
-        super().__init__(get_num_iterations, validation_params, model_params)
-
-    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
-        cv = self.initialize_validator()
-        self.models = []
-        self.scores = []
-
-        param_grid = {}
-
-        for train_idx, test_idx in cv.split(X):
-            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-            y_train, y_test = y[train_idx], y[test_idx]
-
-            model = LinearRegression(**self.model_params)
-            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
-            grid_search.fit(X_train, y_train)
-
-            self.models.append(grid_search)
-            score = grid_search.best_score_
-            self.scores.append(score)
-
-            print(f"Fold {len(self.models)}: Best Score: {score}")
-
-        print(f"Mean score: {np.mean(self.scores)}")
-        print(f"Std: {np.std(self.scores)}")
-
-    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
-        predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
-        return np.mean(predictions, axis=0)
-
-
-class Lasso_CV(Estimator):
-    def __init__(
-        self,
-        get_num_iterations: bool,
-        validation_params: Dict[str, Union[str, int]],
-        model_params: Dict[str, Union[str, int]],
-    ):
-        super().__init__(get_num_iterations, validation_params, model_params)
-
-    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
-        cv = self.initialize_validator()
-        self.models = []
-        self.scores = []
-
-        param_grid = {}
-
-        for train_idx, test_idx in cv.split(X):
-            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-            y_train, y_test = y[train_idx], y[test_idx]
-
-            model = Lasso(**self.model_params)
-            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
-            grid_search.fit(X_train, y_train)
-
-            self.models.append(grid_search)
-            score = grid_search.best_score_
-            self.scores.append(score)
-
-            print(f"Fold {len(self.models)}: Best Score: {score}")
-
-        print(f"Mean score: {np.mean(self.scores)}")
-        print(f"Std: {np.std(self.scores)}")
-
-    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
-        predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
-        return np.mean(predictions, axis=0)
-
-
-class Ridge_CV(Estimator):
-    def __init__(
-        self,
-        get_num_iterations: bool,
-        validation_params: Dict[str, Union[str, int]],
-        model_params: Dict[str, Union[str, int]],
-    ):
-        super().__init__(get_num_iterations, validation_params, model_params)
-
-    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
-        cv = self.initialize_validator()
-        self.models = []
-        self.scores = []
-
-        param_grid = {}
-
-        for train_idx, test_idx in cv.split(X):
-            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-            y_train, y_test = y[train_idx], y[test_idx]
-
-            model = Ridge(**self.model_params)
-            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
-            grid_search.fit(X_train, y_train)
-
-            self.models.append(grid_search)
-            score = grid_search.best_score_
-            self.scores.append(score)
-
-            print(f"Fold {len(self.models)}: Best Score: {score}")
-
-        print(f"Mean score: {np.mean(self.scores)}")
-        print(f"Std: {np.std(self.scores)}")
-
-    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
-        predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
-        return np.mean(predictions, axis=0)
-
-
-class RandomForest_CV(Estimator):
-    def __init__(
-        self,
-        get_num_iterations: bool,
-        validation_params: Dict[str, Union[str, int]],
-        model_params: Dict[str, Union[str, int]],
-    ):
-        super().__init__(get_num_iterations, validation_params, model_params)
-
-    def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
-        cv = self.initialize_validator()
-
-        for i, (train_idx, test_idx) in enumerate(cv.split(X)):
-            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-            y_train, y_test = y[train_idx], y[test_idx]
-
-            for param, default_value in [
-                ("n_estimators", 100),
-                ("criterion", "absolute_error"),
-                ("max_features", 1.0),
-                ("random_state", 42),
-                ("verbose", 1),
-                ("n_jobs", -1),
-            ]:
-                if self.model_params.get(param) is None:
-                    self.model_params[param] = default_value
-
-            model = RandomForestRegressor(**self.model_params)
-            grid_search = GridSearchCV(model, param_grid=self.model_params, scoring="neg_mean_absolute_error")
-            grid_search.fit(X_train, y_train)
-
-            self.models.append(grid_search)
-            score = grid_search.best_score_
-            self.scores.append(score)
-
-            print(f"Fold {i}: Score: {score}")
-
-        print(f"Mean Score: {np.mean(self.scores).round(4)}")
-        print(f"Std: {np.std(self.scores).round(4)}")
-
-    def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
-        models_preds = [grid_search.predict(X) for grid_search in self.models]
-        y_pred = np.mean(models_preds, axis=0)
-        return y_pred
-
+    
 
 # Factory Object
 class ModelsFactory:
     def __init__(self):
         self.models = {
             "CatBoostRegressor_CV": CatBoostRegressor_CV,
-            "MeanMethod": MeanMethod,
-            "NaiveMethod": NaiveMethod,
-            "SeasonalNaiveMethod": SeasonalNaiveMethod,
-            "DriftMethod": DriftMethod,
             "LinearRegression_CV": LinearRegression_CV,
             "Lasso_CV": Lasso_CV,
             "Ridge_CV": Ridge_CV,
             "RandomForest_CV": RandomForest_CV,
+            "ETS_Model": ETS_Model,
+            'AutoARIMA_Model': AutoARIMA_Model,
+            'AutoTheta_Model': AutoTheta_Model,
         }
 
     def get_allowed(self):
