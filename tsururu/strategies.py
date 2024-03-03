@@ -199,6 +199,7 @@ class Strategy:
 
             fit_time, _ = self.fit(current_dataset)
             forecast_time, current_pred = self.predict(current_dataset)
+
             test_list.append(np.asarray(current_test[dataset.target_column].values))
             preds_list.append(np.asarray(current_pred[dataset.target_column].values))
             fit_time_list.append(fit_time)
@@ -283,8 +284,8 @@ class RecursiveStrategy(Strategy):
     def _make_multivariate_X_y(
         self,
         X: pd.DataFrame,
-        date_column: "str",
         y: Optional[NDArray[np.floating]] = None,
+        date_column: Optional[str] = None,
     ):
         idx_slicer = IndexSlicer()
 
@@ -1102,7 +1103,7 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         self.strategy_name = "FlatWideMIMOStrategy"
 
     @staticmethod
-    def _make_multivariate_X_y(X, date_column, y=None):
+    def _make_multivariate_X_y(X, y=None, date_column=None):
         idx_slicer = IndexSlicer()
 
         id_feature_colname = np.array(["ID"])
@@ -1209,6 +1210,8 @@ class FlatWideMIMOStrategy(MIMOStrategy):
 
     @timing_decorator
     def predict(self, dataset):
+        target_column_name = dataset.columns_and_features_params["target"]["column"][0]
+
         new_data = dataset.make_padded_test(self.horizon)
         new_dataset = deepcopy(dataset)
         new_dataset.seq_data = new_data
@@ -1236,10 +1239,10 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         pred = self.models[0].predict(X)
 
         nan_mask = np.isnan(new_dataset.seq_data[dataset.target_column].astype("float"))
-        if self.is_multivariate:
-            new_dataset.seq_data.loc[nan_mask, dataset.target_column] = pred.T.reshape(-1)
-        else:
-            new_dataset.seq_data.loc[nan_mask, dataset.target_column] = np.hstack(pred)
+        new_dataset.seq_data.loc[nan_mask, target_column_name] = np.hstack(pred)
+        new_dataset.seq_data.loc[nan_mask] = self._inverse_transform_y(
+            new_dataset.seq_data.loc[nan_mask]
+        )
 
         # Get dataframe with predictions only
         pred_df = self._make_preds_df(new_dataset, self.horizon)
