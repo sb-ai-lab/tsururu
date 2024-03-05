@@ -12,7 +12,6 @@ from .base_model import Estimator
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from layers.Autoformer_EncDec import series_decomp
 
 
 class DLinear(nn.Module):
