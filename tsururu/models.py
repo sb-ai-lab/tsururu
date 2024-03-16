@@ -4,14 +4,13 @@ from numpy.typing import NDArray
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import KFold, TimeSeriesSplit, GridSearchCV
+from sklearn.model_selection import KFold, TimeSeriesSplit
 
 try:
     from catboost import Pool
     from catboost import CatBoostRegressor
     from sklearn.linear_model import LinearRegression, Lasso, Ridge
     from sklearn.ensemble import RandomForestRegressor
-    from statsforecast import StatsForecast
     from statsforecast.models import AutoARIMA
     from statsforecast.models import AutoETS
     from statsforecast.models import AutoTheta
@@ -189,28 +188,30 @@ class LinearRegression_CV(Estimator):
         super().__init__(get_num_iterations, validation_params, model_params)
 
     def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
+        self.columns = sorted(X.columns)
+        X = X[self.columns]
+        
         cv = self.initialize_validator()
-        param_grid = {**self.model_params}
 
         for train_idx, test_idx in cv.split(X):
             X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
             y_train, y_test = y[train_idx], y[test_idx]
 
-            model = LinearRegression()
-            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
-            grid_search.fit(X_train, y_train)
+            model = LinearRegression(**self.model_params)
+            model.fit(X_train, y_train)
 
-            self.models.append(grid_search)
-            score = grid_search.best_score_
+            self.models.append(model)
+            score = model.score(X_test, y_test)
             self.scores.append(score)
 
             print(f"Fold {len(self.models)}: Best Score: {score}")
 
-        print(f"Mean score: {np.mean(self.scores)}")
-        print(f"Std: {np.std(self.scores)}")
+        print(f"Mean score: {np.mean(self.scores).round(4)}")
+        print(f"Std: {np.std(self.scores).round(4)}")
 
     def predict(self, X: pd.DataFrame) -> NDArray[np.floating]: 
-        predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
+        X = X[self.columns]
+        predictions = [model.predict(X) for model in self.models]
         y_pred = np.mean(predictions, axis=0)
         return y_pred
 
@@ -225,28 +226,30 @@ class Lasso_CV(Estimator):
         super().__init__(get_num_iterations, validation_params, model_params)
 
     def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
+        self.columns = sorted(X.columns)
+        X = X[self.columns]
+        
         cv = self.initialize_validator()
-        param_grid = {**self.model_params}
 
         for train_idx, test_idx in cv.split(X):
             X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
             y_train, y_test = y[train_idx], y[test_idx]
 
-            model = Lasso()
-            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
-            grid_search.fit(X_train, y_train)
+            model = Lasso(**self.model_params)
+            model.fit(X_train, y_train)
 
-            self.models.append(grid_search)
-            score = grid_search.best_score_
+            self.models.append(model)
+            score = model.score(X_test, y_test)
             self.scores.append(score)
 
             print(f"Fold {len(self.models)}: Best Score: {score}")
 
-        print(f"Mean score: {np.mean(self.scores)}")
-        print(f"Std: {np.std(self.scores)}")
+        print(f"Mean score: {np.mean(self.scores).round(4)}")
+        print(f"Std: {np.std(self.scores).round(4)}")
 
     def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
-        predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
+        X = X[self.columns]
+        predictions = [model.predict(X) for model in self.models]
         y_pred = np.mean(predictions, axis=0)
         return y_pred
 
@@ -261,28 +264,30 @@ class Ridge_CV(Estimator):
         super().__init__(get_num_iterations, validation_params, model_params)
 
     def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None:
+        self.columns = sorted(X.columns)
+        X = X[self.columns]
+        
         cv = self.initialize_validator()
-        param_grid = {**self.model_params}
 
         for train_idx, test_idx in cv.split(X):
             X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
             y_train, y_test = y[train_idx], y[test_idx]
 
-            model = Ridge()
-            grid_search = GridSearchCV(model, param_grid=param_grid, scoring='neg_mean_absolute_error')
-            grid_search.fit(X_train, y_train)
+            model = Ridge(**self.model_params)
+            model.fit(X_train, y_train)
 
-            self.models.append(grid_search)
-            score = grid_search.best_score_
+            self.models.append(model)
+            score = model.score(X_test, y_test)
             self.scores.append(score)
 
             print(f"Fold {len(self.models)}: Best Score: {score}")
 
-        print(f"Mean score: {np.mean(self.scores)}")
-        print(f"Std: {np.std(self.scores)}")
+        print(f"Mean score: {np.mean(self.scores).round(4)}")
+        print(f"Std: {np.std(self.scores).round(4)}")
 
     def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:
-        predictions = [grid_search.best_estimator_.predict(X) for grid_search in self.models]
+        X = X[self.columns]
+        predictions = [model.predict(X) for model in self.models]
         y_pred = np.mean(predictions, axis=0)
         return y_pred
 
@@ -297,6 +302,9 @@ class RandomForest_CV(Estimator):
         super().__init__(get_num_iterations, validation_params, model_params)
 
     def fit(self, X: pd.DataFrame, y: NDArray[np.floating]) -> None: 
+        self.columns = sorted(X.columns)
+        X = X[self.columns]
+        
         cv = self.initialize_validator()
 
         for i, (train_idx, test_idx) in enumerate(cv.split(X)):
@@ -328,6 +336,7 @@ class RandomForest_CV(Estimator):
         print(f"Std: {np.std(self.scores).round(4)}")
 
     def predict(self, X: pd.DataFrame) -> NDArray[np.floating]:     
+        X = X[self.columns]
         models_preds = [model.predict(X) for model in self.models]
         y_pred = np.mean(models_preds, axis=0)
         return y_pred

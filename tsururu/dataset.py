@@ -156,11 +156,11 @@ class IndexSlicer:
         Returns:
             Indexes of the ends of segments.
         """
-        vals, time_delta = self.timedelta(pd.to_datetime(data[date_column]), delta=delta)
-        ids = list(np.argwhere(vals != time_delta).flatten())
+        _, time_delta = self.timedelta(data[date_column], delta=delta)
+        ids = np.argwhere(data[date_column][1:].values != (data[date_column] + time_delta)[:-1].values) + 1
         if return_delta:
-            return ids, time_delta
-        return ids
+            return list(ids.reshape(-1)), time_delta
+        return list(ids.reshape(-1))
 
     def _rolling_window(
         self, a: NDArray[np.floating], window: int, step: int, from_last: bool = True
