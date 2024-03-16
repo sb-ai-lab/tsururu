@@ -411,14 +411,9 @@ class AutoTheta_Model(Estimator):
 
         for unique_id in unique_ids:
             series_data = X[X['id'] == unique_id]['value']
-            if len(series_data) >= 20000:
-                fitted_model = model.fit(series_data[:20000].values)
-                self.models.append((unique_id, fitted_model))
-                print(f'Model {unique_id+1} has been fitted!')
-            else:
-                fitted_model = model.fit(series_data.values)
-                self.models.append((unique_id, fitted_model))
-                print(f'Model {unique_id+1} has been fitted!')
+            fitted_model = model.fit(series_data.values)
+            self.models.append((unique_id, fitted_model))
+            print(f'Model {unique_id+1} has been fitted!')
 
     def predict(self, horizon) -> List:
         frc = []
