@@ -55,7 +55,7 @@ class CatBoostRegressor_CV(Estimator):
         X, y = pipeline.generate(data)
 
         # Initialize columns' order and reorder columns
-        self.features_argsort = np.argsort(pipeline.transformers.output_features)
+        self.features_argsort = np.argsort(pipeline.output_features)
         X = X[:, self.features_argsort]
 
         # Initialize cv object

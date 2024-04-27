@@ -1,7 +1,6 @@
 """Time series forecasting strategies."""
 
 from .direct import DirectStrategy
-from .dirrec import DirRecStrategy
 from .flat_wide_mimo import FlatWideMIMOStrategy
 from .mimo import MIMOStrategy
 from .recursive import RecursiveStrategy
@@ -14,7 +13,6 @@ class StrategiesFactory:
             "RecursiveStrategy": RecursiveStrategy,
             "DirectStrategy": DirectStrategy,
             "MIMOStrategy": MIMOStrategy,
-            "DirRecStrategy": DirRecStrategy,
             "FlatWideMIMOStrategy": FlatWideMIMOStrategy,
         }
 
@@ -32,7 +30,6 @@ __all__ = [
     "RecursiveStrategy",
     "DirectStrategy",
     "MIMOStrategy",
-    "DirRecStrategy",
     "FlatWideMIMOStrategy",
     "StrategiesFactory",
 ]

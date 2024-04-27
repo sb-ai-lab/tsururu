@@ -240,7 +240,9 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
 
         # Update the params if self.transform_target is True
         if self.transform_target:
-            self.params = index_slicer.get_slice(data["raw_ts_y"][self.input_features], (data["idx_y"][:, 0] - 1, None))
+            self.params = index_slicer.get_slice(
+                data["raw_ts_y"][self.input_features], (data["idx_y"][:, 0] - 1, None)
+            )
 
         return data
 
@@ -330,8 +332,10 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         """
         # Update the params if self.transform_target is True
         if self.transform_target:
-            feature = re.compile('^(.*)__(lag_\d+)$').findall(self.input_features[0])[0][0]
-            self.params = index_slicer.get_slice(data["raw_ts_X"][feature], (data["idx_X"][:, 0], None))
+            feature = re.compile("^(.*)__(lag_\d+)$").findall(self.input_features[0])[0][0]
+            self.params = index_slicer.get_slice(
+                data["raw_ts_X"][feature], (data["idx_X"][:, 0], None)
+            )
 
         return data
 
@@ -350,7 +354,7 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         last_lag_idx_by_feature = {}
         feature_by_idx = {}
         for i, column in enumerate(self.input_features):
-            feature, lag_suffix = re.compile('^(.*)__(lag_\d+)$').findall(column)[0]
+            feature, lag_suffix = re.compile("^(.*)__(lag_\d+)$").findall(column)[0]
             feature_by_idx[i] = feature
             if lag_suffix == self.last_lag_substring:
                 last_lag_idx_by_feature[feature] = i
@@ -370,14 +374,10 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
 
             if self.regime == "delta":
                 if self.transform_features:
-                    data["X"][:, i] = (
-                        data["X"][:, i] - data["X"][:, last_lag_idx]
-                    )
+                    data["X"][:, i] = data["X"][:, i] - data["X"][:, last_lag_idx]
             elif self.regime == "ratio":
                 if self.transform_features:
-                    data["X"][:, i] = (
-                        data["X"][:, i] / data["X"][:, last_lag_idx]
-                    )
+                    data["X"][:, i] = data["X"][:, i] / data["X"][:, last_lag_idx]
 
         return data
 
@@ -393,7 +393,6 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         """
         if len(y.shape) == 1:
             y = y.reshape(-1, 1)
-            
         if len(self.params.shape) == 1:
             self.params = self.params.reshape(-1, 1)
         elif len(self.params.shape) == 3:
