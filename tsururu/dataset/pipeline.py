@@ -13,6 +13,7 @@ from ..transformers import (
     SequentialTransformer,
     Transformer,
     UnionTransformer,
+    TargetGenerator
 )
 
 transormers_factory = TransformersFactory()
@@ -38,44 +39,52 @@ class Pipeline:
         self.output_features = None
         self.y_original_shape = None
 
-    class Pipeline:
-        @classmethod
-        def from_dict(cls, columns_params: dict, multivariate: bool) -> "Pipeline":
-            """Create a pipeline from a dict of column parameters.
+    @classmethod
+    def from_dict(cls, columns_params: dict, multivariate: bool) -> "Pipeline":
+        """Create a pipeline from a dict of column parameters.
 
-            Args:
-                columns_params: a dictionary containing the parameters
-                    for each column.
-                multivariate: whether the pipeline is multivariate.
+        Args:
+            columns_params: a dictionary containing the parameters
+                for each column.
+            multivariate: whether the pipeline is multivariate.
 
-            Returns:
-                the created pipeline.
+        Returns:
+            the created pipeline.
 
-            """
-            # Resulting pipeline is a Union transformer with Sequential transformers
-            result_union_transformers_list = []
+        """
+        # Resulting pipeline is a Union transformer with Sequential transformers
+        result_union_transformers_list = []
 
-            # For each column create a list of transformers for resulting Sequential transformer
-            for columns_params in columns_params.values():
-                current_sequential_transformers_list = []
+        # For each column create a list of transformers for resulting Sequential transformer
+        for role, columns_params in columns_params.items():
+            current_sequential_transformers_list = []
 
-                transformers_dict = columns_params["features"]
-                for transformer_name, transformer_params in transformers_dict.items():
+            transformers_dict = columns_params["features"]
+            for transformer_name, transformer_params in transformers_dict.items():
+                if transformer_name == "LagTransformer" and role == "target":
+                    features_transformer = transormers_factory.create_transformer(
+                        transformer_name, transformer_params
+                    )
+                    target_transformer = TargetGenerator()
+                    transformer = UnionTransformer(
+                        transformers_list=[features_transformer, target_transformer]
+                    )
+                else:
                     transformer = transormers_factory.create_transformer(
                         transformer_name, transformer_params
                     )
-                    current_sequential_transformers_list.append(transformer)
+                current_sequential_transformers_list.append(transformer)
 
-                result_union_transformers_list.append(
-                    SequentialTransformer(
-                        transformers_list=current_sequential_transformers_list,
-                        input_features=columns_params["columns"],
-                    )
+            result_union_transformers_list.append(
+                SequentialTransformer(
+                    transformers_list=current_sequential_transformers_list,
+                    input_features=columns_params["columns"],
                 )
+            )
 
-            union = UnionTransformer(transformers_list=result_union_transformers_list)
+        union = UnionTransformer(transformers_list=result_union_transformers_list)
 
-            return cls(union, multivariate)
+        return cls(union, multivariate)
 
     def create_data_dict_for_pipeline(
         self, dataset: TSDataset, features_idx: np.ndarray, target_idx: np.ndarray

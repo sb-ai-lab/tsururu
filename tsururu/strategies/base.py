@@ -108,60 +108,59 @@ class Strategy:
 
         return pred_df
 
-    class BaseStrategy:
-        @staticmethod
-        def _backtest_generator(dataset: TSDataset, cv: int, horizon: int):
-            """Generate train-test splits for cross-validation.
+    @staticmethod
+    def _backtest_generator(dataset: TSDataset, cv: int, horizon: int):
+        """Generate train-test splits for cross-validation.
 
-            Args:
-                dataset: the time series dataset.
-                cv: the number of cross-validation folds.
-                horizon: the forecast horizon.
+        Args:
+            dataset: the time series dataset.
+            cv: the number of cross-validation folds.
+            horizon: the forecast horizon.
 
-            Yields:
-                a tuple containing the train and test indices for each fold.
+        Yields:
+            a tuple containing the train and test indices for each fold.
 
-            """
-            index_slicer = IndexSlicer()
-            segments_ids = index_slicer.ids_from_date(
-                dataset.data, dataset.date_column, delta=dataset.delta
-            )
-            segments_ids = [0] + segments_ids + [len(dataset.data)]
+        """
+        index_slicer = IndexSlicer()
+        segments_ids = index_slicer.ids_from_date(
+            dataset.data, dataset.date_column, delta=dataset.delta
+        )
+        segments_ids = [0] + segments_ids + [len(dataset.data)]
 
-            for val_idx in range(cv):
-                full_train = np.array([])
-                full_test = np.array([])
+        for val_idx in range(cv):
+            full_train = np.array([])
+            full_test = np.array([])
 
-                for i in range(len(segments_ids) - 1):
-                    if len(full_train) > 0:
-                        full_train = np.vstack(
-                            (
-                                full_train,
-                                np.arange(
-                                    segments_ids[i],
-                                    segments_ids[i + 1] - horizon * (val_idx + 1),
-                                ),
-                            )
+            for i in range(len(segments_ids) - 1):
+                if len(full_train) > 0:
+                    full_train = np.vstack(
+                        (
+                            full_train,
+                            np.arange(
+                                segments_ids[i],
+                                segments_ids[i + 1] - horizon * (val_idx + 1),
+                            ),
                         )
-                        full_test = np.vstack(
-                            (
-                                full_test,
-                                np.arange(
-                                    segments_ids[i + 1] - horizon * (val_idx + 1),
-                                    segments_ids[i + 1] - horizon * (val_idx),
-                                ),
-                            )
+                    )
+                    full_test = np.vstack(
+                        (
+                            full_test,
+                            np.arange(
+                                segments_ids[i + 1] - horizon * (val_idx + 1),
+                                segments_ids[i + 1] - horizon * (val_idx),
+                            ),
                         )
-                    else:
-                        full_train = np.arange(
-                            segments_ids[i], segments_ids[i + 1] - horizon * (val_idx + 1)
-                        )
-                        full_test = np.arange(
-                            segments_ids[i + 1] - horizon * (val_idx + 1),
-                            segments_ids[i + 1] - horizon * (val_idx),
-                        )
+                    )
+                else:
+                    full_train = np.arange(
+                        segments_ids[i], segments_ids[i + 1] - horizon * (val_idx + 1)
+                    )
+                    full_test = np.arange(
+                        segments_ids[i + 1] - horizon * (val_idx + 1),
+                        segments_ids[i + 1] - horizon * (val_idx),
+                    )
 
-                yield (full_train, full_test)
+            yield (full_train, full_test)
 
     def make_step(self, dataset: TSDataset):
         """Make a step in the strategy.
@@ -218,8 +217,7 @@ class Strategy:
             current_dataset = TSDataset(
                 current_train,
                 dataset.columns_params,
-                dataset.history,
-                dataset.step,
+                dataset.delta
             )
 
             fit_time, _ = self.fit(current_dataset)
