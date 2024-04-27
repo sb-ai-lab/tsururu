@@ -3,7 +3,9 @@ from typing import List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from ..dataset import IndexSlicer, Pipeline, TSDataset
+from ..dataset.slice import IndexSlicer
+from ..dataset.dataset import TSDataset
+from ..dataset.pipeline import Pipeline
 from ..models import Estimator
 from .utils import timing_decorator
 

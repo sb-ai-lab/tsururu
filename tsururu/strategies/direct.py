@@ -1,6 +1,8 @@
 from copy import deepcopy
 
-from ..dataset import IndexSlicer, Pipeline, TSDataset
+from ..dataset.slice import IndexSlicer
+from ..dataset.dataset import TSDataset
+from ..dataset.pipeline import Pipeline
 from ..models import Estimator
 from .recursive import RecursiveStrategy
 from .utils import timing_decorator

@@ -56,8 +56,8 @@ class Transformer:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
         Returns:
@@ -75,8 +75,8 @@ class Transformer:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -91,8 +91,8 @@ class Transformer:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
         Returns:
@@ -108,8 +108,8 @@ class Transformer:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -146,8 +146,8 @@ class SequentialTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
         Raises:
@@ -165,8 +165,8 @@ class SequentialTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -191,8 +191,8 @@ class SequentialTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
         Returns:
@@ -226,8 +226,8 @@ class SequentialTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -280,8 +280,8 @@ class UnionTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
         Returns:
@@ -299,8 +299,8 @@ class UnionTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -325,8 +325,8 @@ class UnionTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
         Returns:
@@ -356,8 +356,8 @@ class UnionTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -400,8 +400,8 @@ class FeaturesGenerator(Transformer):
             passes data through it.
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -441,8 +441,8 @@ class SeriesToSeriesTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             data_key: A string representing the key in the data dictionary:
                 either `raw_ts_X` or `raw_ts_y`.
 
@@ -465,8 +465,8 @@ class SeriesToSeriesTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -496,8 +496,8 @@ class SeriesToSeriesTransformer(Transformer):
             passes data through it.
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -523,8 +523,8 @@ class SeriesToFeaturesTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -559,8 +559,8 @@ class FeaturesToFeaturesTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.

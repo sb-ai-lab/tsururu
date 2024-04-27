@@ -44,8 +44,8 @@ class CatBoostRegressor_CV(Estimator):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             pipeline: fitted data preprocessing pipeline.
 
         Returns:
@@ -104,8 +104,8 @@ class CatBoostRegressor_CV(Estimator):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             pipeline: fitted data preprocessing pipeline.
 
         Returns:

@@ -1,4 +1,4 @@
-from ..dataset import Pipeline
+from ..dataset.pipeline import Pipeline
 from ..models import Estimator
 from .mimo import MIMOStrategy
 

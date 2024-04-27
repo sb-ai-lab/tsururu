@@ -62,7 +62,9 @@ class Estimator:
         """Fits the model using the input data and pipeline.
 
         Args:
-            data: input data for training the model.
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             pipeline: data preprocessing pipeline.
 
         Returns:
@@ -75,7 +77,9 @@ class Estimator:
         """Generates predictions using the trained model.
 
         Args:
-            data: input data for generating predictions.
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             pipeline: data preprocessing pipeline.
 
         Returns:

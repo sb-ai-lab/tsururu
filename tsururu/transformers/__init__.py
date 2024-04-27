@@ -1,6 +1,6 @@
 """Algorithms for time series forecasting."""
 
-from .base import SequentialTransformer, UnionTransformer
+from .base import SequentialTransformer, UnionTransformer, Transformer
 from .categorical import LabelEncodingTransformer, OneHotEncodingTransformer
 from .datetime import DateSeasonsGenerator, TimeToNumGenerator
 from .numeric import (
@@ -15,6 +15,7 @@ from .seq import LagTransformer, TargetGenerator
 class TransformersFactory:
     def __init__(self):
         self.transformers = {
+            "Transformer": Transformer,  # "base" transformer
             "UnionTransformer": UnionTransformer,
             "SequentialTransformer": SequentialTransformer,
             "StandardScalerTransformer": StandardScalerTransformer,
@@ -41,6 +42,7 @@ class TransformersFactory:
 
 
 __all__ = [
+    "Transformer"
     "UnionTransformer",
     "SequentialTransformer",
     "StandardScalerTransformer",

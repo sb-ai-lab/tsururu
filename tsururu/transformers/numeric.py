@@ -46,8 +46,8 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
         Returns:
@@ -117,8 +117,8 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -149,7 +149,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
 
         """
         if self.transform_target:
-            if len(y.shape) == 1:
+            if len(y.shape) == 1 or y.shape[0] == 1:
                 y = y * self.params[:, 1] + self.params[:, 0]
             else:
                 y = y * self.params[:, np.newaxis, 1] + self.params[:, np.newaxis, 0]
@@ -183,8 +183,8 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
         Returns:
@@ -305,8 +305,8 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
         Returns:
@@ -323,8 +323,8 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
@@ -344,8 +344,8 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id column and
-                arrays with indices for features and targets.
+                arrays with features and targets, name of id and date
+                columns and indices for features and targets.
 
         Returns:
             current states of `data` dictionary.
