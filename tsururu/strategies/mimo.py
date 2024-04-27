@@ -16,7 +16,6 @@ class MIMOStrategy(RecursiveStrategy):
             samples' matrix.
         model: base model.
         pipeline: pipeline for feature and target generation.
-        is_multivariate: whether the prediction mode is multivariate.
 
     Notes:
         1. Technically, `MIMOStrategy` is a `RecursiveStrategy` or
@@ -36,9 +35,8 @@ class MIMOStrategy(RecursiveStrategy):
         step: int,
         model: Estimator,
         pipeline: Pipeline,
-        is_multivariate: bool = False,
     ):
         super().__init__(
-            horizon, history, step, model, pipeline, is_multivariate, model_horizon=horizon
+            horizon, history, step, model, pipeline, model_horizon=horizon
         )
         self.strategy_name = "MIMOStrategy"

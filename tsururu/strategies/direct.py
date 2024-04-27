@@ -21,7 +21,6 @@ class DirectStrategy(RecursiveStrategy):
             samples' matrix.
         model: base model.
         pipeline: pipeline for feature and target generation.
-        is_multivariate: whether the prediction mode is multivariate.
         model_horizon: how many points to predict at a time,
             if model_horizon > 1, then it's an intermediate strategy between
             RecursiveStrategy and MIMOStrategy.
@@ -43,11 +42,10 @@ class DirectStrategy(RecursiveStrategy):
         step: int,
         model: Estimator,
         pipeline: Pipeline,
-        is_multivariate: bool = False,
         model_horizon: int = 1,
         equal_train_size: bool = False,
     ):
-        super().__init__(horizon, history, step, model, pipeline, is_multivariate, model_horizon)
+        super().__init__(horizon, history, step, model, pipeline, model_horizon)
         self.equal_train_size = equal_train_size
         self.strategy_name = "direct"
 

@@ -13,8 +13,9 @@ transormers_factory = TransformersFactory()
 
 
 class Pipeline:
-    def __init__(self, transfomers: Transformer):
+    def __init__(self, transfomers: Transformer, multivariate: bool = False):
         self.transformers = transfomers
+        self.multivariate = multivariate
 
         self.is_fitted = False
         self.strategy_name = None
@@ -22,7 +23,7 @@ class Pipeline:
         self.y_original_shape = None
 
     @classmethod
-    def from_dict(cls, columns_params: dict) -> "Pipeline":
+    def from_dict(cls, columns_params: dict, multivariate: bool) -> "Pipeline":
         # Resulting pipeline is a Union transformer with Sequential transformers for each column
         result_union_transformers_list = []
 
@@ -46,7 +47,7 @@ class Pipeline:
 
         union = UnionTransformer(transformers_list=result_union_transformers_list)
 
-        return cls(union)
+        return cls(union, multivariate)
 
     def create_data_dict_for_pipeline(
         self, dataset: TSDataset, features_idx: np.ndarray, target_idx: np.ndarray

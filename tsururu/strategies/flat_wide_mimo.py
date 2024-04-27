@@ -16,7 +16,6 @@ class FlatWideMIMOStrategy(MIMOStrategy):
             samples' matrix.
         model: base model.
         pipeline: pipeline for feature and target generation.
-        is_multivariate: whether the prediction mode is multivariate.
 
     Notes:
         1. Fit: mixture of DirectStrategy and MIMOStrategy, fit one
@@ -32,7 +31,6 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         step: int,
         model: Estimator,
         pipeline: Pipeline,
-        is_multivariate: bool = False,
     ):
-        super().__init__(horizon, history, step, model, pipeline, is_multivariate)
+        super().__init__(horizon, history, step, model, pipeline)
         self.strategy_name = "FlatWideMIMOStrategy"

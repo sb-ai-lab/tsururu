@@ -23,7 +23,6 @@ class RecursiveStrategy(Strategy):
             making samples' matrix.
         model: base model.
         pipeline: pipeline for feature and target generation.
-        is_multivariate: whether the prediction mode is multivariate.
         model_horizon: how many points to predict at a time,
             if model_horizon > 1, then it's an intermediate strategy
             between RecursiveStrategy and MIMOStrategy.
@@ -46,11 +45,10 @@ class RecursiveStrategy(Strategy):
         step: int,
         model: Estimator,
         pipeline: Pipeline,
-        is_multivariate: bool = False,
         model_horizon: int = 1,
         reduced: bool = False,
     ):
-        super().__init__(horizon, history, step, model, pipeline, is_multivariate)
+        super().__init__(horizon, history, step, model, pipeline)
         self.model_horizon = model_horizon
         self.reduced = reduced
         self.strategy_name = "recursive"
