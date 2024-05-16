@@ -1,10 +1,14 @@
 ![tsururu_logo](tsururu_logo.png)
 
-# Tsururu – time series forecasting strategies framework
+# Tsururu – a time series forecasting strategies framework
 
-Tsururu is a framework which provides instruments for the time series forecasting task.
+Much attention is now paid to what models to use for time series forecasting, but not to how exactly to perform training and inference. 
 
-## Ways to work with multiple time series:
+Tsururu is a Python-based library which aims at overcoming the aforementioned problems and provides a large number of multi-series and multi-point-ahead prediction strategies that can be used with any underlying model, including neural networks. 
+
+Also tsururu provides various preprocessing techniques.
+
+## Multi-series prediction strategies:
 - _Local-modelling_:
     - Individual model for each time series.
 - _Global-modelling_:
@@ -14,7 +18,7 @@ Tsururu is a framework which provides instruments for the time series forecastin
     - One model for all time series;
     - features made up of individual series corresponding to the same time point are concatenated for all time series.
 
-## Prediction Strategies
+## Multi-point-ahead prediction strategies:
 - _Recursive:_ 
     - one model for all points of the forecast horizon;
     - *training*: the model is trained to predict one point ahead;
@@ -27,7 +31,20 @@ Tsururu is a framework which provides instruments for the time series forecastin
     - individual models for each point in the prediction horizon. 
 - _MultiOutput (MIMO - Multi-input-multi-output):_
     - one model that learns to predict the entire prediction horizon. 
+    - __Also, this strategy supports the presence of exogenous features.__
 - _FlatWideMIMO:_.
     - mixture of Direct and MIMO, fit one model, but uses deployed over horizon Direct's features.
 
-A detailed description of the strategies can be found in Tutorial 2.
+## Installation
+
+To install tsururu via pip you can use:
+
+`pip install -U tsururu`
+
+## Quick tour
+
+For usage example please see:
+
+* [Tutorial_1_Quick_Start](https://github.com/sb-ai-lab/tsururu/blob/main/Tutorial_1_Quick_start.ipynb) for simple usage examples
+
+More examples are coming soon.

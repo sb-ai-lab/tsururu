@@ -1,6 +1,7 @@
 """Base classes for transformers, that are needed for feature generating."""
 
 from typing import Optional, Sequence
+from copy import deepcopy
 
 import numpy as np
 
@@ -364,7 +365,15 @@ class UnionTransformer(Transformer):
 
         """
         for trf in self.transformers_list:
+            copy_X = data["X"]
+            data["X"] = np.array([])
+            
             data = trf.generate(data)
+            
+            if copy_X.shape != (0,) and data["X"].shape != (0,):
+                data["X"] = np.hstack((copy_X, data["X"]))
+            elif data["X"].shape == (0,):
+                data["X"] = copy_X
 
         return data
 
@@ -474,8 +483,14 @@ class SeriesToSeriesTransformer(Transformer):
         """
         if self.transform_features:
             self._transform(data, "raw_ts_X")
+        else:
+            for i, column_name in enumerate(self.input_features):
+                data["raw_ts_X"].loc[:, self.output_features[i]] = data["raw_ts_X"].loc[:, column_name]
         if self.transform_target:
             self._transform(data, "raw_ts_y")
+        else:
+            for i, column_name in enumerate(self.input_features):
+                data["raw_ts_y"].loc[:, self.output_features[i]] = data["raw_ts_y"].loc[:, column_name]
 
         return data
 

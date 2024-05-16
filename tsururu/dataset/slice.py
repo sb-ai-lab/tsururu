@@ -3,6 +3,7 @@
 import re
 from typing import List, Optional, Sequence, Tuple, Union
 
+from scipy import stats as st
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype as is_datetime
@@ -80,7 +81,7 @@ class IndexSlicer:
             x = pd.to_datetime(x)
 
         if delta is None:
-            inferred_freq = pd.infer_freq(x[-4:])
+            inferred_freq = pd.infer_freq(x[-3:])  # Need at least 3 dates to infer frequency
             delta = x.diff().iloc[-1]
 
             # N Years
@@ -102,7 +103,7 @@ class IndexSlicer:
                 delta, freq_period_info = self._timedelta_above_daily_freq(
                     d_multiplier=1,
                     check_end_regex=check_end_regex,
-                    d_from_series=x.dt.month.diff().values[-1],
+                    d_from_series=st.mode(x.dt.month.diff())[0],
                     freq_name="Month",
                     inferred_freq=inferred_freq,
                 )

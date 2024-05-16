@@ -334,7 +334,7 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         if self.transform_target:
             feature = re.compile("^(.*)__(lag_\d+)$").findall(self.input_features[0])[0][0]
             self.params = index_slicer.get_slice(
-                data["raw_ts_X"][feature], (data["idx_X"][:, 0], None)
+                data["raw_ts_X"][feature], (data["idx_X"][:, -1], None)
             )
 
         return data
