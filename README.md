@@ -31,7 +31,7 @@ Also tsururu provides various preprocessing techniques.
     - individual models for each point in the prediction horizon. 
 - _MultiOutput (MIMO - Multi-input-multi-output):_
     - one model that learns to predict the entire prediction horizon. 
-    - __Also, this strategy supports the presence of exogenous features.__
+    - __Also, this strategy supports the presence of exogenous features (only for local- or global-modelling).__
 - _FlatWideMIMO:_.
     - mixture of Direct and MIMO, fit one model, but uses deployed over horizon Direct's features.
 
