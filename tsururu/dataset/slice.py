@@ -88,7 +88,7 @@ class IndexSlicer:
             if delta > pd.Timedelta(days=360) and (delta.days % 365 == 0 or delta.days % 366 == 0):
                 delta, freq_period_info = self._timedelta_above_daily_freq(
                     d_multiplier=12,
-                    check_end_regex=r"\b\d*A-",
+                    check_end_regex=r"\b\d*A-|\b\d*YE-",
                     d_from_series=x.dt.year.diff().values[-1],
                     freq_name="Year",
                     inferred_freq=inferred_freq,
@@ -97,9 +97,9 @@ class IndexSlicer:
             # N Quarters and Months
             elif delta > pd.Timedelta(days=27):
                 if delta > pd.Timedelta(days=88):
-                    check_end_regex = r"\b\d*Q-"
+                    check_end_regex = r"\b\d*Q-|\b\d*QE-"
                 else:
-                    check_end_regex = r"\b\d*M\b"
+                    check_end_regex = r"\b\d*M\b|\b\d*ME\b"
                 delta, freq_period_info = self._timedelta_above_daily_freq(
                     d_multiplier=1,
                     check_end_regex=check_end_regex,
