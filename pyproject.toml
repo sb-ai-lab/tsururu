@@ -1,48 +1,35 @@
 [tool.poetry]
 name = "tsururu"
-description = "Python tool for time series forecasting"
 version = "0.1.0"
-
-authors = ["Alina Kostromina" <"AMaKostromina@sberbank.ru">,
-           "Dmitry Simakov" <"Simakov.D.E@sberbank.ru">]
-
+description = "Python tool for time series forecasting"
+authors = ["Alina Kostromina <AMaKostromina@sberbank.ru>", "Dmitry Simakov <Simakov.D.E@sberbank.ru>"]
+license = "Apache License 2.0"
 readme = "README.md"
-
-repository = "https://github.com/sberbank-ai-lab/tsururu"
-
+repository = "https://github.com/sb-ai-lab/tsururu"
 classifiers = [
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
     "Operating System :: OS Independent",
     "Intended Audience :: Science/Research",
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Natural Language :: Russian",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
 [tool.poetry.dependencies]
-
-python = ">=3.9"
-
-scikit-learn = "*"
-numpy = "*"
-pandas = "*"
-holidays = "*"
-
-# models
-catboost = {version = "*", optional = true}
-
-[tool.poetry.extras]
-models = [
-    "catboost",
-]
+python = "^3.9"
+scikit-learn = "^1.3.2"
+numpy = "^1.26.3"
+pandas = "^2.1.4"
+holidays = "^0.40"
+catboost = "^1.2.2"
+scipy = "^1.11.4"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.black]
-line-length = 99
-
-[tool.isort]
-profile = "black"
+[project.urls]
+Homepage = "https://github.com/sb-ai-lab/tsururu"
+Issues = "https://github.com/sb-ai-lab/tsururu/issues"

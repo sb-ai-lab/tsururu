@@ -144,5 +144,11 @@ cython_debug/
 .vscode/
 
 temp/
+additional_datasets/
+scripts/
+results/
 catboost_info/
 poetry.lock
+*check*.ipynb
+*temp*
+*demand*
