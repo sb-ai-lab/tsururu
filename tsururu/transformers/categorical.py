@@ -28,9 +28,7 @@ class LabelEncodingTransformer(FeaturesGenerator):
         """
         super().fit(data, input_features)
 
-        self.output_features = [
-            f"{column_name}__label" for column_name in self.input_features
-        ]
+        self.output_features = [f"{column_name}__label" for column_name in self.input_features]
 
         return self
 
@@ -110,9 +108,7 @@ class OneHotEncodingTransformer(FeaturesGenerator):
             for column_i, column_name in enumerate(self.input_features):
                 for id_name in np.delete(
                     data["raw_ts_X"][column_name].unique(),
-                    np.where(
-                        data["raw_ts_X"][column_name].unique() == self.drop[column_i]
-                    ),
+                    np.where(data["raw_ts_X"][column_name].unique() == self.drop[column_i]),
                 ):
                     self.output_features.append(f"{column_name}__{id_name}_ohe")
 

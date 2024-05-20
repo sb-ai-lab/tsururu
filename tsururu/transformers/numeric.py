@@ -335,7 +335,9 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
             try:
                 feature = re.compile("^(.*)__(lag_\d+)$").findall(self.input_features[0])[0][0]
             except IndexError:
-                raise ValueError("There is no lags in data['raw_ts_X']! Make sure that you initialize LastKnownNormalizer AFTER LagTransformer!")
+                raise ValueError(
+                    "There is no lags in data['raw_ts_X']! Make sure that you initialize LastKnownNormalizer AFTER LagTransformer!"
+                )
             self.params = index_slicer.get_slice(
                 data["raw_ts_X"][feature], (data["idx_X"][:, -1], None)
             )
@@ -354,7 +356,9 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
             current states of `data` dictionary.
 
         """
-        assert len(data["X"]) != 0, "X is empty! Make sure that you initialize LastKnownNormalizer AFTER LagTransformer!"
+        assert (
+            len(data["X"]) != 0
+        ), "X is empty! Make sure that you initialize LastKnownNormalizer AFTER LagTransformer!"
 
         last_lag_idx_by_feature = {}
         feature_by_idx = {}

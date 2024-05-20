@@ -67,7 +67,7 @@ class TSDataset:
         data: pd.DataFrame,
         columns_params: dict,
         delta: pd.DateOffset = None,
-        print_freq_period_info: bool = False
+        print_freq_period_info: bool = False,
     ):
         # Columns typing
         for _, role_dict in columns_params.items():

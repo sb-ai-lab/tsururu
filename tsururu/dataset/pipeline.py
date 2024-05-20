@@ -6,15 +6,15 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from .slice import IndexSlicer
-from .dataset import TSDataset
 from ..transformers import (
-    TransformersFactory,
     SequentialTransformer,
+    TargetGenerator,
     Transformer,
+    TransformersFactory,
     UnionTransformer,
-    TargetGenerator
 )
+from .dataset import TSDataset
+from .slice import IndexSlicer
 
 transormers_factory = TransformersFactory()
 index_slicer = IndexSlicer()
@@ -29,6 +29,7 @@ class Pipeline:
             multivariate data.
 
     """
+
     def __init__(self, transformers: Transformer, multivariate: bool = False):
         self.transformers = transformers
         self.multivariate = multivariate
@@ -85,10 +86,9 @@ class Pipeline:
 
         return cls(union, multivariate)
 
-
     @classmethod
     def easy_setup(cls, roles: dict, pipeline_params: dict, multivariate: bool) -> "Pipeline":
-        """Create a pipeline semi-automatically from a dict of columns roles 
+        """Create a pipeline semi-automatically from a dict of columns roles
             and a dict of small description of pipeline.
 
         Args:
@@ -108,10 +108,18 @@ class Pipeline:
         for role, columns_params in roles.items():
             # Some checks for params' correctness
             if pipeline_params["target_normalizer"] in ["standard_scaler", "none"]:
-                assert pipeline_params["normalizer_regime"] == "none", "normalizer_regime MUST BE `none` for this normalizer"
+                assert (
+                    pipeline_params["normalizer_regime"] == "none"
+                ), "normalizer_regime MUST BE `none` for this normalizer"
             else:
-                assert pipeline_params["normalizer_regime"] != "none", "normalizer_regime MUST BE NOT `none` for this normalizer"
-            assert pipeline_params["normalizer_regime"] in ["none", "delta", "ratio"], "there is no such normalizer_regime!"
+                assert (
+                    pipeline_params["normalizer_regime"] != "none"
+                ), "normalizer_regime MUST BE NOT `none` for this normalizer"
+            assert pipeline_params["normalizer_regime"] in [
+                "none",
+                "delta",
+                "ratio",
+            ], "there is no such normalizer_regime!"
 
             current_sequential_transformers_list = []
             if role == "target":
@@ -135,58 +143,66 @@ class Pipeline:
 
                 if pipeline_params["target_normalizer"] == "standard_scaler":
                     target_normalizer = transormers_factory.create_transformer(
-                        "StandardScalerTransformer", {
+                        "StandardScalerTransformer",
+                        {
                             "transform_features": transform_features,
                             "transform_target": transform_target,
-                        }
+                        },
                     )
                     current_sequential_transformers_list.append(target_normalizer)
                     current_sequential_transformers_list.append(target_union)
 
                 elif pipeline_params["target_normalizer"] == "difference_normalizer":
                     target_normalizer = transormers_factory.create_transformer(
-                        "DifferenceNormalizer", {
+                        "DifferenceNormalizer",
+                        {
                             "transform_features": transform_features,
                             "transform_target": transform_target,
-                            "regime":  pipeline_params["normalizer_regime"]
-                        }
+                            "regime": pipeline_params["normalizer_regime"],
+                        },
                     )
                     current_sequential_transformers_list.append(target_normalizer)
                     current_sequential_transformers_list.append(target_union)
 
                 elif pipeline_params["target_normalizer"] == "last_known_normalizer":
                     target_normalizer = transormers_factory.create_transformer(
-                        "LastKnownNormalizer", {
+                        "LastKnownNormalizer",
+                        {
                             "transform_features": transform_features,
                             "transform_target": transform_target,
-                            "regime":  pipeline_params["normalizer_regime"]
-                        }
+                            "regime": pipeline_params["normalizer_regime"],
+                        },
                     )
                     current_sequential_transformers_list.append(target_union)
                     current_sequential_transformers_list.append(target_normalizer)
 
                 else:
-                    assert pipeline_params["target_normalizer"] == "none", "there is no such target_normalizer!"
+                    assert (
+                        pipeline_params["target_normalizer"] == "none"
+                    ), "there is no such target_normalizer!"
 
             elif role == "date":
                 date_season = transormers_factory.create_transformer(
-                    "DateSeasonsGenerator", {
+                    "DateSeasonsGenerator",
+                    {
                         "seasonalities": ["y", "m", "d", "doy", "wd"],
                         "from_target_date": True,
-                    }
+                    },
                 )
                 date_lag = transormers_factory.create_transformer(
                     "LagTransformer", {"lags": pipeline_params["date_lags"]}
                 )
                 current_sequential_transformers_list.append(date_season)
                 current_sequential_transformers_list.append(date_lag)
-            
+
             elif role == "id":
                 id_lag = transormers_factory.create_transformer("LagTransformer", {"lags": 1})
                 current_sequential_transformers_list.append(id_lag)
 
             else:
-                exog_lag = transormers_factory.create_transformer("LagTransformer", {pipeline_params["exog_lags"]})
+                exog_lag = transormers_factory.create_transformer(
+                    "LagTransformer", {pipeline_params["exog_lags"]}
+                )
                 current_sequential_transformers_list.append(id_lag)
 
             result_union_transformers_list.append(
@@ -199,7 +215,6 @@ class Pipeline:
         union = UnionTransformer(transformers_list=result_union_transformers_list)
 
         return cls(union, multivariate)
-
 
     def create_data_dict_for_pipeline(
         self, dataset: TSDataset, features_idx: np.ndarray, target_idx: np.ndarray
@@ -305,9 +320,13 @@ class Pipeline:
         )
         try:
             for i in range(horizon):
-                new_date_features[i::horizon, :] = X.loc[:, date_features_mask].values[:, i::horizon]
+                new_date_features[i::horizon, :] = X.loc[:, date_features_mask].values[
+                    :, i::horizon
+                ]
         except ValueError:
-            raise ValueError("Something is wrong while making FlatWideMIMO strategy's X. Check that you use number of lags equal to horizon for datetime features!")
+            raise ValueError(
+                "Something is wrong while making FlatWideMIMO strategy's X. Check that you use number of lags equal to horizon for datetime features!"
+            )
 
         # get unique date feature names without lag suffix
         date_feature_names = (

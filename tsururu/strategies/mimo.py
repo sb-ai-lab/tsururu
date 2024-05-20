@@ -36,7 +36,5 @@ class MIMOStrategy(RecursiveStrategy):
         model: Estimator,
         pipeline: Pipeline,
     ):
-        super().__init__(
-            horizon, history, step, model, pipeline, model_horizon=horizon
-        )
+        super().__init__(horizon, history, step, model, pipeline, model_horizon=horizon)
         self.strategy_name = "MIMOStrategy"

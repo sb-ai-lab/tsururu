@@ -3,9 +3,9 @@ from typing import List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from ..dataset.slice import IndexSlicer
 from ..dataset.dataset import TSDataset
 from ..dataset.pipeline import Pipeline
+from ..dataset.slice import IndexSlicer
 from ..models import Estimator
 from .utils import timing_decorator
 
@@ -214,11 +214,7 @@ class Strategy:
         for train_idx, test_idx in self._backtest_generator(dataset, cv, self.horizon):
             current_train = dataset.data.iloc[train_idx.reshape(-1)]
             current_test = dataset.data.iloc[test_idx.reshape(-1)]
-            current_dataset = TSDataset(
-                current_train,
-                dataset.columns_params,
-                dataset.delta
-            )
+            current_dataset = TSDataset(current_train, dataset.columns_params, dataset.delta)
 
             fit_time, _ = self.fit(current_dataset)
             forecast_time, current_pred = self.predict(current_dataset)

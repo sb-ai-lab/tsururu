@@ -1,7 +1,7 @@
 """Base classes for transformers, that are needed for feature generating."""
 
-from typing import Optional, Sequence
 from copy import deepcopy
+from typing import Optional, Sequence
 
 import numpy as np
 
