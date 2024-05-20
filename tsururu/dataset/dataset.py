@@ -67,6 +67,7 @@ class TSDataset:
         data: pd.DataFrame,
         columns_params: dict,
         delta: pd.DateOffset = None,
+        print_freq_period_info: bool = False
     ):
         # Columns typing
         for _, role_dict in columns_params.items():
@@ -89,7 +90,8 @@ class TSDataset:
 
         self.data = data.sort_values([self.id_column, self.date_column])
 
-        self._print_freq_period_info()
+        if print_freq_period_info:
+            self._print_freq_period_info()
 
     def _crop_segment(
         self,

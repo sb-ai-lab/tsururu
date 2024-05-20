@@ -24,14 +24,13 @@ class Pipeline:
     """Class for creating and applying a pipeline of transformers.
 
     Args:
-        transfomers: an outer transformer to be applied.
+        transformers: an outer transformer to be applied.
         multivariate: whether to apply the pipeline to get
             multivariate data.
 
     """
-
-    def __init__(self, transfomers: Transformer, multivariate: bool = False):
-        self.transformers = transfomers
+    def __init__(self, transformers: Transformer, multivariate: bool = False):
+        self.transformers = transformers
         self.multivariate = multivariate
 
         self.is_fitted = False
@@ -86,6 +85,122 @@ class Pipeline:
 
         return cls(union, multivariate)
 
+
+    @classmethod
+    def easy_setup(cls, roles: dict, pipeline_params: dict, multivariate: bool) -> "Pipeline":
+        """Create a pipeline semi-automatically from a dict of columns roles 
+            and a dict of small description of pipeline.
+
+        Args:
+            roles: columns' roles and types.
+            pipeline_params: a dictionary containing the parameters
+                for pipeline.
+            multivariate: whether the pipeline is multivariate.
+
+        Returns:
+            the created pipeline.
+
+        """
+        # Resulting pipeline is a Union transformer with Sequential transformers
+        result_union_transformers_list = []
+
+        # For each column create a list of transformers for resulting Sequential transformer
+        for role, columns_params in roles.items():
+            # Some checks for params' correctness
+            if pipeline_params["target_normalizer"] in ["standard_scaler", "none"]:
+                assert pipeline_params["normalizer_regime"] == "none", "normalizer_regime MUST BE `none` for this normalizer"
+            else:
+                assert pipeline_params["normalizer_regime"] != "none", "normalizer_regime MUST BE NOT `none` for this normalizer"
+            assert pipeline_params["normalizer_regime"] in ["none", "delta", "ratio"], "there is no such normalizer_regime!"
+
+            current_sequential_transformers_list = []
+            if role == "target":
+                target_lag = transormers_factory.create_transformer(
+                    "LagTransformer", {"lags": pipeline_params["target_lags"]}
+                )
+                target_generator = TargetGenerator()
+                target_union = UnionTransformer(transformers_list=[target_lag, target_generator])
+
+                if pipeline_params["normalizer_transform_regime"] == "features":
+                    transform_features = True
+                    transform_target = False
+                elif pipeline_params["normalizer_transform_regime"] == "target":
+                    transform_features = False
+                    transform_target = True
+                elif pipeline_params["normalizer_transform_regime"] == "features_target":
+                    transform_features = True
+                    transform_target = True
+                else:
+                    assert ValueError("there is no such normalizer_transform_regime!")
+
+                if pipeline_params["target_normalizer"] == "standard_scaler":
+                    target_normalizer = transormers_factory.create_transformer(
+                        "StandardScalerTransformer", {
+                            "transform_features": transform_features,
+                            "transform_target": transform_target,
+                        }
+                    )
+                    current_sequential_transformers_list.append(target_normalizer)
+                    current_sequential_transformers_list.append(target_union)
+
+                elif pipeline_params["target_normalizer"] == "difference_normalizer":
+                    target_normalizer = transormers_factory.create_transformer(
+                        "DifferenceNormalizer", {
+                            "transform_features": transform_features,
+                            "transform_target": transform_target,
+                            "regime":  pipeline_params["normalizer_regime"]
+                        }
+                    )
+                    current_sequential_transformers_list.append(target_normalizer)
+                    current_sequential_transformers_list.append(target_union)
+
+                elif pipeline_params["target_normalizer"] == "last_known_normalizer":
+                    target_normalizer = transormers_factory.create_transformer(
+                        "LastKnownNormalizer", {
+                            "transform_features": transform_features,
+                            "transform_target": transform_target,
+                            "regime":  pipeline_params["normalizer_regime"]
+                        }
+                    )
+                    current_sequential_transformers_list.append(target_union)
+                    current_sequential_transformers_list.append(target_normalizer)
+
+                else:
+                    assert pipeline_params["target_normalizer"] == "none", "there is no such target_normalizer!"
+
+            elif role == "date":
+                date_season = transormers_factory.create_transformer(
+                    "DateSeasonsGenerator", {
+                        "seasonalities": ["y", "m", "d", "doy", "wd"],
+                        "from_target_date": True,
+                    }
+                )
+                date_lag = transormers_factory.create_transformer(
+                    "LagTransformer", {"lags": pipeline_params["date_lags"]}
+                )
+                current_sequential_transformers_list.append(date_season)
+                current_sequential_transformers_list.append(date_lag)
+            
+            elif role == "id":
+                id_lag = transormers_factory.create_transformer("LagTransformer", {"lags": 1})
+                current_sequential_transformers_list.append(id_lag)
+
+            else:
+                exog_lag = transormers_factory.create_transformer("LagTransformer", {pipeline_params["exog_lags"]})
+                current_sequential_transformers_list.append(id_lag)
+
+            result_union_transformers_list.append(
+                SequentialTransformer(
+                    transformers_list=current_sequential_transformers_list,
+                    input_features=columns_params["columns"],
+                )
+            )
+
+        union = UnionTransformer(transformers_list=result_union_transformers_list)
+
+        return cls(union, multivariate)
+
+
     def create_data_dict_for_pipeline(
         self, dataset: TSDataset, features_idx: np.ndarray, target_idx: np.ndarray
     ) -> dict:
@@ -107,6 +222,7 @@ class Pipeline:
         data["y"] = np.array([])
         data["id_column_name"] = dataset.id_column
         data["date_column_name"] = dataset.date_column
+        data["target_column_name"] = dataset.target_column
         data["idx_X"] = features_idx
         data["idx_y"] = target_idx
 
@@ -117,7 +233,7 @@ class Pipeline:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             strategy_name: the name of the strategy to use.
 
@@ -137,7 +253,7 @@ class Pipeline:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -154,7 +270,7 @@ class Pipeline:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -187,8 +303,11 @@ class Pipeline:
         new_date_features = np.empty(
             (X.shape[0] * horizon, X.loc[:, date_features_mask].shape[1] // horizon)
         )
-        for i in range(horizon):
-            new_date_features[i::horizon, :] = X.loc[:, date_features_mask].values[:, i::horizon]
+        try:
+            for i in range(horizon):
+                new_date_features[i::horizon, :] = X.loc[:, date_features_mask].values[:, i::horizon]
+        except ValueError:
+            raise ValueError("Something is wrong while making FlatWideMIMO strategy's X. Check that you use number of lags equal to horizon for datetime features!")
 
         # get unique date feature names without lag suffix
         date_feature_names = (
@@ -221,7 +340,7 @@ class Pipeline:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -279,7 +398,7 @@ class Pipeline:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -347,7 +466,7 @@ class Pipeline:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:

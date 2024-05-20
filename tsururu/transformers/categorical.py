@@ -18,7 +18,7 @@ class LabelEncodingTransformer(FeaturesGenerator):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
@@ -39,7 +39,7 @@ class LabelEncodingTransformer(FeaturesGenerator):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -81,7 +81,7 @@ class OneHotEncodingTransformer(FeaturesGenerator):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
@@ -128,7 +128,7 @@ class OneHotEncodingTransformer(FeaturesGenerator):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:

@@ -63,7 +63,7 @@ class Estimator:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             pipeline: data preprocessing pipeline.
 
@@ -78,7 +78,7 @@ class Estimator:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             pipeline: data preprocessing pipeline.
 
