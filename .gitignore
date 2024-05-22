@@ -145,6 +145,8 @@ cython_debug/
 
 temp/
 additional_datasets/
+scripts/
+results/
 catboost_info/
 poetry.lock
 *check*.ipynb
