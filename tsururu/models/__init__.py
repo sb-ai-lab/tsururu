@@ -2,7 +2,7 @@
 
 from .base import Estimator
 from .boost import CatBoostRegressor_CV
-from tsururu.addons.blender import BlenderBase, MeanBlender
+from tsururu.addons.blend import BlenderBase, MeanBlender, BestModel
 
 
 # Factory Object
@@ -25,4 +25,4 @@ class ModelsFactory:
         return self.models[model_name](**model_params)
 
 
-__all__ = ["CatBoostRegressor_CV", "ModelsFactory", "Estimator", "BlenderBase", "MeanBlender"]
+__all__ = ["CatBoostRegressor_CV", "ModelsFactory", "Estimator", "BlenderBase", "MeanBlender", "BestModel"]
