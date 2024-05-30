@@ -1,4 +1,5 @@
 from ..dataset.pipeline import Pipeline
+from ..model_training.validator import Validator
 from ..models import Estimator
 from .mimo import MIMOStrategy
 
@@ -30,7 +31,8 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         history: int,
         step: int,
         model: Estimator,
+        validator: Validator,
         pipeline: Pipeline,
     ):
-        super().__init__(horizon, history, step, model, pipeline)
+        super().__init__(horizon, history, step, model, validator, pipeline)
         self.strategy_name = "FlatWideMIMOStrategy"

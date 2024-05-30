@@ -1,4 +1,5 @@
 from ..dataset.pipeline import Pipeline
+from ..model_training.validator import Validator
 from ..models import Estimator
 from .recursive import RecursiveStrategy
 
@@ -15,6 +16,7 @@ class MIMOStrategy(RecursiveStrategy):
         step:  in how many points to take the next observation while making
             samples' matrix.
         model: base model.
+        validator: validator for model training.
         pipeline: pipeline for feature and target generation.
 
     Notes:
@@ -34,7 +36,8 @@ class MIMOStrategy(RecursiveStrategy):
         history: int,
         step: int,
         model: Estimator,
+        validator: Validator,
         pipeline: Pipeline,
     ):
-        super().__init__(horizon, history, step, model, pipeline, model_horizon=horizon)
+        super().__init__(horizon, history, step, model, validator, pipeline, model_horizon=horizon)
         self.strategy_name = "MIMOStrategy"
