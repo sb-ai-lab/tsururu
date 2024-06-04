@@ -1,4 +1,3 @@
-import copy
 from copy import deepcopy
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
@@ -140,20 +139,6 @@ class DLTrainer:
 
         return model
 
-    def _multivariate_collator(data_list, batch_size):
-        date_groups = defaultdict(list)
-        for X, y, idx_X in data_list:
-            date = idx_X  # Assuming idx_X is date for simplicity, adapt if needed
-            date_groups[date].append((X, y, idx_X))
-
-        batches = []
-        for date, group in date_groups.items():
-            while len(group) >= batch_size:
-                batches.append(custom_collator(group[:batch_size]))
-                group = group[batch_size:]
-
-        return batches
-
     def load_state(self, path):
         self.model.load_state_dict(torch.load(path))
 
@@ -173,14 +158,16 @@ class DLTrainer:
         else:
             self.init_trainer()
 
-        for epoch in tqdm(range(self.n_epochs), desc="Epochs"):
+        # for epoch in tqdm(range(self.n_epochs), desc="Epochs"):
+        for epoch in range(self.n_epochs):
             for callback in self.callbacks:
                 callback.on_epoch_begin(epoch)
 
             self.model.train()
             running_loss = 0.0
 
-            for inputs, targets in tqdm(train_loader, desc="Training", leave=False):
+            # for inputs, targets in tqdm(train_loader, desc="Training", leave=False):
+            for inputs, targets in train_loader:
                 for callback in self.callbacks:
                     callback.on_batch_begin()
 
@@ -266,45 +253,24 @@ class DLTrainer:
         """
         train_dataset = nnDataset(data, pipeline)
 
-        if pipeline.multivariate:
-            # Custom DataLoader for multivariate case
-            train_loader = torch.utils.data.DataLoader(
-                train_dataset,
-                batch_size=self.batch_size * 4,  # Initial larger batch size
-                shuffle=True,
-                drop_last=self.drop_last,
-                num_workers=self.num_workers,
-                collate_fn=lambda batch: self._multivariate_collator(batch, self.batch_size),
-            )
-        else:
-            train_loader = torch.utils.data.DataLoader(
-                train_dataset,
-                batch_size=self.batch_size,
-                shuffle=True,
-                drop_last=self.drop_last,
-                num_workers=self.num_workers,
-            )
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            drop_last=self.drop_last,
+            num_workers=self.num_workers,
+        )
 
         if val_data:
             val_dataset = nnDataset(val_data, pipeline)
 
-            if pipeline.multivariate:
-                val_loader = torch.utils.data.DataLoader(
-                    val_dataset,
-                    batch_size=self.batch_size * 4,  # Initial larger batch size
-                    shuffle=False,
-                    drop_last=self.drop_last,
-                    num_workers=self.num_workers,
-                    collate_fn=lambda batch: self._multivariate_collator(batch, self.batch_size),
-                )
-            else:
-                val_loader = torch.utils.data.DataLoader(
-                    val_dataset,
-                    batch_size=self.batch_size,
-                    shuffle=False,
-                    drop_last=self.drop_last,
-                    num_workers=self.num_workers,
-                )
+            val_loader = torch.utils.data.DataLoader(
+                val_dataset,
+                batch_size=self.batch_size,
+                shuffle=False,
+                drop_last=self.drop_last,
+                num_workers=self.num_workers,
+            )
         else:
             val_loader = None
 

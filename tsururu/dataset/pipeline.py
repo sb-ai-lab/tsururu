@@ -370,6 +370,13 @@ class Pipeline:
 
         date_features_colname = X.columns[X.columns.str.contains(data["date_column_name"])].values
         id_features_colname = X.columns[X.columns.str.contains(data["id_column_name"])].values
+
+        if id_features_colname.size == 0:
+            # add temporary column with id for make multivariate merging
+            id_idx = index_slicer.get_cols_idx(data["raw_ts_X"], data["id_column_name"])
+            X["temp_ID"] = index_slicer.get_slice(data["raw_ts_X"], (data["idx_X"][:, 0], id_idx))
+            id_features_colname = np.array(["temp_ID"])
+
         other_features_colname = np.setdiff1d(
             X.columns.values,
             np.hstack((id_features_colname, date_features_colname)),

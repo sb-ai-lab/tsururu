@@ -152,3 +152,4 @@ poetry.lock
 *check*.ipynb
 *temp*
 *demand*
+*test*

@@ -1,3 +1,6 @@
+import heapq
+import os
+
 import torch
 
 
@@ -45,23 +48,41 @@ class EarlyStopping(Callback):
             self.early_stopping_counter = 0
 
 
-class ModelCheckpoint(Callback):
-    def __init__(self, filepath, monitor="val_loss", verbose=1, save_best_only=True):
+class ModelCheckpoint:
+    def __init__(self, filepath, monitor="val_loss", verbose=1, save_best_only=True, k=5):
         self.filepath = filepath
         self.monitor = monitor
         self.verbose = verbose
         self.save_best_only = save_best_only
-        self.best_score = None
+        self.k = k
+        self.best_snapshots = []
+        self.worst_best_score = float("inf")
 
     def on_epoch_end(self, epoch, logs=None):
         current_score = logs.get(self.monitor)
+        if current_score is None:
+            return
+
+        model_path = f"{self.filepath}_epoch_{epoch}.pth"
+
         if self.save_best_only:
-            if self.best_score is None or current_score < self.best_score:
-                self.best_score = current_score
-                torch.save(logs["model_state_dict"], f"{self.filepath}_epoch_{epoch}.pth")
+            if len(self.best_snapshots) < self.k or current_score < self.worst_best_score:
+                if len(self.best_snapshots) == self.k:
+                    worst_snapshot = heapq.heappop(self.best_snapshots)
+                    if self.verbose:
+                        print(f"Removing worst model snapshot: {worst_snapshot[1]}")
+                    os.remove(worst_snapshot[1])
+
+                heapq.heappush(self.best_snapshots, (current_score, model_path))
+                self.worst_best_score = max(self.best_snapshots)[0]
+                torch.save(logs["model_state_dict"], model_path)
+
                 if self.verbose:
-                    print(f"Model saved to {self.filepath}_epoch_{epoch}.pth")
+                    print(f"Model saved to {model_path}")
         else:
-            torch.save(logs["model_state_dict"], f"{self.filepath}_epoch_{epoch}.pth")
+            torch.save(logs["model_state_dict"], model_path)
             if self.verbose:
-                print(f"Model saved to {self.filepath}_epoch_{epoch}.pth")
+                print(f"Model saved to {model_path}")
+
+    def get_best_snapshots(self):
+        return [snapshot[1] for snapshot in sorted(self.best_snapshots)]
