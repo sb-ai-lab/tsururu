@@ -1,6 +1,7 @@
+from typing import Union
+
 from ..dataset.pipeline import Pipeline
-from ..model_training.validator import Validator
-from ..models import Estimator
+from ..model_training.trainer import DLTrainer, MLTrainer
 from .mimo import MIMOStrategy
 
 
@@ -15,8 +16,7 @@ class FlatWideMIMOStrategy(MIMOStrategy):
             (y_{t-history}, ..., y_{t-1}).
         step:  in how many points to take the next observation while making
             samples' matrix.
-        model: base model.
-        pipeline: pipeline for feature and target generation.
+        trainer: trainer with model params and validation params.
 
     Notes:
         1. Fit: mixture of DirectStrategy and MIMOStrategy, fit one
@@ -30,9 +30,8 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         horizon: int,
         history: int,
         step: int,
-        model: Estimator,
-        validator: Validator,
+        trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
     ):
-        super().__init__(horizon, history, step, model, validator, pipeline)
+        super().__init__(horizon, history, step, trainer, pipeline)
         self.strategy_name = "FlatWideMIMOStrategy"

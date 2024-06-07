@@ -1,11 +1,9 @@
-from typing import Optional
+from typing import Optional, Union
 
 from ..dataset.dataset import TSDataset
 from ..dataset.pipeline import Pipeline
 from ..dataset.slice import IndexSlicer
 from ..model_training.trainer import DLTrainer, MLTrainer
-from ..model_training.validator import Validator
-from ..models import Estimator
 from .recursive import RecursiveStrategy
 from .utils import timing_decorator
 
@@ -23,8 +21,7 @@ class DirectStrategy(RecursiveStrategy):
             (y_{t-history}, ..., y_{t-1}).
         step:  in how many points to take the next observation while making
             samples' matrix.
-        model: base model.
-        validator: validator for model training.
+        trainer: trainer with model params and validation params.
         pipeline: pipeline for feature and target generation.
         model_horizon: how many points to predict at a time,
             if model_horizon > 1, then it's an intermediate strategy between
@@ -45,13 +42,12 @@ class DirectStrategy(RecursiveStrategy):
         horizon: int,
         history: int,
         step: int,
-        model: Estimator,
-        validator: Validator,
+        trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
         model_horizon: int = 1,
         equal_train_size: bool = False,
     ):
-        super().__init__(horizon, history, step, model, pipeline, model_horizon)
+        super().__init__(horizon, history, step, trainer, pipeline, model_horizon)
         self.equal_train_size = equal_train_size
         self.strategy_name = "direct"
 
@@ -59,15 +55,11 @@ class DirectStrategy(RecursiveStrategy):
     def fit(
         self,
         dataset: TSDataset,
-        val_dataset: Optional[TSDataset] = None,
-        trainer_params: dict = {},
     ) -> "DirectStrategy":
         """Fits the direct strategy to the given dataset.
 
         Args:
             dataset: The dataset to fit the strategy on.
-            val_dataset: The validation dataset.
-            trainer_params: The parameters for the trainer.
 
         Returns:
             self.
@@ -96,6 +88,8 @@ class DirectStrategy(RecursiveStrategy):
 
             data = self.pipeline.create_data_dict_for_pipeline(dataset, features_idx, target_idx)
             data = self.pipeline.fit_transform(data, self.strategy_name)
+
+            val_dataset = self.trainer.validation_params.get("validation_data")
 
             if val_dataset:
                 val_features_idx = index_slicer.create_idx_data(
@@ -147,13 +141,8 @@ class DirectStrategy(RecursiveStrategy):
 
                     val_data["target_idx"] = val_target_idx
 
-                if self.model.trainer_type == "MLTrainer":
-                    current_trainer = MLTrainer(self.model, self.validator, **trainer_params)
-                    current_trainer.fit(data, self.pipeline, val_data)
-
-                elif self.model.trainer_type == "DLTrainer":
-                    current_trainer = DLTrainer(self.model, self.validator, **trainer_params)
-                    current_trainer.fit(data, self.pipeline, val_data)
+                current_trainer = self.trainer.copy()
+                current_trainer.fit(data, self.pipeline, val_data)
 
                 self.trainers.append(current_trainer)
 
@@ -183,6 +172,8 @@ class DirectStrategy(RecursiveStrategy):
                 )
                 data = self.pipeline.fit_transform(data, self.strategy_name)
 
+                val_dataset = self.trainer.validation_params.get("validation_data")
+
                 if val_dataset:
                     val_features_idx = index_slicer.create_idx_data(
                         val_dataset.data,
@@ -210,13 +201,8 @@ class DirectStrategy(RecursiveStrategy):
                 else:
                     val_data = None
 
-                if self.model.trainer_type == "MLTrainer":
-                    current_trainer = MLTrainer(self.model, self.validator, **trainer_params)
-                    current_trainer.fit(data, self.pipeline, val_data)
-
-                elif self.model.trainer_type == "DLTrainer":
-                    current_trainer = DLTrainer(self.model, self.validator, **trainer_params)
-                    current_trainer.fit(data, self.pipeline, val_data)
+                current_trainer = self.trainer.copy()
+                current_trainer.fit(data, self.pipeline, val_data)
 
                 self.trainers.append(current_trainer)
 

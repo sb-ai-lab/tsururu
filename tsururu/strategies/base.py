@@ -6,8 +6,7 @@ import pandas as pd
 from ..dataset.dataset import TSDataset
 from ..dataset.pipeline import Pipeline
 from ..dataset.slice import IndexSlicer
-from ..model_training.validator import Validator
-from ..models.base import Estimator
+from ..model_training.trainer import DLTrainer, MLTrainer
 from .utils import timing_decorator
 
 
@@ -22,8 +21,7 @@ class Strategy:
             observations (y_{t-history}, ..., y_{t-1}).
         step:  in how many points to take the next observation while
             making samples' matrix.
-        model: base model.
-        validator: validator for model training.
+        trainer: trainer with model params and validation params.
         pipeline: pipeline for feature and target generation.
 
     Notes:
@@ -52,8 +50,7 @@ class Strategy:
         horizon: int,
         history: int,
         step: int,
-        model: Estimator,
-        validator: Validator,
+        trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
     ):
         self.check_step_param(step)
@@ -61,8 +58,7 @@ class Strategy:
         self.horizon = horizon
         self.history = history
         self.step = step
-        self.model = model
-        self.validator = validator
+        self.trainer = trainer
         self.pipeline = pipeline
 
         self.trainers = []
@@ -183,15 +179,11 @@ class Strategy:
     def fit(
         self,
         dataset: TSDataset,
-        val_dataset: Optional[TSDataset] = None,
-        trainer_params: dict = {},
     ):
         """Fits the strategy to the given dataset.
 
         Args:
             dataset: The dataset to fit the strategy on.
-            val_dataset: The validation dataset.
-            trainer_params: additional parameters for the trainer.
 
         Returns:
             self.

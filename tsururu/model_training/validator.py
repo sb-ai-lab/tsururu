@@ -13,10 +13,10 @@ class Validator:
     def get_split(
         self,
         X: np.ndarray,
-        y: np.ndarray,
+        y: Optional[np.ndarray],
         X_val: Optional[np.ndarray],
         y_val: Optional[np.ndarray],
-    ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
+    ) -> Iterator[Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
         raise NotImplementedError()
 
 
@@ -29,12 +29,16 @@ class KFoldCrossValidator(Validator):
     def get_split(
         self,
         X: np.ndarray,
-        y: np.ndarray,
-        **kwargs,
-    ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
+        y: Optional[np.ndarray],
+        X_val: Optional[np.ndarray],
+        y_val: Optional[np.ndarray],
+    ) -> Iterator[Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
         cv = KFold(n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state)
         for X_train_idx, X_val_idx in cv.split(X):
-            yield X[X_train_idx], y[X_train_idx], X[X_val_idx], y[X_val_idx]
+            if y is None:
+                yield X[X_train_idx], None, X[X_val_idx], None
+            else:
+                yield X[X_train_idx], y[X_train_idx], X[X_val_idx], y[X_val_idx]
 
 
 class TimeSeriesValidator(Validator):
@@ -44,12 +48,16 @@ class TimeSeriesValidator(Validator):
     def get_split(
         self,
         X: np.ndarray,
-        y: np.ndarray,
-        **kwargs,
-    ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
+        y: Optional[np.ndarray],
+        X_val: Optional[np.ndarray],
+        y_val: Optional[np.ndarray],
+    ) -> Iterator[Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
         cv = TimeSeriesSplit(n_splits=self.n_splits)
         for X_train_idx, X_val_idx in cv.split(X):
-            yield X[X_train_idx], y[X_train_idx], X[X_val_idx], y[X_val_idx]
+            if y is None:
+                yield X[X_train_idx], None, X[X_val_idx], None
+            else:
+                yield X[X_train_idx], y[X_train_idx], X[X_val_idx], y[X_val_idx]
 
 
 class HoldOutValidator(Validator):
@@ -59,10 +67,13 @@ class HoldOutValidator(Validator):
     def get_split(
         self,
         X: np.ndarray,
-        y: np.ndarray,
+        y: Optional[np.ndarray],
         X_val: Optional[np.ndarray],
         y_val: Optional[np.ndarray],
-    ) -> Iterator[Tuple[np.ndarray, np.ndarray]]:
+    ) -> Iterator[Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
         train_idx = np.arange(len(X))
-        val_idx = np.arange(len(self.validation_data["X_val"]))
-        return X[train_idx], y[train_idx], X_val[val_idx], y_val[val_idx]
+        val_idx = np.arange(len(X_val))
+        if y is None:
+            yield (X[train_idx], None, X_val[val_idx], None)
+        else:
+            yield (X[train_idx], y[train_idx], X_val[val_idx], y_val[val_idx])

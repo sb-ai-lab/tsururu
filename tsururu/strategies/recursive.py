@@ -1,11 +1,9 @@
-from typing import Optional
+from typing import Optional, Union
 
 import pandas as pd
 
 from ..dataset import IndexSlicer, Pipeline, TSDataset
-from ..model_training.trainer import MLTrainer, DLTrainer
-from ..model_training.validator import Validator
-from ..models.base import Estimator
+from ..model_training.trainer import DLTrainer, MLTrainer
 from .base import Strategy
 from .utils import timing_decorator
 
@@ -23,8 +21,7 @@ class RecursiveStrategy(Strategy):
             observations (y_{t-history}, ..., y_{t-1}).
         step:  in how many points to take the next observation while
             making samples' matrix.
-        model: base model.
-        validator: validator for model training.
+        trainer: trainer with model params and validation params.
         pipeline: pipeline for feature and target generation.
         model_horizon: how many points to predict at a time,
             if model_horizon > 1, then it's an intermediate strategy
@@ -46,13 +43,12 @@ class RecursiveStrategy(Strategy):
         horizon: int,
         history: int,
         step: int,
-        model: Estimator,
-        validator: Validator,
+        trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
         model_horizon: int = 1,
         reduced: bool = False,
     ):
-        super().__init__(horizon, history, step, model, validator, pipeline)
+        super().__init__(horizon, history, step, trainer, pipeline)
         self.model_horizon = model_horizon
         self.reduced = reduced
         self.strategy_name = "recursive"
@@ -61,15 +57,11 @@ class RecursiveStrategy(Strategy):
     def fit(
         self,
         dataset: TSDataset,
-        val_dataset: Optional[TSDataset] = None,
-        trainer_params: dict = {},
     ) -> "RecursiveStrategy":
         """Fits the recursive strategy to the given dataset.
 
         Args:
             dataset: The dataset to fit the strategy on.
-            val_dataset: The validation dataset.
-            trainer_params: Additional parameters for the trainer.
 
         Returns:
             self.
@@ -95,6 +87,8 @@ class RecursiveStrategy(Strategy):
 
         data = self.pipeline.create_data_dict_for_pipeline(dataset, features_idx, target_idx)
         data = self.pipeline.fit_transform(data, self.strategy_name)
+
+        val_dataset = self.trainer.validation_params.get("validation_data")
 
         if val_dataset:
             val_features_idx = index_slicer.create_idx_data(
@@ -122,15 +116,9 @@ class RecursiveStrategy(Strategy):
         else:
             val_data = None
 
-        if self.model.trainer_type == "MLTrainer":
-            trainer = MLTrainer(self.model, self.validator, **trainer_params)
-            trainer.fit(data, self.pipeline, val_data)
+        self.trainer.fit(data, self.pipeline, val_data)
 
-        elif self.model.trainer_type == "DLTrainer":
-            trainer = DLTrainer(self.model, self.validator, **trainer_params)
-            trainer.fit(data, self.pipeline, val_data)
-
-        self.trainers.append(trainer)
+        self.trainers.append(self.trainer)
         return self
 
     def make_step(self, step: int, dataset: TSDataset) -> TSDataset:
