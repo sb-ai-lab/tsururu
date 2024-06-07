@@ -17,14 +17,16 @@ class DLinear_NN(nn.Module):
 
     """
 
-    def __init__(self, model_params):
+    def __init__(self, seq_len, pred_len, moving_avg=7, individual=False, enc_in=1):
         super(DLinear_NN, self).__init__()
         # Params from model_params
-        self.seq_len = model_params["seq_len"]
-        self.pred_len = model_params["pred_len"]
-        self.decompsition = self.series_decomp(model_params.get("moving_avg", 7))
-        self.individual = model_params.get("individual", False)
-        self.channels = model_params.get("enc_in", 1)
+        self.seq_len = seq_len
+        self.pred_len = pred_len
+
+        # Decomposition
+        self.decompsition = self.series_decomp(moving_avg)
+        self.individual = individual
+        self.channels = enc_in
 
         if self.individual:
             self.Linear_Seasonal = nn.ModuleList()

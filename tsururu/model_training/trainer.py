@@ -37,6 +37,9 @@ class MLTrainer:
         self.validation = validator
         self.validation_params = validation_params
 
+        # Provide by strategy if needed
+        self.history = None
+        self.horizon = None
         self.models: List[Estimator] = []
         self.scores: List[float] = []
         self.columns: List[str] = []
@@ -160,12 +163,17 @@ class DLTrainer:
             EarlyStopping(patience=patience, stop_by_metric=stop_by_metric),
             ModelCheckpoint(checkpoint_path),
         ]
+        # Provide by strategy if needed
+        self.history = None
+        self.horizon = None
         self.models = None
         self.optimizers = None
         self.schedulers = None
-        self.is_fitted = False
 
     def init_trainer_one_fold(self):
+        self.model_params["seq_len"] = self.history
+        self.model_params["pred_len"] = self.horizon
+
         model = self.model_base(**self.model_params)
         if len(self.device_ids) > 1:
             model = torch.nn.DataParallel(model, device_ids=self.device_ids)
@@ -175,20 +183,17 @@ class DLTrainer:
         optimizer = self.optimizer_base(model.parameters(), **self.optinizer_params)
         if self.scheduler_base is not None:
             scheduler = self.scheduler_base(optimizer, **self.scheduler_params)
+        else:
+            scheduler = None
         return model, optimizer, scheduler
 
-    def train_model(self, train_loader, val_loader):
-        if self.pretrained_path is not None:
-            self.load_state(self.pretrained_path)
-        else:
-            self.init_trainer()
-
+    def train_model(self, train_loader, val_loader, model, optimizer, scheduler):
         # for epoch in tqdm(range(self.n_epochs), desc="Epochs"):
         for epoch in range(self.n_epochs):
             for callback in self.callbacks:
                 callback.on_epoch_begin(epoch)
 
-            self.model.train()
+            model.train()
             running_loss = 0.0
 
             # for inputs, targets in tqdm(train_loader, desc="Training", leave=False):
@@ -198,28 +203,28 @@ class DLTrainer:
 
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
 
-                self.optimizer.zero_grad()
-                outputs = self.model(inputs)
+                optimizer.zero_grad()
+                outputs = model(inputs)
                 loss = self.criterion(outputs, targets)
                 loss.backward()
-                self.optimizer.step()
+                optimizer.step()
                 running_loss += loss.item() * inputs.size(0)
 
                 logs = {"loss": loss.item()}
                 for cb in self.callbacks:
                     cb.on_batch_end(logs)
 
-                if self.scheduler_after_epoch is False:
-                    self.scheduler.step()
+                if self.scheduler_after_epoch is False and scheduler is not None:
+                    scheduler.step()
 
             epoch_loss = running_loss / len(train_loader.dataset)
             print(f"Epoch {epoch+1}/{self.n_epochs}, Loss: {epoch_loss:.4f}")
 
-            val_loss, val_metric = self.validate_model(val_loader)
+            val_loss, val_metric = self.validate_model(val_loader, model)
             print(f"Validation, Loss: {val_loss:.4f}, Metric: {val_metric:.4f}")
 
-            if self.scheduler_after_epoch:
-                self.scheduler.step(val_loss)
+            if self.scheduler_after_epoch and scheduler is not None:
+                scheduler.step(val_loss)
 
             # Сохранение модели и проверка early stopping
             logs = {
@@ -227,7 +232,7 @@ class DLTrainer:
                 "loss": epoch_loss,
                 "val_loss": val_loss,
                 "val_metric": val_metric,
-                "model_state_dict": self.model.state_dict(),
+                "model_state_dict": model.state_dict(),
             }
 
             for cb in self.callbacks:
@@ -240,8 +245,8 @@ class DLTrainer:
         for cb in self.callbacks:
             cb.on_train_end()
 
-    def validate_model(self, val_loader):
-        self.model.eval()
+    def validate_model(self, val_loader, model):
+        model.eval()
 
         all_outputs = []
         all_targets = []
@@ -249,14 +254,14 @@ class DLTrainer:
         with torch.no_grad():
             for inputs, targets in val_loader:
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
-                outputs = self.model(inputs)
+                outputs = model(inputs)
                 all_outputs.append(outputs)
                 all_targets.append(targets)
 
         all_outputs = torch.cat(all_outputs)
         all_targets = torch.cat(all_targets)
         loss = self.criterion(all_outputs, all_targets).item()
-        metric = self.metric_fn(all_outputs, all_targets).item() if self.metric_fn else 0.0
+        metric = self.metric(all_outputs, all_targets).item() if self.metric else 0.0
 
         print(f"Validation, Loss: {loss:.4f}, Metric: {metric:.4f}")
 
@@ -286,9 +291,9 @@ class DLTrainer:
             val_dataset = None
             val_dataset_all_idx = None
 
-        for fold_i, train_dataset_idx, _, val_dataset_idx, _ in enumerate(
+        for fold_i, (train_dataset_idx, _, val_dataset_idx, _) in enumerate(
             self.validator_base(**self.validation_params).get_split(
-                val_dataset_all_idx, val_dataset_all_idx
+                X=train_dataset_idx, X_val=val_dataset_all_idx
             )
         ):
             train_subset = Subset(train_dataset, train_dataset_idx)
@@ -309,7 +314,7 @@ class DLTrainer:
             )
 
             model, optimizer, scheduler = self.init_trainer_one_fold()
-            model, optimizer, scheduler, score = self.fit_one_fold(
+            model, optimizer, scheduler, score = self.train_model(
                 train_loader, val_loader, model, optimizer, scheduler
             )
 

@@ -13,9 +13,9 @@ class Validator:
     def get_split(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray],
-        X_val: Optional[np.ndarray],
-        y_val: Optional[np.ndarray],
+        y: Optional[np.ndarray] = None,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
     ) -> Iterator[Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
         raise NotImplementedError()
 
@@ -29,9 +29,9 @@ class KFoldCrossValidator(Validator):
     def get_split(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray],
-        X_val: Optional[np.ndarray],
-        y_val: Optional[np.ndarray],
+        y: Optional[np.ndarray] = None,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
     ) -> Iterator[Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
         cv = KFold(n_splits=self.n_splits, shuffle=self.shuffle, random_state=self.random_state)
         for X_train_idx, X_val_idx in cv.split(X):
@@ -48,9 +48,9 @@ class TimeSeriesValidator(Validator):
     def get_split(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray],
-        X_val: Optional[np.ndarray],
-        y_val: Optional[np.ndarray],
+        y: Optional[np.ndarray] = None,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
     ) -> Iterator[Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
         cv = TimeSeriesSplit(n_splits=self.n_splits)
         for X_train_idx, X_val_idx in cv.split(X):
@@ -67,9 +67,9 @@ class HoldOutValidator(Validator):
     def get_split(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray],
-        X_val: Optional[np.ndarray],
-        y_val: Optional[np.ndarray],
+        y: Optional[np.ndarray] = None,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
     ) -> Iterator[Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]]:
         train_idx = np.arange(len(X))
         val_idx = np.arange(len(X_val))

@@ -48,7 +48,7 @@ class EarlyStopping(Callback):
             self.early_stopping_counter = 0
 
 
-class ModelCheckpoint:
+class ModelCheckpoint(Callback):
     def __init__(self, filepath, monitor="val_loss", verbose=1, save_best_only=True, k=5):
         self.filepath = filepath
         self.monitor = monitor

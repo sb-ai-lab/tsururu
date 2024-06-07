@@ -116,6 +116,10 @@ class RecursiveStrategy(Strategy):
         else:
             val_data = None
 
+        if isinstance(self.trainer, DLTrainer):
+            self.trainer.horizon = self.model_horizon
+            self.trainer.history = self.history
+
         self.trainer.fit(data, self.pipeline, val_data)
 
         self.trainers.append(self.trainer)

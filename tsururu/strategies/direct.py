@@ -141,6 +141,10 @@ class DirectStrategy(RecursiveStrategy):
 
                     val_data["target_idx"] = val_target_idx
 
+                if isinstance(self.trainer, DLTrainer):
+                    self.trainer.horizon = self.model_horizon
+                    self.trainer.history = self.history
+
                 current_trainer = self.trainer.copy()
                 current_trainer.fit(data, self.pipeline, val_data)
 
@@ -200,6 +204,10 @@ class DirectStrategy(RecursiveStrategy):
                     val_data = self.pipeline.transform(val_data)
                 else:
                     val_data = None
+
+                if isinstance(self.trainer, DLTrainer):
+                    self.trainer.horizon = self.model_horizon
+                    self.trainer.history = self.history
 
                 current_trainer = self.trainer.copy()
                 current_trainer.fit(data, self.pipeline, val_data)
