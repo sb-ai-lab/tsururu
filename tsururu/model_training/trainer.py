@@ -1,4 +1,3 @@
-from copy import deepcopy
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
@@ -9,8 +8,9 @@ from tqdm.notebook import tqdm
 
 from ..dataset.pipeline import Pipeline
 from ..models.base import Estimator
-from .torch_based.callbacks import EarlyStopping, ModelCheckpoint
+from .torch_based.callbacks import ES_Checkpoints_Manager
 from .torch_based.data_provider import nnDataset
+from .torch_based.metrics import NegativeMSEMetric
 from .validator import Validator
 
 
@@ -119,7 +119,7 @@ class DLTrainer:
         device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         device_ids: List[int] = [0],
         num_workers: int = 4,
-        metric: Callable = torch.nn.MSELoss(),
+        metric: Callable = NegativeMSEMetric(),
         criterion: torch.nn.Module = torch.nn.MSELoss(),
         optimizer: Optional[torch.optim.Optimizer] = torch.optim.Adam,
         optinizer_params: Dict = {},
@@ -157,18 +157,27 @@ class DLTrainer:
         # how many epochs to wait for improvement before early stopping
         self.patience = patience
         self.pretrained_path = pretrained_path
+        if isinstance(checkpoint_path, str):
+            checkpoint_path = Path(checkpoint_path)
         self.checkpoint_path = checkpoint_path
 
         self.callbacks = [
-            EarlyStopping(patience=patience, stop_by_metric=stop_by_metric),
-            ModelCheckpoint(checkpoint_path),
+            ES_Checkpoints_Manager(
+                monitor="val_metric" if stop_by_metric else "val_loss",
+                verbose=verbose,
+                save_best_only=True,
+                k=5,
+                patience=patience,
+                mode="max" if stop_by_metric else "min"
+            )
         ]
         # Provide by strategy if needed
         self.history = None
         self.horizon = None
-        self.models = None
-        self.optimizers = None
-        self.schedulers = None
+        self.models = []
+        self.optimizers = []
+        self.schedulers = []
+        self.scores = []
 
     def init_trainer_one_fold(self):
         self.model_params["seq_len"] = self.history
@@ -188,7 +197,6 @@ class DLTrainer:
         return model, optimizer, scheduler
 
     def train_model(self, train_loader, val_loader, model, optimizer, scheduler):
-        # for epoch in tqdm(range(self.n_epochs), desc="Epochs"):
         for epoch in range(self.n_epochs):
             for callback in self.callbacks:
                 callback.on_epoch_begin(epoch)
@@ -196,7 +204,6 @@ class DLTrainer:
             model.train()
             running_loss = 0.0
 
-            # for inputs, targets in tqdm(train_loader, desc="Training", leave=False):
             for inputs, targets in train_loader:
                 for callback in self.callbacks:
                     callback.on_batch_begin()
@@ -214,7 +221,7 @@ class DLTrainer:
                 for cb in self.callbacks:
                     cb.on_batch_end(logs)
 
-                if self.scheduler_after_epoch is False and scheduler is not None:
+                if not self.scheduler_after_epoch and scheduler is not None:
                     scheduler.step()
 
             epoch_loss = running_loss / len(train_loader.dataset)
@@ -229,6 +236,7 @@ class DLTrainer:
             # Сохранение модели и проверка early stopping
             logs = {
                 "epoch": epoch,
+                "filepath": self.checkpoint_path,
                 "loss": epoch_loss,
                 "val_loss": val_loss,
                 "val_metric": val_metric,
@@ -237,13 +245,15 @@ class DLTrainer:
 
             for cb in self.callbacks:
                 cb.on_epoch_end(epoch, logs)
-                if getattr(cb, "stop_training", False):  # TODO: Точно False?
+                if getattr(cb, "stop_training", False):
                     for cb in self.callbacks:
                         cb.on_train_end()
-                    return
+                    return model, optimizer, scheduler, val_metric
 
         for cb in self.callbacks:
             cb.on_train_end()
+
+        return model, optimizer, scheduler, val_metric
 
     def validate_model(self, val_loader, model):
         model.eval()
@@ -296,6 +306,8 @@ class DLTrainer:
                 X=train_dataset_idx, X_val=val_dataset_all_idx
             )
         ):
+            checkpoint_path = self.checkpoint_path
+            self.checkpoint_path /= f"fold_{fold_i}"
             train_subset = Subset(train_dataset, train_dataset_idx)
             val_subset = Subset(val_dataset, val_dataset_idx)
             train_loader = torch.utils.data.DataLoader(
@@ -323,7 +335,8 @@ class DLTrainer:
             self.schedulers.append(scheduler)
             self.scores.append(score)
 
-            print(f"Fold {fold_i}. Score: {model.score}")
+            print(f"Fold {fold_i}. Score: {score}")
+            self.checkpoint_path = checkpoint_path
 
         print(f"Mean score: {np.mean(self.scores).round(4)}")
         print(f"Std: {np.std(self.scores).round(4)}")
