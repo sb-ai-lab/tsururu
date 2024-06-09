@@ -25,7 +25,9 @@ class Callback:
 
 
 class ES_Checkpoints_Manager(Callback):
-    def __init__(self, monitor="val_loss", verbose=1, save_best_only=True, k=5, patience=5, mode="min"):
+    def __init__(
+        self, monitor="val_loss", verbose=1, save_best_only=True, k=5, patience=5, mode="min"
+    ):
         self.monitor = monitor
         self.verbose = verbose
         self.save_best_only = save_best_only
@@ -34,7 +36,6 @@ class ES_Checkpoints_Manager(Callback):
         self.mode = mode
         self.best_snapshots = []
         self.best_score = None
-        self.worst_best_score = float('inf') if mode == "min" else float('-inf')
         self.early_stopping_counter = 0
         self.stop_training = False
 
@@ -48,15 +49,15 @@ class ES_Checkpoints_Manager(Callback):
         if len(self.best_snapshots) < self.k:
             return True
         if self.mode == "min":
-            return current_score < self.worst_best_score
+            return current_score < -self.best_snapshots[0][0]
         else:
-            return current_score > self.worst_best_score
+            return current_score > self.best_snapshots[0][0]
 
     def _update_worst_best_score(self):
         if self.mode == "min":
-            self.worst_best_score = max(self.best_snapshots)[0]
+            self.worst_best_score = -self.best_snapshots[0][0]
         else:
-            self.worst_best_score = min(self.best_snapshots)[0]
+            self.worst_best_score = self.best_snapshots[0][0]
 
     def on_epoch_end(self, epoch, logs=None):
         current_score = logs.get(self.monitor)
@@ -74,7 +75,11 @@ class ES_Checkpoints_Manager(Callback):
                     if self.verbose:
                         print(f"Removing worst model snapshot: {worst_snapshot[1]}")
 
-                heapq.heappush(self.best_snapshots, (current_score, model_path))
+                if self.mode == "min":
+                    heapq.heappush(self.best_snapshots, (-current_score, model_path))
+                else:
+                    heapq.heappush(self.best_snapshots, (current_score, model_path))
+
                 self._update_worst_best_score()
                 torch.save(logs["model_state_dict"], model_path)
                 if self.verbose:
@@ -96,4 +101,9 @@ class ES_Checkpoints_Manager(Callback):
                 self.stop_training = True
 
     def get_best_snapshots(self):
-        return [snapshot[1] for snapshot in sorted(self.best_snapshots, key=lambda x: x[0] if self.mode == "min" else -x[0])]
+        return [
+            snapshot[1]
+            for snapshot in sorted(
+                self.best_snapshots, key=lambda x: -x[0] if self.mode == "min" else x[0]
+            )
+        ]
