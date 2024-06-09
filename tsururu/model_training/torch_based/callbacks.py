@@ -57,6 +57,10 @@ class ModelCheckpoint(Callback):
         self.k = k
         self.best_snapshots = []
         self.worst_best_score = float("inf")
+        
+        directory = os.path.dirname(filepath)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
     def on_epoch_end(self, epoch, logs=None):
         current_score = logs.get(self.monitor)
