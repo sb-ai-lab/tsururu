@@ -176,9 +176,12 @@ class RecursiveStrategy(Strategy):
 
         """
         new_data = dataset.make_padded_test(
-            self.horizon, self.history, test_all, self.model_horizon
+            self.horizon, self.history, test_all=test_all, model_horizon=self.model_horizon
         )
         new_dataset = TSDataset(new_data, dataset.columns_params, dataset.delta)
+        
+        if test_all:
+            new_dataset.data = new_dataset.data.sort_values([dataset.id_column, "segment_col", dataset.date_column])
 
         if self.reduced:
             current_test_ids = index_slicer.create_idx_data(

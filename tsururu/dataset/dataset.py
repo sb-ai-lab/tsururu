@@ -190,40 +190,39 @@ class TSDataset:
             current_test_ids = slicer.create_idx_data(
                 self.data,
                 horizon,
-                self.history,
+                history,
                 model_horizon,
                 date_column=self.date_column,
             )
             extended_data = slicer.get_slice(self.data, (current_test_ids, None))
             extended_data = pd.DataFrame(
                 extended_data.reshape(-1, extended_data.shape[-1]),
-                columns=self.seq_data.columns,
+                columns=self.data.columns,
             )
             extended_data_nrows = extended_data.shape[0]
 
             extended_data["segment_col"] = np.repeat(
-                np.arange(extended_data_nrows // self.history),
-                self.history,
+                np.arange(extended_data_nrows // history), history
             )
             id_column_name = ["segment_col", self.id_column]
         else:
             extended_data = self.data
 
         columns = self.data.columns
-        date_col_id = slicer.get_cols_idx(self.data, self.date_column)
+        date_col_id = slicer.get_cols_idx(extended_data, self.date_column)
         if id_column_name is None:
             id_column_name = self.id_column
-        id_col_id = slicer.get_cols_idx(self.data, id_column_name)
+        id_col_id = slicer.get_cols_idx(extended_data, id_column_name)
 
         # Find indices for segments
         ids, time_delta = slicer.ids_from_date(
-            self.data, self.date_column, delta=self.delta, return_delta=True
+            extended_data, self.date_column, delta=self.delta, return_delta=True
         )
 
         if test_all:
             ids = list(np.unique(extended_data.segment_col, return_index=True)[1])[1:]
 
-        data = self.data.to_numpy()
+        data = extended_data.to_numpy()
 
         segments = np.split(data, ids)
         segments = [

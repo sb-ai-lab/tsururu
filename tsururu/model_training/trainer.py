@@ -255,7 +255,7 @@ class DLTrainer:
 
         return model, optimizer, scheduler, val_metric
 
-    def validate_model(self, val_loader, model):
+    def validate_model(self, val_loader, model, return_outputs=False):
         model.eval()
 
         all_outputs = []
@@ -275,7 +275,10 @@ class DLTrainer:
 
         print(f"Validation, Loss: {loss:.4f}, Metric: {metric:.4f}")
 
-        return loss, metric
+        if return_outputs:
+            return loss, metric, all_outputs, all_targets
+        else:
+            return loss, metric
 
     def fit(self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None) -> "DLTrainer":
         """Fits the models using the input data and pipeline.
@@ -358,12 +361,20 @@ class DLTrainer:
         test_loader = torch.utils.data.DataLoader(
             test_dataset,
             batch_size=self.batch_size,
-            shuffle=True,
+            shuffle=False,
             drop_last=self.drop_last,
             num_workers=self.num_workers,
         )
 
-        models_preds = [self.validate_model(test_loader, model) for model in self.models]
+        models_preds = [self.validate_model(test_loader, model, return_outputs=True)[2] for model in self.models]
+        
         y_pred = np.mean(models_preds, axis=0)
+        y_pred = torch.tensor(y_pred)
+        
+        if pipeline.multivariate:
+            pipeline.y_original_shape = list(pipeline.y_original_shape)
+            pipeline.y_original_shape[0] *= y_pred.shape[0]
+            y_pred = y_pred.permute(0, 2, 1)
+            y_pred = y_pred.reshape(-1, y_pred.shape[2])
 
-        return y_pred
+        return y_pred.numpy()
