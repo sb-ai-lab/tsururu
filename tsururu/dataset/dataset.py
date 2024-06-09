@@ -138,7 +138,7 @@ class TSDataset:
             padded segment of data.
 
         """
-        result = np.full((horizon, segment.shape[1]), np.nan)
+        result = np.full((horizon, segment.shape[1]), np.nan, dtype=object)
 
         last_date = segment[-1, date_col_id]
         new_dates = pd.date_range(last_date + time_delta, periods=horizon, freq=time_delta)
@@ -243,7 +243,6 @@ class TSDataset:
         else:
             result = pd.DataFrame(result, columns=columns)
         result[self.date_column] = pd.to_datetime(result[self.date_column])
-        result[self.id_column] = result[self.id_column].astype("int")
         other = [col for col in columns if col not in [self.id_column, self.date_column]]
         result[other] = result[other].astype("float")
 
