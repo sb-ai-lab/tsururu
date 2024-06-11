@@ -1,9 +1,9 @@
-from copy import deepcopy
+from typing import Optional, Union
 
-from ..dataset.slice import IndexSlicer
 from ..dataset.dataset import TSDataset
 from ..dataset.pipeline import Pipeline
-from ..models import Estimator
+from ..dataset.slice import IndexSlicer
+from ..model_training.trainer import DLTrainer, MLTrainer
 from .recursive import RecursiveStrategy
 from .utils import timing_decorator
 
@@ -21,7 +21,7 @@ class DirectStrategy(RecursiveStrategy):
             (y_{t-history}, ..., y_{t-1}).
         step:  in how many points to take the next observation while making
             samples' matrix.
-        model: base model.
+        trainer: trainer with model params and validation params.
         pipeline: pipeline for feature and target generation.
         model_horizon: how many points to predict at a time,
             if model_horizon > 1, then it's an intermediate strategy between
@@ -42,17 +42,20 @@ class DirectStrategy(RecursiveStrategy):
         horizon: int,
         history: int,
         step: int,
-        model: Estimator,
+        trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
         model_horizon: int = 1,
         equal_train_size: bool = False,
     ):
-        super().__init__(horizon, history, step, model, pipeline, model_horizon)
+        super().__init__(horizon, history, step, trainer, pipeline, model_horizon)
         self.equal_train_size = equal_train_size
         self.strategy_name = "direct"
 
     @timing_decorator
-    def fit(self, dataset: TSDataset) -> "DirectStrategy":
+    def fit(
+        self,
+        dataset: TSDataset,
+    ) -> "DirectStrategy":
         """Fits the direct strategy to the given dataset.
 
         Args:
@@ -62,7 +65,7 @@ class DirectStrategy(RecursiveStrategy):
             self.
 
         """
-        self.models = []
+        self.trainers = []
 
         if self.equal_train_size:
             features_idx = index_slicer.create_idx_data(
@@ -86,6 +89,34 @@ class DirectStrategy(RecursiveStrategy):
             data = self.pipeline.create_data_dict_for_pipeline(dataset, features_idx, target_idx)
             data = self.pipeline.fit_transform(data, self.strategy_name)
 
+            val_dataset = self.trainer.validation_params.get("validation_data")
+
+            if val_dataset:
+                val_features_idx = index_slicer.create_idx_data(
+                    val_dataset.data,
+                    self.model_horizon,
+                    self.history,
+                    self.step,
+                    date_column=val_dataset.date_column,
+                    delta=val_dataset.delta,
+                )
+
+                val_target_idx = index_slicer.create_idx_target(
+                    val_dataset.data,
+                    self.model_horizon,
+                    self.history,
+                    self.step,
+                    date_column=val_dataset.date_column,
+                    delta=val_dataset.delta,
+                )
+
+                val_data = self.pipeline.create_data_dict_for_pipeline(
+                    val_dataset, val_features_idx, val_target_idx
+                )
+                val_data = self.pipeline.transform(val_data)
+            else:
+                val_data = None
+
             for horizon in range(1, self.horizon // self.model_horizon + 1):
                 target_idx = index_slicer.create_idx_target(
                     dataset.data,
@@ -98,9 +129,26 @@ class DirectStrategy(RecursiveStrategy):
 
                 data["target_idx"] = target_idx
 
-                current_model = deepcopy(self.model)
-                current_model.fit(data, self.pipeline)
-                self.models.append(current_model)
+                if val_dataset:
+                    val_target_idx = index_slicer.create_idx_target(
+                        val_dataset.data,
+                        self.horizon,
+                        self.history,
+                        self.step,
+                        date_column=val_dataset.date_column,
+                        delta=val_dataset.delta,
+                    )[:, (horizon - 1) * self.model_horizon : horizon * self.model_horizon]
+
+                    val_data["target_idx"] = val_target_idx
+
+                if isinstance(self.trainer, DLTrainer):
+                    self.trainer.horizon = self.model_horizon
+                    self.trainer.history = self.history
+
+                current_trainer = self.trainer.copy()
+                current_trainer.fit(data, self.pipeline, val_data)
+
+                self.trainers.append(current_trainer)
 
         else:
             for horizon in range(1, self.horizon // self.model_horizon + 1):
@@ -128,9 +176,43 @@ class DirectStrategy(RecursiveStrategy):
                 )
                 data = self.pipeline.fit_transform(data, self.strategy_name)
 
-                current_model = deepcopy(self.model)
-                current_model.fit(data, self.pipeline)
-                self.models.append(current_model)
+                val_dataset = self.trainer.validation_params.get("validation_data")
+
+                if val_dataset:
+                    val_features_idx = index_slicer.create_idx_data(
+                        val_dataset.data,
+                        self.model_horizon * horizon,
+                        self.history,
+                        self.step,
+                        date_column=val_dataset.date_column,
+                        delta=val_dataset.delta,
+                    )
+
+                    val_target_idx = index_slicer.create_idx_target(
+                        val_dataset.data,
+                        self.model_horizon * horizon,
+                        self.history,
+                        self.step,
+                        date_column=val_dataset.date_column,
+                        delta=val_dataset.delta,
+                        n_last_horizon=self.model_horizon,
+                    )
+
+                    val_data = self.pipeline.create_data_dict_for_pipeline(
+                        val_dataset, val_features_idx, val_target_idx
+                    )
+                    val_data = self.pipeline.transform(val_data)
+                else:
+                    val_data = None
+
+                if isinstance(self.trainer, DLTrainer):
+                    self.trainer.horizon = self.model_horizon
+                    self.trainer.history = self.history
+
+                current_trainer = self.trainer.copy()
+                current_trainer.fit(data, self.pipeline, val_data)
+
+                self.trainers.append(current_trainer)
 
         return self
 
@@ -165,7 +247,7 @@ class DirectStrategy(RecursiveStrategy):
         data = self.pipeline.create_data_dict_for_pipeline(dataset, test_idx, target_idx)
         data = self.pipeline.transform(data)
 
-        pred = self.models[step].predict(data, self.pipeline)
+        pred = self.trainers[step].predict(data, self.pipeline)
         pred = self.pipeline.inverse_transform_y(pred)
 
         dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)

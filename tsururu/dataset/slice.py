@@ -3,11 +3,11 @@
 import re
 from typing import List, Optional, Sequence, Tuple, Union
 
-from scipy import stats as st
 import numpy as np
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype as is_datetime
 from pandas.tseries.offsets import MonthEnd
+from scipy import stats as st
 
 
 class IndexSlicer:

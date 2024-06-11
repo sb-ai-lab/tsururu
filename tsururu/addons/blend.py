@@ -57,8 +57,11 @@ class BestModel(BlenderBase):
         best_predictions = None
 
         for strategy in strategies:
+            print('='*20)
+            print(f'Fitting strategy: {strategy.strategy_name} with model: {strategy.model}')
+            print('='*20)
             strategy.fit(dataset)
-            
+
             model_scores = [np.mean(model.scores) for model in strategy.models]
             
             avg_strategy_score = np.mean(model_scores)
@@ -68,14 +71,14 @@ class BestModel(BlenderBase):
                 best_score = avg_strategy_score
                 best_strategy = strategy
                 _, best_predictions_df = strategy.predict(dataset)
-                best_predictions = best_predictions_df["value"]
+                best_predictions = best_predictions_df[dataset.target_column]
                 best_strategy.models = [strategy.models[np.argmin(model_scores)]]
         
         return (np.array(best_predictions), best_strategy)
 
     
 class ClassicBlender(BlenderBase):
-    def __init__(self, strategies: Sequence[Strategy], meta_model, val_split_ratio):
+    def __init__(self, strategies: Sequence[Strategy], meta_model, horizon):
         """
         Args:
             strategies: Sequence of strategies with models.
@@ -87,58 +90,51 @@ class ClassicBlender(BlenderBase):
         """
         self.strategies = strategies
         self.meta_model = meta_model
-        self.val_split_ratio = val_split_ratio
+        self.horizon=horizon
 
     def fit(self, dataset: TSDataset):
         train_data = []
         val_data = []
 
         # Split the dataset by time series' id
-        for id, group in dataset.data.groupby('id'):
-            split_index = int(len(group) * (self.val_split_ratio))
+        for _, group in dataset.data.groupby(dataset.id_column):
+            split_index = int(len(group)-self.horizon)
             train_data.append(group.iloc[:split_index])
             val_data.append(group.iloc[split_index:])
         
         train_data = pd.concat(train_data)
-        #print(train_data)
         val_data = pd.concat(val_data)
-        #print(val_data)
 
         train_dataset = TSDataset(train_data, dataset.columns_params, dataset.delta)
-        print(train_dataset.data)
         val_dataset = TSDataset(val_data, dataset.columns_params, dataset.delta)
-        print(val_dataset.data)
 
         meta_features = []
         meta_targets = None
 
         # Train each strategy
         for strategy in self.strategies:
-            
-            strategy.fit(train_dataset)
-            _, val_preds = strategy.predict(train_dataset)
-            print(val_preds)
-            meta_features.append(val_preds.value)
+            _, _ = strategy.fit(train_dataset)
+            _, current_preds = strategy.predict(train_dataset)
+            meta_features.append(current_preds.Demand)
             
             if meta_targets is None:
-                matching_dates = val_dataset.data[val_dataset.date_column].isin(val_preds['date'])
-                matching_ids = val_dataset.data[val_dataset.id_column].isin(val_preds['id'])
+                matching_dates = val_dataset.data[val_dataset.date_column].isin(current_preds.Date)
+                matching_ids = val_dataset.data[val_dataset.id_column].isin(current_preds.id)
                 true_values = val_dataset.data[matching_dates & matching_ids][val_dataset.target_column].values
-
-                print(f"True values shape: {true_values.shape}")
-                print(true_values)
             
                 meta_targets = true_values
 
         # Prepare meta-features and targets for meta-model training
         meta_features = np.column_stack(meta_features)
-        print(f"Meta features: {meta_features}")
+        print(meta_features.shape)
         meta_targets = np.array(meta_targets)
-        print(f"Meta targets: {meta_targets}")
+        print(meta_targets.shape)
 
         # Train the meta-model
         self.meta_model.fit(meta_features, meta_targets)
         print("Meta-model training complete.")
+        
+        self.trained_meta_model = self.meta_model
 
         return self
 
@@ -153,5 +149,24 @@ class ClassicBlender(BlenderBase):
             A pandas DataFrame containing the predicted target values.
         """
 
-        pass
+        if not hasattr(self, 'trained_meta_model'):
+            raise ValueError("The meta-model is not trained. Please call the `fit` method before `predict`.")
+
+        meta_features = []
+        pred_dfs = []
+
+        for strategy in self.strategies:
+            _, preds = strategy.predict(dataset)
+            print(f"Predictions shape for strategy {strategy}: {preds.shape}")
+            meta_features.append(preds.Demand.values)
+            pred_dfs.append(preds)
+
+        meta_features = np.column_stack(meta_features)
+        print(f"Meta features shape for prediction: {meta_features.shape}")
+        blended_preds = self.trained_meta_model.predict(meta_features)
+        blended_preds_df = pred_dfs[0][['id', 'Date']].copy()
+        blended_preds_df[dataset.target_column] = blended_preds
+
+        print("Blending predictions complete.")
+        return blended_preds_df
         

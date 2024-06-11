@@ -1,7 +1,9 @@
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 import numpy as np
 from sklearn.model_selection import KFold, TimeSeriesSplit
+
+from ..dataset.pipeline import Pipeline
 
 
 class Estimator:
@@ -34,6 +36,38 @@ class Estimator:
         self.scores = []
         self.columns = None
 
+    def fit(self, data: dict, pipeline, val_data: Optional[dict] = None) -> "Estimator":
+        """Fits the model using the input data and pipeline.
+
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+            pipeline: data preprocessing pipeline.
+
+        Returns:
+            the fitted model.
+
+        """
+        raise NotImplementedError()
+
+    def predict(self, data: dict, pipeline, val_data: Optional[dict] = None) -> np.ndarray:
+        """Generates predictions using the trained model.
+
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+            pipeline: data preprocessing pipeline.
+
+        Returns:
+            array of predicted values.
+
+        """
+        raise NotImplementedError()
+
+
+class MLEstimator(Estimator):
     def initialize_validator(self):
         """Initialization of the sample generator.
 
@@ -58,32 +92,84 @@ class Estimator:
 
         return cv
 
-    def fit(self, data: dict, pipeline) -> "Estimator":
-        """Fits the model using the input data and pipeline.
 
-        Args:
-            data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
-                columns and indices for features and targets.
-            pipeline: data preprocessing pipeline.
+class StatEstimator(Estimator):
+    @staticmethod
+    def _inspect_raw_ts_X_columns(data: dict, pipeline: Pipeline):
+        res = {
+            "target_column": data["target_column_name"],
+            "date_column": data["date_column_name"],
+            "id_column": data["id_column_name"],
+        }
 
-        Returns:
-            the fitted model.
+        for transformer in pipeline.transformers.transformers_list:
+            if transformer.input_features == data["target_column_name"]:
+                res["target_column"] = transformer.output_features
+            elif transformer.input_features == data["date_column_name"]:
+                res["date_column"] = transformer.output_features
+            elif transformer.input_features == data["id_column_name"]:
+                res["id_column"] = transformer.output_features
 
-        """
+        return res
+
+    def _rename_raw_ts_X_columns(self, data: dict, pipeline: Pipeline):
+        current_column_names = self._inspect_raw_ts_X_columns(data, pipeline)
+        data["raw_ts_X"][current_column_names["target_column"]] == "y"
+        data["raw_ts_X"][current_column_names["date_column"]] == "ds"
+        data["raw_ts_X"][current_column_names["id_column"]] == "unique_id"
+
+        return data
+
+    def _initialize_model(self):
         raise NotImplementedError()
 
+    def __init__(
+        self,
+        validation_params: Dict[str, Union[str, int]],
+        model_params: Dict[str, Union[str, int]],
+        model_name: str,
+    ):
+        super().__init__(validation_params, model_params)
+        self.model_name = model_name
+
+    def fit(self, data: dict, pipeline: Pipeline) -> "StatEstimator":
+        data = self._rename_raw_ts_X_columns(data, pipeline)
+
+        model = self._initialize_model()
+        fitted_model = model.fit(data["raw_ts_X"])
+
+        self.models.append(fitted_model)
+
+    def predict(self, data: dict, pipeline: Pipeline) -> np.ndarray:
+        data = self._rename_raw_ts_X_columns(data, pipeline)
+
+        horizon = pipeline.target_ids.shape[1]
+        y_pred = self.models[0].predict(h=horizon)[self.model_name].values
+
+        return y_pred
+
+
+class BaselineEstimator:
+    @staticmethod
+    def _inspect_raw_ts_X_columns(data: dict, pipeline: Pipeline):
+        res = {
+            "target_column": data["target_column_name"],
+            "date_column": data["date_column_name"],
+            "id_column": data["id_column_name"],
+        }
+
+        for transformer in pipeline.transformers.transformers_list:
+            if transformer.input_features == data["target_column_name"]:
+                res["target_column"] = transformer.output_features
+            elif transformer.input_features == data["date_column_name"]:
+                res["date_column"] = transformer.output_features
+            elif transformer.input_features == data["id_column_name"]:
+                res["id_column"] = transformer.output_features
+
+        return res
+
+    def __init__(self):
+        pass
+
     def predict(self, data: dict, pipeline) -> np.ndarray:
-        """Generates predictions using the trained model.
-
-        Args:
-            data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
-                columns and indices for features and targets.
-            pipeline: data preprocessing pipeline.
-
-        Returns:
-            array of predicted values.
-
-        """
         raise NotImplementedError()

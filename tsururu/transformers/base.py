@@ -1,7 +1,7 @@
 """Base classes for transformers, that are needed for feature generating."""
 
-from typing import Optional, Sequence
 from copy import deepcopy
+from typing import Optional, Sequence
 
 import numpy as np
 
@@ -57,7 +57,7 @@ class Transformer:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
@@ -76,7 +76,7 @@ class Transformer:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -92,7 +92,7 @@ class Transformer:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
@@ -109,7 +109,7 @@ class Transformer:
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -147,7 +147,7 @@ class SequentialTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
@@ -166,7 +166,7 @@ class SequentialTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -192,7 +192,7 @@ class SequentialTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
@@ -211,6 +211,8 @@ class SequentialTransformer(Transformer):
             data = trf.fit_transform(data, current_input_features)
             current_input_features = trf.output_features
             if hasattr(trf, "transform_target") and trf.transform_target:
+                # Check that transform_target corresponding to transformer for target column
+                assert self.input_features == [data["target_column_name"]], f"`transform_target` can't be used with exogenous features. You try use it on {self.input_features}, while target column is `{data['target_column_name']}`"
                 self.inverse_transformers_list.append(trf)
             elif hasattr(trf, "inverse_transformers_list") and trf.inverse_transformers_list:
                 self.inverse_transformers_list.extend(trf.inverse_transformers_list)
@@ -227,7 +229,7 @@ class SequentialTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -281,7 +283,7 @@ class UnionTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
@@ -300,7 +302,7 @@ class UnionTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -326,7 +328,7 @@ class UnionTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             input_features: array with names of columns to transform.
 
@@ -342,6 +344,8 @@ class UnionTransformer(Transformer):
             if trf.output_features is not None:
                 output_features_list.append(trf.output_features)
             if hasattr(trf, "transform_target") and trf.transform_target:
+                # Check that transform_target corresponding to transformer for target column
+                assert self.input_features == [data["target_column_name"]], f"`transform_target` can't be used with exogenous features. You try use it on {self.input_features}, while target column is `{data['target_column_name']}`"
                 self.inverse_transformers_list.append(trf)
             elif hasattr(trf, "inverse_transformers_list") and trf.inverse_transformers_list:
                 self.inverse_transformers_list.extend(trf.inverse_transformers_list)
@@ -357,7 +361,7 @@ class UnionTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -409,7 +413,7 @@ class FeaturesGenerator(Transformer):
             passes data through it.
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -450,7 +454,7 @@ class SeriesToSeriesTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
             data_key: A string representing the key in the data dictionary:
                 either `raw_ts_X` or `raw_ts_y`.
@@ -474,7 +478,7 @@ class SeriesToSeriesTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -511,7 +515,7 @@ class SeriesToSeriesTransformer(Transformer):
             passes data through it.
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -538,7 +542,7 @@ class SeriesToFeaturesTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:
@@ -574,7 +578,7 @@ class FeaturesToFeaturesTransformer(Transformer):
 
         Args:
             data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id and date
+                arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
 
         Returns:

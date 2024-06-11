@@ -1,9 +1,9 @@
-from copy import deepcopy
+from typing import Optional, Union
 
 import pandas as pd
 
 from ..dataset import IndexSlicer, Pipeline, TSDataset
-from ..models import Estimator
+from ..model_training.trainer import DLTrainer, MLTrainer
 from .base import Strategy
 from .utils import timing_decorator
 
@@ -21,7 +21,7 @@ class RecursiveStrategy(Strategy):
             observations (y_{t-history}, ..., y_{t-1}).
         step:  in how many points to take the next observation while
             making samples' matrix.
-        model: base model.
+        trainer: trainer with model params and validation params.
         pipeline: pipeline for feature and target generation.
         model_horizon: how many points to predict at a time,
             if model_horizon > 1, then it's an intermediate strategy
@@ -43,18 +43,21 @@ class RecursiveStrategy(Strategy):
         horizon: int,
         history: int,
         step: int,
-        model: Estimator,
+        trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
         model_horizon: int = 1,
         reduced: bool = False,
     ):
-        super().__init__(horizon, history, step, model, pipeline)
+        super().__init__(horizon, history, step, trainer, pipeline)
         self.model_horizon = model_horizon
         self.reduced = reduced
         self.strategy_name = "recursive"
 
     @timing_decorator
-    def fit(self, dataset: TSDataset) -> "RecursiveStrategy":
+    def fit(
+        self,
+        dataset: TSDataset,
+    ) -> "RecursiveStrategy":
         """Fits the recursive strategy to the given dataset.
 
         Args:
@@ -85,10 +88,41 @@ class RecursiveStrategy(Strategy):
         data = self.pipeline.create_data_dict_for_pipeline(dataset, features_idx, target_idx)
         data = self.pipeline.fit_transform(data, self.strategy_name)
 
-        model = deepcopy(self.model)
-        model.fit(data, self.pipeline)
+        val_dataset = self.trainer.validation_params.get("validation_data")
 
-        self.models.append(model)
+        if val_dataset:
+            val_features_idx = index_slicer.create_idx_data(
+                val_dataset.data,
+                self.model_horizon,
+                self.history,
+                self.step,
+                date_column=dataset.date_column,
+                delta=dataset.delta,
+            )
+
+            val_target_idx = index_slicer.create_idx_target(
+                val_dataset.data,
+                self.model_horizon,
+                self.history,
+                self.step,
+                date_column=dataset.date_column,
+                delta=dataset.delta,
+            )
+
+            val_data = self.pipeline.create_data_dict_for_pipeline(
+                val_dataset, val_features_idx, val_target_idx
+            )
+            val_data = self.pipeline.transform(val_data)
+        else:
+            val_data = None
+
+        if isinstance(self.trainer, DLTrainer):
+            self.trainer.horizon = self.model_horizon
+            self.trainer.history = self.history
+
+        self.trainer.fit(data, self.pipeline, val_data)
+
+        self.trainers.append(self.trainer)
         return self
 
     def make_step(self, step: int, dataset: TSDataset) -> TSDataset:
@@ -123,7 +157,7 @@ class RecursiveStrategy(Strategy):
         data = self.pipeline.create_data_dict_for_pipeline(dataset, test_idx, target_idx)
         data = self.pipeline.transform(data)
 
-        pred = self.models[0].predict(data, self.pipeline)
+        pred = self.trainers[0].predict(data, self.pipeline)
         pred = self.pipeline.inverse_transform_y(pred)
 
         dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
@@ -131,7 +165,7 @@ class RecursiveStrategy(Strategy):
         return dataset
 
     @timing_decorator
-    def predict(self, dataset: TSDataset) -> pd.DataFrame:
+    def predict(self, dataset: TSDataset, test_all: bool = False) -> pd.DataFrame:
         """Predicts the target values for the given dataset.
 
         Args:
@@ -141,8 +175,13 @@ class RecursiveStrategy(Strategy):
             a pandas DataFrame containing the predicted target values.
 
         """
-        new_data = dataset.make_padded_test(self.horizon, self.history)
+        new_data = dataset.make_padded_test(
+            self.horizon, self.history, test_all=test_all, model_horizon=self.model_horizon
+        )
         new_dataset = TSDataset(new_data, dataset.columns_params, dataset.delta)
+        
+        if test_all:
+            new_dataset.data = new_dataset.data.sort_values([dataset.id_column, "segment_col", dataset.date_column])
 
         if self.reduced:
             current_test_ids = index_slicer.create_idx_data(
@@ -168,7 +207,7 @@ class RecursiveStrategy(Strategy):
             )
             data = self.pipeline.transform(data)
 
-            pred = self.models[0].predict(data, self.pipeline)
+            pred = self.trainers[0].predict(data, self.pipeline)
             pred = self.pipeline.inverse_transform_y(pred)
 
             new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = pred.reshape(-1)

@@ -1,15 +1,39 @@
 """Algorithms for time series forecasting."""
 
-from .base import Estimator
-from .boost import CatBoostRegressor_CV
-from tsururu.addons.blend import BlenderBase, MeanBlender, BestModel, ClassicBlender
+from .base import Estimator, BaselineEstimator, MLEstimator
+from .boost import CatBoost
+from ..addons.blend import (
+    MeanBlender,
+    BestModel,
+    ClassicBlender
+)
+from .baselines import (
+    DriftMethod,
+    MeanMethod,
+    NaiveMethod,
+    SeasonalNaiveMethod,
+)
+from .linear import (
+    LinearRegression_CV,
+    LassoRegression_CV,
+    RidgeRegression_CV,
+)
+from .random_forest import RandomForest_CV
 
 
 # Factory Object
 class ModelsFactory:
     def __init__(self):
         self.models = {
-            "CatBoostRegressor_CV": CatBoostRegressor_CV,
+            "CatBoostRegressor_CV": CatBoost,
+            "LinearRegression_CV": LinearRegression_CV,
+            "LassoRegression_CV": LassoRegression_CV,
+            "RidgeRegression_CV": RidgeRegression_CV,
+            "RandomForest_CV": RandomForest_CV,
+            "DriftMethod": DriftMethod,
+            "MeanMethod": MeanMethod,
+            "NaiveMethod": NaiveMethod,
+            "SeasonalNaiveMethod": SeasonalNaiveMethod,
         }
 
     def get_allowed(self):
@@ -25,4 +49,21 @@ class ModelsFactory:
         return self.models[model_name](**model_params)
 
 
-__all__ = ["CatBoostRegressor_CV", "ModelsFactory", "Estimator", "BlenderBase", "MeanBlender", "BestModel", "ClassicBlender"]
+__all__ = [
+    "ModelsFactory",
+    "Estimator",
+    "BaselineEstimator",
+    "MLEstimator",
+    "CatBoost",
+    "LinearRegression_CV",
+    "LassoRegression_CV",
+    "RidgeRegression_CV",
+    "RandomForest_CV",
+    "DriftMethod",
+    "MeanMethod",
+    "NaiveMethod",
+    "SeasonalNaiveMethod",
+    "MeanBlender",
+    "BestModel",
+    "ClassicBlender",
+]
