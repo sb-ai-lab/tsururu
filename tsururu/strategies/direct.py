@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Optional, Union
 
 from ..dataset.dataset import TSDataset
@@ -145,7 +146,7 @@ class DirectStrategy(RecursiveStrategy):
                     self.trainer.horizon = self.model_horizon
                     self.trainer.history = self.history
 
-                current_trainer = self.trainer.copy()
+                current_trainer = deepcopy(self.trainer)
                 current_trainer.fit(data, self.pipeline, val_data)
 
                 self.trainers.append(current_trainer)
@@ -209,7 +210,7 @@ class DirectStrategy(RecursiveStrategy):
                     self.trainer.horizon = self.model_horizon
                     self.trainer.history = self.history
 
-                current_trainer = self.trainer.copy()
+                current_trainer = deepcopy(self.trainer)
                 current_trainer.fit(data, self.pipeline, val_data)
 
                 self.trainers.append(current_trainer)

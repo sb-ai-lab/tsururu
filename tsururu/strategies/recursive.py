@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Optional, Union
 
 import pandas as pd
@@ -120,9 +121,10 @@ class RecursiveStrategy(Strategy):
             self.trainer.horizon = self.model_horizon
             self.trainer.history = self.history
 
-        self.trainer.fit(data, self.pipeline, val_data)
+        current_trainer = deepcopy(self.trainer)
+        current_trainer.fit(data, self.pipeline, val_data)
 
-        self.trainers.append(self.trainer)
+        self.trainers.append(current_trainer)
         return self
 
     def make_step(self, step: int, dataset: TSDataset) -> TSDataset:
@@ -179,9 +181,11 @@ class RecursiveStrategy(Strategy):
             self.horizon, self.history, test_all=test_all, model_horizon=self.model_horizon
         )
         new_dataset = TSDataset(new_data, dataset.columns_params, dataset.delta)
-        
+
         if test_all:
-            new_dataset.data = new_dataset.data.sort_values([dataset.id_column, "segment_col", dataset.date_column])
+            new_dataset.data = new_dataset.data.sort_values(
+                [dataset.id_column, "segment_col", dataset.date_column]
+            )
 
         if self.reduced:
             current_test_ids = index_slicer.create_idx_data(

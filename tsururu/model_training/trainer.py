@@ -34,7 +34,7 @@ class MLTrainer:
     ):
         self.model = model
         self.model_params = model_params
-        self.validation = validator
+        self.validator = validator
         self.validation_params = validation_params
 
         # Provide by strategy if needed
@@ -69,10 +69,10 @@ class MLTrainer:
         self.features_argsort = np.argsort(pipeline.output_features)
         X = X[:, self.features_argsort]
 
-        for fold_i, X_train, y_train, X_val, y_val in enumerate(
+        for fold_i, (X_train, y_train, X_val, y_val) in enumerate(
             self.validator(**self.validation_params).get_split(X, y, X_val, y_val)
         ):
-            model = self.model(**self.model_params["params"])
+            model = self.model(self.model_params)
             model.fit_one_fold(X_train, y_train, X_val, y_val)
             self.models.append(model)
             self.scores.append(model.score)
