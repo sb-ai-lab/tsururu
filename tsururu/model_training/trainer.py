@@ -312,7 +312,10 @@ class DLTrainer:
             checkpoint_path = self.checkpoint_path
             self.checkpoint_path /= f"fold_{fold_i}"
             train_subset = Subset(train_dataset, train_dataset_idx)
-            val_subset = Subset(val_dataset, val_dataset_idx)
+            if val_dataset is not None:
+                val_subset = Subset(val_dataset, val_dataset_idx)
+            elif val_dataset_idx is not None:
+                val_subset = Subset(train_dataset, val_dataset_idx)
             train_loader = torch.utils.data.DataLoader(
                 train_subset,
                 batch_size=self.batch_size,
