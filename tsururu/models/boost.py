@@ -7,10 +7,10 @@ try:
 except ImportError:
     Pool = None
     CatBoostRegressor = None
-from .base import MLEstimator
+from .base import Estimator
 
 
-class CatBoost(MLEstimator):
+class CatBoost(Estimator):
     """CatBoost is a class that performs cross-validation
         using CatBoostRegressor.
 
@@ -23,8 +23,8 @@ class CatBoost(MLEstimator):
 
     """
 
-    def __init__(self, validation_params: Dict[str, Union[str, int]], model_params: Dict[str, Union[str, int]]):
-        super().__init__(validation_params, model_params)
+    def __init__(self, model_params: Dict[str, Union[str, int]]):
+        super().__init__(model_params)
         self.trainer_type = "MLTrainer"
 
     def fit_one_fold(

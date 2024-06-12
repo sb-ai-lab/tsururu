@@ -39,14 +39,31 @@ class StatStrategy(Strategy):
 
     @timing_decorator
     def fit(self, dataset: TSDataset) -> "StatStrategy":
-        data = self.pipeline.create_data_dict_for_pipeline(dataset, None, None)
-        print(data)
-        data = self.pipeline.fit_transform(data, self.strategy_name)
+        features_idx = index_slicer.create_idx_data(
+            dataset.data,
+            self.horizon,
+            self.history,
+            self.step,
+            date_column=dataset.date_column,
+            delta=dataset.delta,
+        )
 
+        target_idx = index_slicer.create_idx_target(
+            dataset.data,
+            self.horizon,
+            self.history,
+            self.step,
+            date_column=dataset.date_column,
+            delta=dataset.delta,
+        )
+
+        data = self.pipeline.create_data_dict_for_pipeline(dataset, features_idx, target_idx)
+        data = self.pipeline.fit_transform(data, self.strategy_name)
+    
         trainer = deepcopy(self.trainer)
 
         if isinstance(trainer, StatTrainer):
-            trainer.fit(data, self.pipeline)
+            trainer.fit(data, self.pipeline, dataset.id_column, dataset.date_column)
 
         self.trainers.append(trainer)
         return self
@@ -80,7 +97,7 @@ class StatStrategy(Strategy):
         data = self.pipeline.create_data_dict_for_pipeline(new_dataset, features_idx, target_ids)
         data = self.pipeline.transform(data)
 
-        pred = self.models[0].predict(data, self.pipeline)
+        pred = self.trainers[0].predict(data, self.pipeline, self.horizon, dataset.id_column, dataset.date_column)
         pred = self.pipeline.inverse_transform_y(pred)
 
         new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = pred.reshape(-1)

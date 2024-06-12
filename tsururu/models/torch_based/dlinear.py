@@ -117,3 +117,4 @@ class DLinear_NN(nn.Module):
             return res, moving_mean
 
         return forward
+

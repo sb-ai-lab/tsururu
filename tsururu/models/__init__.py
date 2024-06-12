@@ -1,12 +1,8 @@
 """Algorithms for time series forecasting."""
 
+
 from .base import Estimator, BaselineEstimator, MLEstimator
 from .boost import CatBoost
-from ..addons.blend import (
-    MeanBlender,
-    BestModel,
-    ClassicBlender
-)
 from .baselines import (
     DriftMethod,
     MeanMethod,
@@ -71,9 +67,6 @@ __all__ = [
     "MeanMethod",
     "NaiveMethod",
     "SeasonalNaiveMethod",
-    "MeanBlender",
-    "BestModel",
-    "ClassicBlender",
     "ETS_Model",
     "ARIMA_Model",
     "Theta_Model"

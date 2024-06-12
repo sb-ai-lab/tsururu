@@ -10,40 +10,31 @@ class Estimator:
     """Base class for all models.
 
     Args:
-        validation_params: execution params (type, cv, loss),
-            for example: {
-                "type": "KFold",
-                "n_splits": 3,
-                "loss_function": "MAE",
-            }.
-        model_params: base model's params,
-            for example: {
-                "loss_function": "MultiRMSE",
-                "early_stopping_rounds": 100,
-            }.
+        model_params: parameters for the model.
+            Individually defined for each model.
 
     """
 
-    def __init__(
-        self,
-        validation_params: Dict[str, Union[str, int]],
-        model_params: Dict[str, Union[str, int]],
-    ):
-        self.validation_params = validation_params
+    def __init__(self, model_params: Dict[str, Union[str, int]]):
         self.model_params = model_params
 
-        self.models = []
-        self.scores = []
-        self.columns = None
+        self.model = None
+        self.score = None
 
-    def fit(self, data: dict, pipeline, val_data: Optional[dict] = None) -> "Estimator":
-        """Fits the model using the input data and pipeline.
+    def fit_one_fold(
+        self,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_val: Optional[np.ndarray],
+        y_val: Optional[np.ndarray],
+    ) -> "Estimator":
+        """Fits the model on one fold using the input data.
 
         Args:
-            data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id, date and target
-                columns and indices for features and targets.
-            pipeline: data preprocessing pipeline.
+            X_train: features array.
+            y_train: target array.
+            X_val: validation features array.
+            y_val: validation target array.
 
         Returns:
             the fitted model.
@@ -51,20 +42,17 @@ class Estimator:
         """
         raise NotImplementedError()
 
-    def predict(self, data: dict, pipeline, val_data: Optional[dict] = None) -> np.ndarray:
+    def predict(self, X: np.ndarray) -> np.ndarray:
         """Generates predictions using the trained model.
 
         Args:
-            data: dictionary with current states of "elongated series",
-                arrays with features and targets, name of id, date and target
-                columns and indices for features and targets.
-            pipeline: data preprocessing pipeline.
+            X: features array.
 
         Returns:
             array of predicted values.
 
         """
-        raise NotImplementedError()
+        return self.model.predict(X)
 
 
 class MLEstimator(Estimator):
@@ -125,11 +113,10 @@ class StatEstimator(Estimator):
 
     def __init__(
         self,
-        validation_params: Dict[str, Union[str, int]],
         model_params: Dict[str, Union[str, int]],
         model_name: str,
     ):
-        super().__init__(validation_params, model_params)
+        super().__init__(model_params)
         self.model_name = model_name
 
     def fit(self, data: dict, pipeline: Pipeline) -> "StatEstimator":

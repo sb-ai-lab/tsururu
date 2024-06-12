@@ -6,7 +6,6 @@ import pandas as pd
 import torch
 from torch.utils.data import Subset
 from tqdm.notebook import tqdm
-from dask.distributed import Client, LocalCluster
 from ..models.stats import StatsForecast
 
 from ..dataset.pipeline import Pipeline
@@ -72,10 +71,10 @@ class MLTrainer:
         self.features_argsort = np.argsort(pipeline.output_features)
         X = X[:, self.features_argsort]
 
-        for fold_i, X_train, y_train, X_val, y_val in enumerate(
+        for fold_i, (X_train, y_train, X_val, y_val) in enumerate(
             self.validator(**self.validation_params).get_split(X, y, X_val, y_val)
         ):
-            model = self.model(**self.model_params["params"])
+            model = self.model(self.model_params)
             model.fit_one_fold(X_train, y_train, X_val, y_val)
             self.models.append(model)
             self.scores.append(model.score)
@@ -315,7 +314,10 @@ class DLTrainer:
             checkpoint_path = self.checkpoint_path
             self.checkpoint_path /= f"fold_{fold_i}"
             train_subset = Subset(train_dataset, train_dataset_idx)
-            val_subset = Subset(val_dataset, val_dataset_idx)
+            if val_dataset is not None:
+                val_subset = Subset(val_dataset, val_dataset_idx)
+            elif val_dataset_idx is not None:
+                val_subset = Subset(train_dataset, val_dataset_idx)
             train_loader = torch.utils.data.DataLoader(
                 train_subset,
                 batch_size=self.batch_size,
@@ -389,75 +391,52 @@ class StatTrainer:
     Args:
         model: the model class to be used for training (e.g., AutoETS, AutoARIMA, AutoTheta).
         model_params: the parameters for the model.
-        validation_params: the parameters for the validation strategy.
-        n_workers: number of workers for the Dask cluster.
-        threads_per_worker: number of threads per worker for the Dask cluster.
-
+        freq: frequency of the time series.
+        ts_id_column: column name for the time series ID.
+        ts_date_column: column name for the date.
     """
 
-    def __init__(
-        self,
-        model,
-        model_params: Dict,
-        validation_params: Dict = {},
-        n_workers: int = 4,
-        threads_per_worker: int = 1,
-        freq: str = 'D'
-    ):
-        self.model = model
+    def __init__(self, model_class, model_params: dict, freq: str, ts_id_column: str, ts_date_column: str):
+        self.model_class = model_class
         self.model_params = model_params
-        self.validation_params = validation_params
         self.freq = freq
+        self.ts_id_column = ts_id_column
+        self.ts_date_column = ts_date_column
+        self.models = []
 
-        # Create a local Dask cluster
-        self.cluster = LocalCluster(n_workers=n_workers, threads_per_worker=threads_per_worker)
-        self.client = Client(self.cluster)
+    def fit(self, data: dict, pipeline: Pipeline, ts_id_column, ts_date_column) -> "StatTrainer":
+        _, _ = pipeline.generate(data)
+        data = pipeline.transform(data)
 
-        # Provide by strategy if needed
-        self.history = None
-        self.horizon = None
-        self.models: List = []
-        self.scores: List[float] = []
-        self.columns: List[str] = []
+        data = data['raw_ts_X']
+        filtered_data = data[[ts_id_column, ts_date_column, pipeline.output_features[0]]]
 
-    def fit(self, data: dict, pipeline: Pipeline) -> "StatTrainer":
-        # Apply the pipeline to preprocess the data
-        X, y = pipeline.generate(data)
+        model_to_fit = self.model_class(self.model_params)
 
-        self.features_argsort = np.argsort(pipeline.output_features)
-        X = X[:, self.features_argsort]
-
-        # Create StatsForecast object
         sf = StatsForecast(
-            df=X,
-            models=[self.model(**self.model_params)],
+            models=[model_to_fit],
             freq=self.freq,
-            client=self.client
         )
-
-        # Fit models
-        self.models = sf.fit()
+        
+        sf.fit(            
+            df=filtered_data,
+            id_col=ts_id_column,
+            time_col=ts_date_column,
+            target_col=pipeline.output_features[0])
+        self.models.append(sf)
 
         return self
 
-    def predict(self, data: dict, pipeline: Pipeline, h: int) -> pd.DataFrame:
-        # Apply the pipeline to preprocess the data
+    def predict(self, data: dict, pipeline: Pipeline, horizon: int, ts_id_column, ts_date_column):
+        _, _ = pipeline.generate(data)
         data = pipeline.transform(data)
-
-        # Create StatsForecast object with fitted models
-        sf = StatsForecast(
-            df=data,
-            models=self.models,
-            freq=self.freq,
-            client=self.client
+        
+        data = data['raw_ts_X']
+        filtered_data = data[[ts_id_column, ts_date_column, pipeline.output_features[0]]]
+    
+        # Generate predictions
+        forecast = self.models[0].predict(
+            h=horizon
         )
 
-        # Generate predictions
-        forecast = sf.predict(h=h)
-
         return forecast
-
-    def close(self):
-        """Closes the Dask client and cluster."""
-        self.client.close()
-        self.cluster.close()
