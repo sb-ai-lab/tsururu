@@ -1,8 +1,8 @@
 from copy import deepcopy
-from typing import Optional
+from typing import Optional, Union
 
 from ..dataset import IndexSlicer, Pipeline, TSDataset
-from ..models import Estimator
+from ..model_training.trainer import StatTrainer, DLTrainer, MLTrainer
 from .base import Strategy
 from .utils import timing_decorator
 
@@ -23,15 +23,16 @@ class StatStrategy(Strategy):
     def __init__(
         self,
         horizon: int,
-        model: Estimator,
+        history: int,
+        step: int,
+        trainer: Union[StatTrainer, MLTrainer, DLTrainer],
         pipeline: Pipeline,
-        history: Optional[int] = None,
     ):
         super().__init__(
             horizon=horizon,
             history=history,
             step=1,
-            model=model,
+            trainer=trainer,
             pipeline=pipeline,
         )
         self.strategy_name = "stat"
@@ -39,14 +40,15 @@ class StatStrategy(Strategy):
     @timing_decorator
     def fit(self, dataset: TSDataset) -> "StatStrategy":
         data = self.pipeline.create_data_dict_for_pipeline(dataset, None, None)
+        print(data)
         data = self.pipeline.fit_transform(data, self.strategy_name)
 
-        model = deepcopy(self.model)
+        trainer = deepcopy(self.trainer)
 
-        if isinstance(model, Estimator):
-            model.fit(data, self.pipeline)
+        if isinstance(trainer, StatTrainer):
+            trainer.fit(data, self.pipeline)
 
-        self.models.append(model)
+        self.trainers.append(trainer)
         return self
 
     @timing_decorator

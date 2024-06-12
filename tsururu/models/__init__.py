@@ -13,6 +13,11 @@ from .baselines import (
     NaiveMethod,
     SeasonalNaiveMethod,
 )
+from .stats import (
+    ETS_Model,
+    ARIMA_Model,
+    Theta_Model,
+)
 from .linear import (
     LinearRegression_CV,
     LassoRegression_CV,
@@ -34,6 +39,9 @@ class ModelsFactory:
             "MeanMethod": MeanMethod,
             "NaiveMethod": NaiveMethod,
             "SeasonalNaiveMethod": SeasonalNaiveMethod,
+            "ETS_Model": ETS_Model,
+            "ARIMA_Model": ARIMA_Model,
+            "Theta_Model": Theta_Model,
         }
 
     def get_allowed(self):
@@ -66,4 +74,7 @@ __all__ = [
     "MeanBlender",
     "BestModel",
     "ClassicBlender",
+    "ETS_Model",
+    "ARIMA_Model",
+    "Theta_Model"
 ]

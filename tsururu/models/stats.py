@@ -3,6 +3,7 @@ from typing import Dict, Union
 import numpy as np
 
 try:
+    from statsforecast import StatsForecast
     from statsforecast.models import AutoARIMA, AutoETS, AutoTheta
 except:
     LinearRegression = None
