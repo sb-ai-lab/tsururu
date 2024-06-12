@@ -16,7 +16,7 @@ class nnDataset(Dataset):
                 len(self.data["idx_X"]) // self.data["raw_ts_X"]["id"].nunique()
             )
             unique_dates, inverse_indices = np.unique(
-                self.data["raw_ts_X"]["date"], return_inverse=True
+                self.data["raw_ts_X"][self.data["date_column_name"]], return_inverse=True
             )
             unique_dates = to_datetime(unique_dates)
             self.date_indices = {
@@ -28,7 +28,7 @@ class nnDataset(Dataset):
 
     def __getitem__(self, index):
         if self.pipeline.multivariate:
-            current_date = self.data["raw_ts_X"]["date"].iloc[self.idx_X[index][0]]
+            current_date = self.data["raw_ts_X"][self.data["date_column_name"]].iloc[self.idx_X[index][0]]
             current_date = to_datetime(current_date)
             first_idx = self.date_indices[current_date]
             idx_X = self.idx_X[np.isin(self.idx_X[:, 0], first_idx)]
