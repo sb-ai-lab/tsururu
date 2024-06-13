@@ -1,6 +1,8 @@
 from copy import deepcopy
 from typing import Optional, Union
 
+import numpy as np
+
 from ..dataset import IndexSlicer, Pipeline, TSDataset
 from ..model_training.trainer import StatTrainer, DLTrainer, MLTrainer
 from .base import Strategy
@@ -98,9 +100,11 @@ class StatStrategy(Strategy):
         data = self.pipeline.transform(data)
 
         pred = self.trainers[0].predict(data, self.pipeline, self.horizon, dataset.id_column, dataset.date_column)
-        pred = self.pipeline.inverse_transform_y(pred)
+        y_pred = pred.iloc[:, 1].to_numpy()
 
-        new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = pred.reshape(-1)
+        y_pred = self.pipeline.inverse_transform_y(y_pred)
+        print(f'TRANSOFRED Y {y_pred}')
+        new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = y_pred.reshape(-1)
 
         # Get dataframe with predictions only
         pred_df = self._make_preds_df(new_dataset, self.horizon, self.history)

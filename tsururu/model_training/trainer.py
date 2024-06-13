@@ -389,7 +389,7 @@ class StatTrainer:
     """Class for training and predicting using statistical models from StatsForecast.
 
     Args:
-        model: the model class to be used for training (e.g., AutoETS, AutoARIMA, AutoTheta).
+        model_class: the model class to be used for training (e.g., AutoETS, AutoARIMA, AutoTheta).
         model_params: the parameters for the model.
         freq: frequency of the time series.
         ts_id_column: column name for the time series ID.
@@ -412,10 +412,14 @@ class StatTrainer:
         filtered_data = data[[ts_id_column, ts_date_column, pipeline.output_features[0]]]
 
         model_to_fit = self.model_class(self.model_params)
+        if not hasattr(model_to_fit, 'uses_exog'):
+            model_to_fit.uses_exog = False
+        print(model_to_fit)
 
         sf = StatsForecast(
             models=[model_to_fit],
             freq=self.freq,
+            n_jobs=1,
         )
         
         sf.fit(            
@@ -424,6 +428,7 @@ class StatTrainer:
             time_col=ts_date_column,
             target_col=pipeline.output_features[0])
         self.models.append(sf)
+        print(self.models[0])
 
         return self
 
@@ -435,8 +440,6 @@ class StatTrainer:
         filtered_data = data[[ts_id_column, ts_date_column, pipeline.output_features[0]]]
     
         # Generate predictions
-        forecast = self.models[0].predict(
-            h=horizon
-        )
+        forecast = self.models[0].predict(horizon)
 
         return forecast
