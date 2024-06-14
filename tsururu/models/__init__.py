@@ -1,36 +1,22 @@
 """Algorithms for time series forecasting."""
 
-
-from .base import Estimator, BaselineEstimator, MLEstimator
+from .base import BaselineEstimator, Estimator, MLEstimator
+from .baselines import DriftMethod, MeanMethod, NaiveMethod, SeasonalNaiveMethod
 from .boost import CatBoost
-from .baselines import (
-    DriftMethod,
-    MeanMethod,
-    NaiveMethod,
-    SeasonalNaiveMethod,
-)
-from .stats import (
-    ETS,
-    ARIMA,
-    Theta,
-)
-from .linear import (
-    LinearRegression_CV,
-    LassoRegression_CV,
-    RidgeRegression_CV,
-)
-from .random_forest import RandomForest_CV
+from .linear import LassoRegression, LinRegression, RidgeRegression
+from .random_forest import RandomForest
+from .stats import ARIMA, ETS, Theta
 
 
 # Factory Object
 class ModelsFactory:
     def __init__(self):
         self.models = {
-            "CatBoostRegressor_CV": CatBoost,
-            "LinearRegression_CV": LinearRegression_CV,
-            "LassoRegression_CV": LassoRegression_CV,
-            "RidgeRegression_CV": RidgeRegression_CV,
-            "RandomForest_CV": RandomForest_CV,
+            "CatBoost": CatBoost,
+            "LinRegression": LinRegression,
+            "LassoRegression": LassoRegression,
+            "RidgeRegression": RidgeRegression,
+            "RandomForest": RandomForest,
             "DriftMethod": DriftMethod,
             "MeanMethod": MeanMethod,
             "NaiveMethod": NaiveMethod,
@@ -59,15 +45,15 @@ __all__ = [
     "BaselineEstimator",
     "MLEstimator",
     "CatBoost",
-    "LinearRegression_CV",
-    "LassoRegression_CV",
-    "RidgeRegression_CV",
-    "RandomForest_CV",
+    "LinRegression",
+    "LassoRegression",
+    "RidgeRegression",
+    "RandomForest",
     "DriftMethod",
     "MeanMethod",
     "NaiveMethod",
     "SeasonalNaiveMethod",
     "ETS",
     "ARIMA",
-    "Theta"
+    "Theta",
 ]

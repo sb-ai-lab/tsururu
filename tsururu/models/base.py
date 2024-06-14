@@ -1,6 +1,7 @@
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
 
 import numpy as np
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, TimeSeriesSplit
 
 from ..dataset.pipeline import Pipeline
@@ -15,8 +16,9 @@ class Estimator:
 
     """
 
-    def __init__(self, model_params: Dict[str, Union[str, int]]):
+    def __init__(self, model_params: Dict[str, Union[str, int]], trainer_type: str):
         self.model_params = model_params
+        self.trainer_type = trainer_type
 
         self.model = None
         self.score = None
@@ -56,6 +58,9 @@ class Estimator:
 
 
 class MLEstimator(Estimator):
+    def __init__(self, model_params: Dict[str, Union[str, int]]):
+        super().__init__(model_params, "MLTrainer")
+
     def initialize_validator(self):
         """Initialization of the sample generator.
 
@@ -80,8 +85,26 @@ class MLEstimator(Estimator):
 
         return cv
 
+    def fit_one_fold(
+        self,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_val: Optional[np.ndarray],
+        y_val: Optional[np.ndarray],
+    ) -> "MLEstimator":
+        self.model = self._initialize_model()
+        self.model.fit(X_train, y_train)
+        val_preds = self.predict(X_val)
+        self.score = mean_squared_error(y_val, val_preds, squared=False)
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        return self.model.predict(X)
+
 
 class StatEstimator(Estimator):
+    def __init__(self, model_params: Dict[str, Union[str, int]]):
+        super().__init__(model_params, "StatTrainer")
+
     @staticmethod
     def _inspect_raw_ts_X_columns(data: dict, pipeline: Pipeline):
         res = {
