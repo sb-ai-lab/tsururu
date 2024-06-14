@@ -10,9 +10,9 @@ from .baselines import (
     SeasonalNaiveMethod,
 )
 from .stats import (
-    ETS_Model,
-    ARIMA_Model,
-    Theta_Model,
+    ETS,
+    ARIMA,
+    Theta,
 )
 from .linear import (
     LinearRegression_CV,
@@ -35,9 +35,9 @@ class ModelsFactory:
             "MeanMethod": MeanMethod,
             "NaiveMethod": NaiveMethod,
             "SeasonalNaiveMethod": SeasonalNaiveMethod,
-            "ETS_Model": ETS_Model,
-            "ARIMA_Model": ARIMA_Model,
-            "Theta_Model": Theta_Model,
+            "ETS": ETS,
+            "ARIMA": ARIMA,
+            "Theta": Theta,
         }
 
     def get_allowed(self):
@@ -67,7 +67,7 @@ __all__ = [
     "MeanMethod",
     "NaiveMethod",
     "SeasonalNaiveMethod",
-    "ETS_Model",
-    "ARIMA_Model",
-    "Theta_Model"
+    "ETS",
+    "ARIMA",
+    "Theta"
 ]

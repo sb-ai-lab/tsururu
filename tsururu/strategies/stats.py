@@ -100,10 +100,11 @@ class StatStrategy(Strategy):
         data = self.pipeline.transform(data)
 
         pred = self.trainers[0].predict(data, self.pipeline, self.horizon, dataset.id_column, dataset.date_column)
-        y_pred = pred.iloc[:, 1].to_numpy()
+        y_pred_array = pred.iloc[:, 1].to_numpy()
 
-        y_pred = self.pipeline.inverse_transform_y(y_pred)
-        print(f'TRANSOFRED Y {y_pred}')
+        y_pred_reshaped = y_pred_array.reshape(len(new_dataset.data.id.unique()), self.horizon)
+        
+        y_pred = self.pipeline.inverse_transform_y(y_pred_reshaped)
         new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = y_pred.reshape(-1)
 
         # Get dataframe with predictions only

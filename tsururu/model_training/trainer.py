@@ -406,15 +406,13 @@ class StatTrainer:
 
     def fit(self, data: dict, pipeline: Pipeline, ts_id_column, ts_date_column) -> "StatTrainer":
         _, _ = pipeline.generate(data)
-        data = pipeline.transform(data)
-
+        
         data = data['raw_ts_X']
         filtered_data = data[[ts_id_column, ts_date_column, pipeline.output_features[0]]]
-
+        
         model_to_fit = self.model_class(self.model_params)
         if not hasattr(model_to_fit, 'uses_exog'):
             model_to_fit.uses_exog = False
-        print(model_to_fit)
 
         sf = StatsForecast(
             models=[model_to_fit],
@@ -427,19 +425,18 @@ class StatTrainer:
             id_col=ts_id_column,
             time_col=ts_date_column,
             target_col=pipeline.output_features[0])
+        
         self.models.append(sf)
-        print(self.models[0])
 
         return self
 
-    def predict(self, data: dict, pipeline: Pipeline, horizon: int, ts_id_column, ts_date_column):
+    def predict(self, data: dict, pipeline: Pipeline, horizon: int, ts_id_column, ts_date_column) -> pd.DataFrame:
         _, _ = pipeline.generate(data)
-        data = pipeline.transform(data)
         
         data = data['raw_ts_X']
         filtered_data = data[[ts_id_column, ts_date_column, pipeline.output_features[0]]]
-    
-        # Generate predictions
+
+        # Generate dataframe with predictions
         forecast = self.models[0].predict(horizon)
 
         return forecast

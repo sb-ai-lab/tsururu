@@ -8,7 +8,7 @@ from statsforecast.models import AutoARIMA, AutoETS, AutoTheta
 from .base import StatEstimator
 
 
-class ETS_Model(StatEstimator):
+class ETS(StatEstimator):
     def __init__(self, model_params: Dict[str, Union[str, int]]):
         super().__init__(model_params=model_params, model_name="AutoETS")
         self.model = self._initialize_model()
@@ -19,7 +19,7 @@ class ETS_Model(StatEstimator):
     def new(self):
         return AutoETS(**self.model_params)
 
-class ARIMA_Model(StatEstimator):
+class ARIMA(StatEstimator):
     def __init__(self, model_params: Dict[str, Union[str, int]]):
         super().__init__(model_params=model_params, model_name="AutoARIMA")
         self.model = self._initialize_model()
@@ -30,7 +30,7 @@ class ARIMA_Model(StatEstimator):
     def new(self):
         return AutoARIMA(**self.model_params)
 
-class Theta_Model(StatEstimator):
+class Theta(StatEstimator):
     def __init__(self, model_params: Dict[str, Union[str, int]]):
         super().__init__(model_params=model_params, model_name="AutoTheta")
         self.model = self._initialize_model()
