@@ -2,9 +2,11 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import Subset
 from tqdm.notebook import tqdm
+from ..models.stats import StatsForecast
 
 from ..dataset.pipeline import Pipeline
 from ..models.base import Estimator
@@ -381,3 +383,60 @@ class DLTrainer:
             y_pred = y_pred.reshape(-1, y_pred.shape[2])
 
         return y_pred.numpy()
+
+
+class StatTrainer:
+    """Class for training and predicting using statistical models from StatsForecast.
+
+    Args:
+        model_class: the model class to be used for training (e.g., AutoETS, AutoARIMA, AutoTheta).
+        model_params: the parameters for the model.
+        freq: frequency of the time series.
+        ts_id_column: column name for the time series ID.
+        ts_date_column: column name for the date.
+    """
+
+    def __init__(self, model_class, model_params: dict, freq: str, ts_id_column: str, ts_date_column: str):
+        self.model_class = model_class
+        self.model_params = model_params
+        self.freq = freq
+        self.ts_id_column = ts_id_column
+        self.ts_date_column = ts_date_column
+        self.models = []
+
+    def fit(self, data: dict, pipeline: Pipeline, ts_id_column, ts_date_column) -> "StatTrainer":
+        _, _ = pipeline.generate(data)
+        
+        data = data['raw_ts_X']
+        filtered_data = data[[ts_id_column, ts_date_column, pipeline.output_features[0]]]
+        
+        model_to_fit = self.model_class(self.model_params)
+        if not hasattr(model_to_fit, 'uses_exog'):
+            model_to_fit.uses_exog = False
+
+        sf = StatsForecast(
+            models=[model_to_fit],
+            freq=self.freq,
+            n_jobs=1,
+        )
+        
+        sf.fit(            
+            df=filtered_data,
+            id_col=ts_id_column,
+            time_col=ts_date_column,
+            target_col=pipeline.output_features[0])
+        
+        self.models.append(sf)
+
+        return self
+
+    def predict(self, data: dict, pipeline: Pipeline, horizon: int, ts_id_column, ts_date_column) -> pd.DataFrame:
+        _, _ = pipeline.generate(data)
+        
+        data = data['raw_ts_X']
+        filtered_data = data[[ts_id_column, ts_date_column, pipeline.output_features[0]]]
+
+        # Generate dataframe with predictions
+        forecast = self.models[0].predict(horizon)
+
+        return forecast

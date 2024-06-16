@@ -4,6 +4,7 @@ from .direct import DirectStrategy
 from .flat_wide_mimo import FlatWideMIMOStrategy
 from .mimo import MIMOStrategy
 from .recursive import RecursiveStrategy
+from .stats import StatStrategy
 
 
 # Factory Object
@@ -14,6 +15,7 @@ class StrategiesFactory:
             "DirectStrategy": DirectStrategy,
             "MIMOStrategy": MIMOStrategy,
             "FlatWideMIMOStrategy": FlatWideMIMOStrategy,
+            "StatStrategy": StatStrategy,
         }
 
     def get_allowed(self):
@@ -31,5 +33,6 @@ __all__ = [
     "DirectStrategy",
     "MIMOStrategy",
     "FlatWideMIMOStrategy",
+    "StatStrategy",
     "StrategiesFactory",
 ]

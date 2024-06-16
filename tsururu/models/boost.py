@@ -7,10 +7,10 @@ try:
 except ImportError:
     Pool = None
     CatBoostRegressor = None
-from .base import Estimator
+from .base import MLEstimator
 
 
-class CatBoost(Estimator):
+class CatBoost(MLEstimator):
     """CatBoost is a class that performs cross-validation
         using CatBoostRegressor.
 
@@ -25,7 +25,18 @@ class CatBoost(Estimator):
 
     def __init__(self, model_params: Dict[str, Union[str, int]]):
         super().__init__(model_params)
-        self.trainer_type = "MLTrainer"
+
+    def _initialize_model(self):
+        # Set default params if params are None
+        for param, default_value in [
+            ("loss_function", "MultiRMSE"),
+            ("thread_count", -1),
+            ("random_state", 42),
+            ("early_stopping_rounds", 100),
+        ]:
+            if self.model_params.get(param) is None:
+                self.model_params[param] = default_value
+        return CatBoostRegressor(**self.model_params)
 
     def fit_one_fold(
         self,
@@ -37,17 +48,7 @@ class CatBoost(Estimator):
         train_dataset = Pool(data=X_train, label=y_train)
         eval_dataset = Pool(data=X_val, label=y_val)
 
-        # Set default params if params are None
-        for param, default_value in [
-            ("loss_function", "MultiRMSE"),
-            ("thread_count", -1),
-            ("random_state", 42),
-            ("early_stopping_rounds", 100),
-        ]:
-            if self.model_params.get(param) is None:
-                self.model_params[param] = default_value
-
-        self.model = CatBoostRegressor(**self.model_params)
+        self.model = self._initialize_model()
 
         self.model.fit(
             train_dataset,
@@ -59,6 +60,3 @@ class CatBoost(Estimator):
         self.score = self.model.best_score_["validation"][f"{self.model_params['loss_function']}"]
 
         return self
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        return self.model.predict(X)

@@ -500,7 +500,11 @@ class Pipeline:
                 and targets (y).
         """
         data = self.transformers.generate(data)
-        self.y_original_shape = data["y"].shape
+        
+        if self.strategy_name == "stat":
+            self.y_original_shape = data["raw_ts_X"][data["target_column_name"]].isna().sum()
+        else:
+            self.y_original_shape = data["y"].shape
 
         if self.strategy_name == "FlatWideMIMOStrategy":
             data, new_output_features = self.from_mimo_to_flatwidemimo(data)
@@ -527,7 +531,11 @@ class Pipeline:
             the inverse transformed target variable.
 
         """
-        y = y.reshape(self.y_original_shape)
+        if self.strategy_name == "stat":
+            y = y
+        else:
+            y = y.reshape(self.y_original_shape)
+            
         y = self.transformers.inverse_transform_y(y)
 
         return y.reshape(-1)
