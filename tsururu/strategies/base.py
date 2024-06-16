@@ -6,7 +6,7 @@ import pandas as pd
 from ..dataset.dataset import TSDataset
 from ..dataset.pipeline import Pipeline
 from ..dataset.slice import IndexSlicer
-from ..models import Estimator
+from ..model_training.trainer import DLTrainer, MLTrainer
 from .utils import timing_decorator
 
 
@@ -21,7 +21,7 @@ class Strategy:
             observations (y_{t-history}, ..., y_{t-1}).
         step:  in how many points to take the next observation while
             making samples' matrix.
-        model: base model.
+        trainer: trainer with model params and validation params.
         pipeline: pipeline for feature and target generation.
 
     Notes:
@@ -50,7 +50,7 @@ class Strategy:
         horizon: int,
         history: int,
         step: int,
-        model: Estimator,
+        trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
     ):
         self.check_step_param(step)
@@ -58,10 +58,10 @@ class Strategy:
         self.horizon = horizon
         self.history = history
         self.step = step
-        self.model = model
+        self.trainer = trainer
         self.pipeline = pipeline
 
-        self.models = []
+        self.trainers = []
 
     @staticmethod
     def _make_preds_df(
@@ -176,7 +176,10 @@ class Strategy:
         raise NotImplementedError()
 
     @timing_decorator
-    def fit(self, dataset: TSDataset):
+    def fit(
+        self,
+        dataset: TSDataset,
+    ):
         """Fits the strategy to the given dataset.
 
         Args:
@@ -230,11 +233,13 @@ class Strategy:
         return (ids_list, test_list, preds_list, fit_time_list, forecast_time_list)
 
     @timing_decorator
-    def predict(self, dataset: TSDataset) -> np.ndarray:
+    def predict(self, dataset: TSDataset, test_all: bool = False) -> np.ndarray:
         """Predicts the target values for the given dataset.
 
         Args:
             dataset: the dataset to make predictions on.
+            test_all: whether to predict all the target values
+                (like rolling forecast) or only the last one.
 
         Returns:
             a pandas DataFrame containing the predicted target values.

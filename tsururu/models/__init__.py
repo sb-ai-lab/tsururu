@@ -1,14 +1,14 @@
 """Algorithms for time series forecasting."""
 
 from .base import Estimator
-from .boost import CatBoostRegressor_CV
+from .boost import CatBoost
 
 
 # Factory Object
 class ModelsFactory:
     def __init__(self):
         self.models = {
-            "CatBoostRegressor_CV": CatBoostRegressor_CV,
+            "CatBoost": CatBoost,
         }
 
     def get_allowed(self):
@@ -24,4 +24,4 @@ class ModelsFactory:
         return self.models[model_name](**model_params)
 
 
-__all__ = ["CatBoostRegressor_CV", "ModelsFactory", "Estimator"]
+__all__ = ["CatBoost", "Estimator", "ModelsFactory"]
