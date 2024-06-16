@@ -154,3 +154,4 @@ poetry.lock
 *demand*
 *test*
 *checkpoints*
+*.pkl
