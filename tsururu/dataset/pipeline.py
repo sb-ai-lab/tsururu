@@ -203,7 +203,7 @@ class Pipeline:
                 exog_lag = transormers_factory.create_transformer(
                     "LagTransformer", {pipeline_params["exog_lags"]}
                 )
-                current_sequential_transformers_list.append(id_lag)
+                current_sequential_transformers_list.append(exog_lag)
 
             result_union_transformers_list.append(
                 SequentialTransformer(
@@ -298,15 +298,18 @@ class Pipeline:
         date_features_mask = X.columns.str.contains(data["date_column_name"])
         id_features_mask = X.columns.str.contains(data["id_column_name"])
 
-        horizon = data["idx_y"].shape[1]
+        horizon = data["idx_y"].shape[-1]
         fh_array = np.arange(1, horizon + 1)
 
         direct_lag_index_dict = {}
 
+        # TODO: Can we use only else?
         if sum(id_features_mask) > 0:
             id_count = len(X.loc[:, id_features_mask].value_counts())
         else:
-            id_count = 1
+            id_count = len(
+                data["raw_ts_X"].iloc[data["idx_X"][:, 0]][data["id_column_name"]].value_counts()
+            )
         direct_lag_index_dict["ID"] = np.repeat(
             np.arange(id_count),
             repeats=(len(X) / id_count * len(fh_array)),
@@ -377,9 +380,8 @@ class Pipeline:
             X["temp_ID"] = index_slicer.get_slice(data["raw_ts_X"], (data["idx_X"][:, 0], id_idx))
             id_features_colname = np.array(["temp_ID"])
 
-        other_features_colname = np.setdiff1d(
-            X.columns.values,
-            np.hstack((id_features_colname, date_features_colname)),
+        other_features_colname = X.columns.difference(
+            np.hstack((id_features_colname, date_features_colname)), sort=False
         )
 
         date_features_idx = index_slicer.get_cols_idx(X, date_features_colname)
@@ -436,10 +438,12 @@ class Pipeline:
         id_feature_colname = np.array(["ID"])
         fh_feature_colname = np.array(["FH"])
         date_features_colname = X.columns[X.columns.str.contains(data["date_column_name"])].values
-        other_features_colname = np.setdiff1d(
-            X.columns.values,
-            np.hstack([id_feature_colname, date_features_colname, fh_feature_colname]),
-        )
+        other_features_colname = [
+            col
+            for col in X.columns.values
+            if col
+            not in np.hstack([id_feature_colname, date_features_colname, fh_feature_colname])
+        ]
 
         date_features_idx = index_slicer.get_cols_idx(X, date_features_colname)
         other_features_idx = index_slicer.get_cols_idx(X, other_features_colname)

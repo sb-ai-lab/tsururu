@@ -1,30 +1,44 @@
-import torch
-import torch.nn as nn
+"""DLinear model for time series forecasting."""
+
+from .layers.decomposition import series_decomp
+
+try:
+    import torch
+    import torch.nn as nn
+except ImportError:
+    torch = None
+    nn = None
 
 
 class DLinear_NN(nn.Module):
     """DLInear model from the paper https://arxiv.org/pdf/2205.13504.pdf.
 
     Args:
-        model_params: dict with parameters for the model:
-            - seq_len: int, the length of the input sequence.
-            - pred_len: int, the length of the output sequence.
-            - moving_avg: int, the size of the moving average window.
-            - individual: bool, whether shared model among different variates.
-                true may be better for time series with different trend and seasonal patterns.
-            - enc_in: int, the number of input time series.
-                Needs for individual=True.
+        - seq_len: int, the length of the input sequence.
+        - pred_len: int, the length of the output sequence.
+        - moving_avg: int, the size of the moving average window.
+        - individual: bool, whether shared model among different variates.
+            true may be better for time series with different trend and seasonal patterns.
+        - enc_in: int, the number of input time series.
+            Needs for individual=True.
 
     """
 
-    def __init__(self, seq_len, pred_len, moving_avg=7, individual=False, enc_in=1):
+    def __init__(
+        self,
+        seq_len: int,
+        pred_len: int,
+        moving_avg: int = 7,
+        individual: bool = False,
+        enc_in: int = 1,
+    ):
         super(DLinear_NN, self).__init__()
         # Params from model_params
         self.seq_len = seq_len
         self.pred_len = pred_len
 
         # Decomposition
-        self.decompsition = self.series_decomp(moving_avg)
+        self.decompsition = series_decomp(moving_avg)
         self.individual = individual
         self.channels = enc_in
 
@@ -55,7 +69,16 @@ class DLinear_NN(nn.Module):
 
         self.trainer_type = "DLTrainer"
 
-    def encoder(self, x):
+    def encoder(self, x: torch.Tensor) -> torch.Tensor:
+        """Encode the input sequence by decomposing it into seasonal and trend components.
+
+        Args:
+            x: input tensor of shape (batch_size, seq_len, num_features).
+
+        Returns:
+            Encoded tensor of shape (batch_size, pred_len, num_features).
+
+        """
         seasonal_init, trend_init = self.decompsition(x)
         seasonal_init, trend_init = seasonal_init.permute(0, 2, 1), trend_init.permute(0, 2, 1)
         if self.individual:
@@ -73,48 +96,31 @@ class DLinear_NN(nn.Module):
             seasonal_output = self.Linear_Seasonal(seasonal_init)
             trend_output = self.Linear_Trend(trend_init)
         x = seasonal_output + trend_output
+
         return x.permute(0, 2, 1)
 
-    def forecast(self, x_enc):
+    def forecast(self, x_enc: torch.Tensor) -> torch.Tensor:
+        """Forecast the output sequence.
+
+        Args:
+            x_enc: input tensor of shape (batch_size, seq_len, num_features).
+
+        Returns:
+            Forecasted tensor of shape (batch_size, pred_len, num_features).
+
+        """
         return self.encoder(x_enc)
 
-    def forward(self, x_enc):
+    def forward(self, x_enc: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the model.
+
+        Args:
+            x_enc: input tensor of shape (batch_size, seq_len, num_features).
+
+        Returns:
+            Output tensor of shape (batch_size, pred_len, num_features).
+
+        """
         dec_out = self.forecast(x_enc)
+
         return dec_out[:, -self.pred_len :, :]
-
-    @staticmethod
-    def my_Layernorm(channels):
-        layernorm = nn.LayerNorm(channels)
-
-        def forward(x):
-            x_hat = layernorm(x)
-            bias = torch.mean(x_hat, dim=1).unsqueeze(1).repeat(1, x.shape[1], 1)
-            return x_hat - bias
-
-        return forward
-
-    @staticmethod
-    def moving_avg(kernel_size, stride):
-        avg = nn.AvgPool1d(kernel_size=kernel_size, stride=stride, padding=0)
-
-        def forward(x):
-            front = x[:, 0:1, :].repeat(1, (kernel_size - 1) // 2, 1)
-            end = x[:, -1:, :].repeat(1, (kernel_size - 1) // 2, 1)
-            x = torch.cat([front, x, end], dim=1)
-            x = avg(x.permute(0, 2, 1))
-            x = x.permute(0, 2, 1)
-            return x
-
-        return forward
-
-    @staticmethod
-    def series_decomp(kernel_size):
-        moving_avg = DLinear_NN.moving_avg(kernel_size, stride=1)
-
-        def forward(x):
-            moving_mean = moving_avg(x)
-            res = x - moving_mean
-            return res, moving_mean
-
-        return forward
-

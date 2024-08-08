@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Optional, Union
+from typing import Union
 
 import pandas as pd
 
@@ -118,7 +118,10 @@ class RecursiveStrategy(Strategy):
             val_data = None
 
         if isinstance(self.trainer, DLTrainer):
-            self.trainer.horizon = self.model_horizon
+            if self.strategy_name == "FlatWideMIMOStrategy":
+                self.trainer.horizon = 1
+            else:
+                self.trainer.horizon = self.model_horizon
             self.trainer.history = self.history
 
         current_trainer = deepcopy(self.trainer)
@@ -178,7 +181,7 @@ class RecursiveStrategy(Strategy):
 
         """
         new_data = dataset.make_padded_test(
-            self.horizon, self.history, test_all=test_all, model_horizon=self.model_horizon
+            self.horizon, self.history, test_all=test_all, step=self.step
         )
         new_dataset = TSDataset(new_data, dataset.columns_params, dataset.delta)
 

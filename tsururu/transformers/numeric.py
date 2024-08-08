@@ -18,6 +18,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
     Args:
         transform_features: whether to transform features.
         transform_target: whether to transform target.
+        agg_by_id: whether to aggregate statistics by id or over the entire dataset.
 
     Notes:
         1. Transformer has a parameter self.fitted_params = {
@@ -33,16 +34,16 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
 
     """
 
-    def __init__(self, transform_features: bool, transform_target: bool):
+    def __init__(self, transform_features: bool, transform_target: bool, agg_by_id: bool = True):
         super().__init__(
             transform_features=transform_features,
             transform_target=transform_target,
         )
-
+        self.agg_by_id = agg_by_id
         self.fitted_params = {}
 
     def fit(self, data: dict, input_features: Sequence[str]) -> SeriesToSeriesTransformer:
-        """Fit transformer on "elongated series" and return it's instance.
+        """Fit transformer on "elongated series" and return its instance.
 
         Args:
             data: dictionary with current states of "elongated series",
@@ -55,11 +56,21 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
 
         """
         super().fit(data, input_features)
-        stat_df = (
-            data["raw_ts_X"]
-            .groupby(data["id_column_name"])[self.input_features]
-            .agg(["mean", "std"])
-        )
+
+        if self.agg_by_id:
+            stat_df = (
+                data["raw_ts_X"]
+                .groupby(data["id_column_name"])[self.input_features]
+                .agg(["mean", "std"])
+            )
+        else:
+            overall_mean_std = data["raw_ts_X"][self.input_features].agg(["mean", "std"])
+            ids = data["raw_ts_X"][data["id_column_name"]].unique()
+            stat_df = pd.DataFrame(index=ids, columns=pd.MultiIndex.from_product([self.input_features, ["mean", "std"]]))
+            for column in self.input_features:
+                stat_df[(column, "mean")] = overall_mean_std.loc["mean", column]
+                stat_df[(column, "std")] = overall_mean_std.loc["std", column]
+
         self.fitted_params = stat_df.to_dict(orient="index")
         self.output_features = [f"{column}__standard_scaler" for column in self.input_features]
 
@@ -89,7 +100,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
 
     def _transform_segment(self, segment: pd.Series, id_column_name: str) -> pd.Series:
         """Transform segment (points with similar id) of "elongated series"
-            for feautures' and targets' further generation.
+            for features' and targets' further generation.
 
         Args:
             segment: segment of "elongated series" to transform.
@@ -112,7 +123,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
         return segment
 
     def transform(self, data: dict) -> dict:
-        """Transform "elongated series" for feautures' and targets' further
+        """Transform "elongated series" for features' and targets' further
             generation and update self.params.
 
         Args:

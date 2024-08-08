@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Union
+from typing import Dict, Any, Optional
 
 import numpy as np
 
@@ -12,7 +12,7 @@ class Estimator:
 
     """
 
-    def __init__(self, model_params: Dict[str, Union[str, int]]):
+    def __init__(self, model_params: Dict[str, Any]):
         self.model_params = model_params
 
         self.model = None

@@ -1,3 +1,3 @@
-from .data_provider import nnDataset
+from .data_provider import Dataset_NN
 
-__all__ = ["nnDataset"]
+__all__ = ["Dataset_NN"]

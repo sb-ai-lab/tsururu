@@ -1,17 +1,26 @@
+"""Module for training and predicting using models and validation strategies."""
+
+import time
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import torch
-from torch.utils.data import Subset
-from tqdm.notebook import tqdm
 
 from ..dataset.pipeline import Pipeline
 from ..models.base import Estimator
 from .torch_based.callbacks import ES_Checkpoints_Manager
-from .torch_based.data_provider import nnDataset
+from .torch_based.data_provider import Dataset_NN
 from .torch_based.metrics import NegativeMSEMetric
 from .validator import Validator
+
+try:
+    import torch
+    import torch.nn as nn
+    from torch.utils.data import Subset
+except ImportError:
+    torch = None
+    Subset = None
+    nn = None
 
 
 class MLTrainer:
@@ -107,6 +116,47 @@ class MLTrainer:
 
 
 class DLTrainer:
+    """Class for training and predicting using a deep learning model and a validation strategy.
+
+    Args:
+        model: the model estimator to be used for training.
+        model_params: the parameters for the model.
+        validator: the validation strategy to be used for training.
+        validation_params: the parameters for the validation strategy.
+        n_epochs: the number of epochs to train the model.
+        batch_size: size of batches during training.
+        drop_last: whether to drop the last incomplete batch.
+        device: device to run the training on.
+        device_ids: list of device IDs for data parallelism.
+        num_workers: number of workers for data loading.
+        metric: metric function to evaluate the model.
+        criterion: loss function for training the model.
+        optimizer: optimizer for training the model.
+        optimizer_params: parameters for the optimizer.
+        scheduler: learning rate scheduler.
+        scheduler_params: parameters for the scheduler.
+        scheduler_after_epoch: whether to step the scheduler after each epoch.
+        pretrained_paths: dict (!) of paths for each fold to load pretrained checkpoints from.
+            format: {
+                fold_num: {
+                    'model': path_to_checkpoint,
+                    'optimizer': path_to_checkpoint,
+                    'scheduler': path_to_checkpoint
+                }
+            }.
+        best_by_metric: whether to select the best model by metric instead of loss.
+        early_stopping_patience: number of epochs to wait for improvement before early stopping.
+            0 for early stopping disable.
+        save_k_best: number of best checkpoints to save.
+            0 for none, `n_epochs` for all.
+        averaging_snapshots: whether to average weights of saved checkpoints at the end of training.
+        save_to_dir: whether to save checkpoints to a directory.
+        checkpoint_path: path to save checkpoints.
+        train_shuffle: whether to shuffle the training data.
+        verbose: verbosity level.
+
+    """
+
     def __init__(
         self,
         model: Estimator,
@@ -122,65 +172,81 @@ class DLTrainer:
         metric: Callable = NegativeMSEMetric(),
         criterion: torch.nn.Module = torch.nn.MSELoss(),
         optimizer: Optional[torch.optim.Optimizer] = torch.optim.Adam,
-        optinizer_params: Dict = {},
+        optimizer_params: Dict = {},
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         scheduler_params: Dict = {},
         scheduler_after_epoch: bool = True,
+        pretrained_paths: Optional[dict] = None,
+        # es_checkpoint_manager params
+        best_by_metric: bool = False,
+        early_stopping_patience: int = 5,
+        save_k_best: Union[int] = 5,
+        averaging_snapshots: bool = False,
+        save_to_dir: bool = True,
+        checkpoint_path: Union[bool, Path] = "checkpoints/",
+        train_shuffle: bool = True,
         verbose: int = 1,
-        early_stopping: bool = True,
-        stop_by_metric: bool = False,
-        patience: int = 5,
-        pretrained_path: Optional[Union[str, Path]] = None,
-        checkpoint_path: Union[str, Path] = "checkpoints/",
     ):
         self.model_base = model
         self.model_params = model_params
         self.validator_base = validator
         self.validation_params = validation_params
+
         self.n_epochs = n_epochs
         self.batch_size = batch_size
         self.drop_last = drop_last
         self.device = device
         self.device_ids = device_ids
         self.num_workers = num_workers
+
         self.metric = metric
         self.criterion = criterion
+
         self.optimizer_base = optimizer
-        self.optinizer_params = optinizer_params
+        self.optimizer_params = optimizer_params
         self.scheduler_base = scheduler
         self.scheduler_params = scheduler_params
         self.scheduler_after_epoch = scheduler_after_epoch
-        self.verbose = verbose
-        self.early_stopping = early_stopping
-        # either by loss or metric
-        self.stop_by_metric = stop_by_metric
-        # how many epochs to wait for improvement before early stopping
-        self.patience = patience
-        self.pretrained_path = pretrained_path
+
+        self.pretrained_paths = pretrained_paths
+
+        self.train_shuffle = train_shuffle
+
+        self.es = ES_Checkpoints_Manager(
+            monitor="val_metric" if best_by_metric else "val_loss",
+            verbose=verbose,
+            save_k_best=save_k_best,
+            early_stopping_patience=early_stopping_patience,
+            mode="max" if best_by_metric else "min",
+            save_to_dir=save_to_dir,
+            averaging_snapshots=averaging_snapshots,
+        )
         if isinstance(checkpoint_path, str):
             checkpoint_path = Path(checkpoint_path)
         self.checkpoint_path = checkpoint_path
 
-        self.callbacks = [
-            ES_Checkpoints_Manager(
-                monitor="val_metric" if stop_by_metric else "val_loss",
-                verbose=verbose,
-                save_best_only=True,
-                k=5,
-                patience=patience,
-                mode="max" if stop_by_metric else "min"
-            )
-        ]
         # Provide by strategy if needed
+        self.callbacks = [self.es]
         self.history = None
         self.horizon = None
+        self.target_len = None
+
         self.models = []
         self.optimizers = []
         self.schedulers = []
         self.scores = []
 
-    def init_trainer_one_fold(self):
-        self.model_params["seq_len"] = self.history
+    def init_trainer_one_fold(self, num_features: int):
+        """Initializes the model, optimizer, and scheduler for one fold.
+
+        Args:
+            num_features: Number of features in the input data.
+
+        Returns:
+            Initialized model, optimizer, and scheduler.
+
+        """
+        self.model_params["seq_len"] = num_features
         self.model_params["pred_len"] = self.horizon
 
         model = self.model_base(**self.model_params)
@@ -189,20 +255,77 @@ class DLTrainer:
         else:
             model.to(self.device)
 
-        optimizer = self.optimizer_base(model.parameters(), **self.optinizer_params)
+        optimizer = self.optimizer_base(model.parameters(), **self.optimizer_params)
         if self.scheduler_base is not None:
             scheduler = self.scheduler_base(optimizer, **self.scheduler_params)
         else:
             scheduler = None
+
         return model, optimizer, scheduler
 
-    def train_model(self, train_loader, val_loader, model, optimizer, scheduler):
+    def load_trainer_one_fold(
+        self,
+        fold_i: int,
+        model: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
+    ):
+        """Loads pretrained model, optimizer, and scheduler states for one fold.
+
+        Args:
+            fold_i: fold index.
+            model: model to load the state into.
+            optimizer: optimizer to load the state into.
+            scheduler: scheduler to load the state into (if exists).
+
+        Returns:
+            model, optimizer, and scheduler with loaded states.
+
+        """
+        model_path = self.pretrained_paths[fold_i]["model"]
+        optimizer_path = self.pretrained_paths[fold_i]["optimizer"]
+        if scheduler:
+            scheduler_path = self.pretrained_paths[fold_i]["scheduler"]
+
+        model.load_state_dict(torch.load(model_path))
+        optimizer.load_state_dict(torch.load(optimizer_path))
+        if scheduler:
+            scheduler.load_state_dict(torch.load(scheduler_path))
+
+        return model, optimizer, scheduler
+
+    def train_model(
+        self,
+        train_loader: torch.utils.data.DataLoader,
+        val_loader: torch.utils.data.DataLoader,
+        model: nn.Module,
+        optimizer: torch.optim.Optimizer,
+        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
+    ) -> Tuple[
+        nn.Module, torch.optim.Optimizer, Optional[torch.optim.lr_scheduler._LRScheduler], float
+    ]:
+        """Trains the model for all epochs.
+
+        Args:
+            train_loader: dataLoader for the training data.
+            val_loader: dataLoader for the validation data.
+            model: model to be trained.
+            optimizer: optimizer for training.
+            scheduler: learning rate scheduler (if exists).
+
+        Returns:
+            trained model, optimizer, scheduler, and validation metric.
+        """
+        for cb in self.callbacks:
+            cb.on_train_begin()
+
         for epoch in range(self.n_epochs):
             for callback in self.callbacks:
                 callback.on_epoch_begin(epoch)
 
             model.train()
             running_loss = 0.0
+            start_time = time.time()
 
             for inputs, targets in train_loader:
                 for callback in self.callbacks:
@@ -212,6 +335,9 @@ class DLTrainer:
 
                 optimizer.zero_grad()
                 outputs = model(inputs)
+                if self.target_len is None:
+                    self.target_len = targets.shape[2]
+                outputs = outputs[:, :, : self.target_len]
                 loss = self.criterion(outputs, targets)
                 loss.backward()
                 optimizer.step()
@@ -223,15 +349,19 @@ class DLTrainer:
 
                 if not self.scheduler_after_epoch and scheduler is not None:
                     scheduler.step()
+                    print(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
 
             epoch_loss = running_loss / len(train_loader.dataset)
-            print(f"Epoch {epoch+1}/{self.n_epochs}, Loss: {epoch_loss:.4f}")
+            epoch_time = time.time() - start_time
+            print(f"Epoch {epoch+1}/{self.n_epochs}, cost time: {epoch_time:.2f}s")
+            print(f"train loss: {epoch_loss:.4f}")
 
             val_loss, val_metric = self.validate_model(val_loader, model)
-            print(f"Validation, Loss: {val_loss:.4f}, Metric: {val_metric:.4f}")
+            print(f"val loss: {val_loss:.4f}")
 
             if self.scheduler_after_epoch and scheduler is not None:
-                scheduler.step(val_loss)
+                scheduler.step()
+                print(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
 
             # Сохранение модели и проверка early stopping
             logs = {
@@ -241,7 +371,11 @@ class DLTrainer:
                 "val_loss": val_loss,
                 "val_metric": val_metric,
                 "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
             }
+
+            if scheduler:
+                logs["scheduler_state_dict"] = scheduler.state_dict()
 
             for cb in self.callbacks:
                 cb.on_epoch_end(epoch, logs)
@@ -253,9 +387,35 @@ class DLTrainer:
         for cb in self.callbacks:
             cb.on_train_end()
 
+        # return best_model or average_model
+        if self.es.averaging_snapshots:
+            model.load_state_dict(self.es.get_average_snapshot())
+        else:
+            model.load_state_dict(self.es.get_best_snapshot())
+
         return model, optimizer, scheduler, val_metric
 
-    def validate_model(self, val_loader, model, return_outputs=False):
+    def validate_model(
+        self,
+        val_loader: torch.utils.data.DataLoader,
+        model: nn.Module,
+        return_outputs: bool = False,
+    ) -> Union[float, Tuple[float, float], Tuple[float, float, torch.Tensor, torch.Tensor]]:
+        """Validates the model on the validation data.
+
+        Args:
+            val_loader: data loader for the validation data.
+            model: model to be validated.
+            return_outputs: whether to return the outputs and targets.
+
+        Returns:
+            validation loss, metric, and optionally the outputs and targets.
+
+        Note:
+            The same method for both validation and make predictions on test data.
+            The are NaN values in metric if test data is used.
+
+        """
         model.eval()
 
         all_outputs = []
@@ -265,6 +425,7 @@ class DLTrainer:
             for inputs, targets in val_loader:
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
                 outputs = model(inputs)
+                outputs = outputs[:, :, : self.target_len]
                 all_outputs.append(outputs)
                 all_targets.append(targets)
 
@@ -295,10 +456,10 @@ class DLTrainer:
             the fitted models.
 
         """
-        train_dataset = nnDataset(data, pipeline)
+        train_dataset = Dataset_NN(data, pipeline)
         train_dataset_idx = np.arange(len(train_dataset))
         if val_data:
-            val_dataset = nnDataset(val_data, pipeline)
+            val_dataset = Dataset_NN(val_data, pipeline)
             val_dataset_all_idx = np.arange(len(val_dataset))
         else:
             val_dataset = None
@@ -311,6 +472,7 @@ class DLTrainer:
         ):
             checkpoint_path = self.checkpoint_path
             self.checkpoint_path /= f"fold_{fold_i}"
+
             train_subset = Subset(train_dataset, train_dataset_idx)
             if val_dataset is not None:
                 val_subset = Subset(val_dataset, val_dataset_idx)
@@ -319,7 +481,7 @@ class DLTrainer:
             train_loader = torch.utils.data.DataLoader(
                 train_subset,
                 batch_size=self.batch_size,
-                shuffle=True,
+                shuffle=self.train_shuffle,
                 drop_last=self.drop_last,
                 num_workers=self.num_workers,
             )
@@ -331,7 +493,17 @@ class DLTrainer:
                 num_workers=self.num_workers,
             )
 
-            model, optimizer, scheduler = self.init_trainer_one_fold()
+            print(f"length of train dataset: {len(train_subset)}")
+            print(f"length of val dataset: {len(val_subset)}")
+
+            num_features = train_dataset[0][0].shape[0]
+
+            # load or initialize model, optimizer, scheduler
+            model, optimizer, scheduler = self.init_trainer_one_fold(num_features)
+            if self.pretrained_paths:
+                model, optimizer, scheduler = self.load_trainer_one_fold(
+                    fold_i, model, optimizer, scheduler
+                )
             model, optimizer, scheduler, score = self.train_model(
                 train_loader, val_loader, model, optimizer, scheduler
             )
@@ -360,7 +532,7 @@ class DLTrainer:
             array of predicted values.
 
         """
-        test_dataset = nnDataset(data, pipeline)
+        test_dataset = Dataset_NN(data, pipeline)
         test_loader = torch.utils.data.DataLoader(
             test_dataset,
             batch_size=self.batch_size,
@@ -369,15 +541,30 @@ class DLTrainer:
             num_workers=self.num_workers,
         )
 
-        models_preds = [self.validate_model(test_loader, model, return_outputs=True)[2] for model in self.models]
-        
+        print(f"length of test dataset: {len(test_dataset)}")
+
+        models_preds = [
+            self.validate_model(test_loader, model, return_outputs=True)[2].cpu()
+            for model in self.models
+        ]
+
         y_pred = np.mean(models_preds, axis=0)
         y_pred = torch.tensor(y_pred)
-        
+
+        if pipeline.strategy_name == "FlatWideMIMOStrategy" and pipeline.multivariate is False:
+            full_horizon = pipeline.y_original_shape[1]
+            num_series = y_pred.shape[0] // full_horizon
+            y_pred = y_pred.reshape(num_series, full_horizon, 1)
+
+        if pipeline.strategy_name == "FlatWideMIMOStrategy" and pipeline.multivariate:
+            y_pred = y_pred.permute(1, 0, 2)
+
+        pipeline.y_original_shape = list(pipeline.y_original_shape)
+        pipeline.y_original_shape[0] *= y_pred.shape[0]
+
         if pipeline.multivariate:
-            pipeline.y_original_shape = list(pipeline.y_original_shape)
-            pipeline.y_original_shape[0] *= y_pred.shape[0]
-            y_pred = y_pred.permute(0, 2, 1)
+            y_pred = y_pred.permute(2, 0, 1)
+        if pipeline.multivariate:
             y_pred = y_pred.reshape(-1, y_pred.shape[2])
 
         return y_pred.numpy()

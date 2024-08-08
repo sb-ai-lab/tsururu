@@ -23,7 +23,10 @@ class TSDataset:
                         "type": "continious",
                     },
                     "date": {...},
-                    ...
+                    "id": {...},
+                    "exog_1": {...},
+                    "exog_2": {...},
+                    ...,
                 }.
         delta: the pd.DateOffset class. Usually generated
             automatically, but can be externally specified. Needs to
@@ -158,7 +161,7 @@ class TSDataset:
         history: int,
         test_last: bool = True,
         test_all: bool = False,
-        model_horizon: Optional[int] = None,
+        step: Optional[int] = None,
         id_column_name: Optional[Union[str, Sequence[str]]] = None,
     ):
         """Generate a test dataframe with new rows with NaN targets.
@@ -171,10 +174,11 @@ class TSDataset:
                 the last point.
             test_all: if True, return generated test data for all
                 points (like rolling forecast).
-            model_horizon: the number of points to predict in one step.
+            step:  in how many points to take the next observation while
+                making samples' matrix.
                 Needs for test_all=True.
             id_column_name: name of the column(s) by which the data is
-                split (in some cases it is different from the original
+                split (in some cases it is different from the originalß
                 id column(s)).
 
         Notes:
@@ -191,7 +195,7 @@ class TSDataset:
                 self.data,
                 horizon,
                 history,
-                model_horizon,
+                step,
                 date_column=self.date_column,
             )
             extended_data = slicer.get_slice(self.data, (current_test_ids, None))
