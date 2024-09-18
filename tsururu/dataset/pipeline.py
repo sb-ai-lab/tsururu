@@ -531,7 +531,6 @@ class Pipeline:
             the inverse transformed target variable.
 
         """
-        y = y.reshape(self.y_original_shape)
         y = self.transformers.inverse_transform_y(y)
 
         return y.reshape(-1)

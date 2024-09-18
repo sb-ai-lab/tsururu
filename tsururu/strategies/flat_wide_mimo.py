@@ -14,9 +14,10 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         history: number of previous for feature generating
             (i.e., features for observation y_t are counted from observations
             (y_{t-history}, ..., y_{t-1}).
+        trainer: trainer with model params and validation params.
+        pipeline: pipeline for feature and target generation.
         step:  in how many points to take the next observation while making
             samples' matrix.
-        trainer: trainer with model params and validation params.
 
     Notes:
         1. Fit: mixture of DirectStrategy and MIMOStrategy, fit one
@@ -29,9 +30,9 @@ class FlatWideMIMOStrategy(MIMOStrategy):
         self,
         horizon: int,
         history: int,
-        step: int,
         trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
+        step: int = 1,
     ):
-        super().__init__(horizon, history, step, trainer, pipeline)
+        super().__init__(horizon, history, trainer, pipeline, step)
         self.strategy_name = "FlatWideMIMOStrategy"

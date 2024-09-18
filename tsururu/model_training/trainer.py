@@ -136,14 +136,7 @@ class DLTrainer:
         scheduler: learning rate scheduler.
         scheduler_params: parameters for the scheduler.
         scheduler_after_epoch: whether to step the scheduler after each epoch.
-        pretrained_paths: dict (!) of paths for each fold to load pretrained checkpoints from.
-            format: {
-                fold_num: {
-                    'model': path_to_checkpoint,
-                    'optimizer': path_to_checkpoint,
-                    'scheduler': path_to_checkpoint
-                }
-            }.
+        pretrained_path: path to the pretrained checkpoints.
         best_by_metric: whether to select the best model by metric instead of loss.
         early_stopping_patience: number of epochs to wait for improvement before early stopping.
             0 for early stopping disable.
@@ -176,14 +169,14 @@ class DLTrainer:
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         scheduler_params: Dict = {},
         scheduler_after_epoch: bool = True,
-        pretrained_paths: Optional[dict] = None,
+        pretrained_path: Optional[Union[Path, str]] = None,
         # es_checkpoint_manager params
         best_by_metric: bool = False,
         early_stopping_patience: int = 5,
         save_k_best: Union[int] = 5,
-        averaging_snapshots: bool = False,
+        average_snapshots: bool = False,
         save_to_dir: bool = True,
-        checkpoint_path: Union[bool, Path] = "checkpoints/",
+        checkpoint_path: Union[Path, str] = "checkpoints/",
         train_shuffle: bool = True,
         verbose: int = 1,
     ):
@@ -208,7 +201,7 @@ class DLTrainer:
         self.scheduler_params = scheduler_params
         self.scheduler_after_epoch = scheduler_after_epoch
 
-        self.pretrained_paths = pretrained_paths
+        self.pretrained_path = pretrained_path
 
         self.train_shuffle = train_shuffle
 
@@ -219,11 +212,16 @@ class DLTrainer:
             early_stopping_patience=early_stopping_patience,
             mode="max" if best_by_metric else "min",
             save_to_dir=save_to_dir,
-            averaging_snapshots=averaging_snapshots,
         )
         if isinstance(checkpoint_path, str):
             checkpoint_path = Path(checkpoint_path)
         self.checkpoint_path = checkpoint_path
+
+        if isinstance(pretrained_path, str):
+            pretrained_path = Path(pretrained_path)
+        self.pretrained_path = pretrained_path
+
+        self.average_snapshots = average_snapshots
 
         # Provide by strategy if needed
         self.callbacks = [self.es]
@@ -282,15 +280,13 @@ class DLTrainer:
             model, optimizer, and scheduler with loaded states.
 
         """
-        model_path = self.pretrained_paths[fold_i]["model"]
-        optimizer_path = self.pretrained_paths[fold_i]["optimizer"]
-        if scheduler:
-            scheduler_path = self.pretrained_paths[fold_i]["scheduler"]
+        self.es = torch.load(self.pretrained_path / "es_checkpoint_manager.pth")
+        pretrained_weights = self.es.get_last_snapshot(full_state=True)
 
-        model.load_state_dict(torch.load(model_path))
-        optimizer.load_state_dict(torch.load(optimizer_path))
+        model.load_state_dict(pretrained_weights["model"])
+        optimizer.load_state_dict(pretrained_weights["optimizer"])
         if scheduler:
-            scheduler.load_state_dict(torch.load(scheduler_path))
+            scheduler.load_state_dict(pretrained_weights["scheduler"])
 
         return model, optimizer, scheduler
 
@@ -385,13 +381,16 @@ class DLTrainer:
                     return model, optimizer, scheduler, val_metric
 
         for cb in self.callbacks:
-            cb.on_train_end()
+            cb.on_train_end({"filepath": self.checkpoint_path})
 
-        # return best_model or average_model
-        if self.es.averaging_snapshots:
-            model.load_state_dict(self.es.get_average_snapshot())
+        # return best_model or average_model if `n_epochs` = 0
+        if self.n_epochs > 0:
+            if self.average_snapshots:
+                model.load_state_dict(self.es.get_average_snapshot())
+            else:
+                model.load_state_dict(self.es.get_best_snapshot())
         else:
-            model.load_state_dict(self.es.get_best_snapshot())
+            val_metric = np.nan
 
         return model, optimizer, scheduler, val_metric
 
@@ -471,7 +470,11 @@ class DLTrainer:
             )
         ):
             checkpoint_path = self.checkpoint_path
+            pretrained_path = self.pretrained_path
+
             self.checkpoint_path /= f"fold_{fold_i}"
+            if pretrained_path:
+                self.pretrained_path /= f"fold_{fold_i}"
 
             train_subset = Subset(train_dataset, train_dataset_idx)
             if val_dataset is not None:
@@ -500,7 +503,7 @@ class DLTrainer:
 
             # load or initialize model, optimizer, scheduler
             model, optimizer, scheduler = self.init_trainer_one_fold(num_features)
-            if self.pretrained_paths:
+            if self.pretrained_path:
                 model, optimizer, scheduler = self.load_trainer_one_fold(
                     fold_i, model, optimizer, scheduler
                 )
@@ -515,6 +518,7 @@ class DLTrainer:
 
             print(f"Fold {fold_i}. Score: {score}")
             self.checkpoint_path = checkpoint_path
+            self.pretrained_path = pretrained_path
 
         print(f"Mean score: {np.mean(self.scores).round(4)}")
         print(f"Std: {np.std(self.scores).round(4)}")
@@ -551,20 +555,18 @@ class DLTrainer:
         y_pred = np.mean(models_preds, axis=0)
         y_pred = torch.tensor(y_pred)
 
-        if pipeline.strategy_name == "FlatWideMIMOStrategy" and pipeline.multivariate is False:
+        if pipeline.strategy_name == "FlatWideMIMOStrategy":
             full_horizon = pipeline.y_original_shape[1]
             num_series = y_pred.shape[0] // full_horizon
-            y_pred = y_pred.reshape(num_series, full_horizon, 1)
-
-        if pipeline.strategy_name == "FlatWideMIMOStrategy" and pipeline.multivariate:
-            y_pred = y_pred.permute(1, 0, 2)
-
-        pipeline.y_original_shape = list(pipeline.y_original_shape)
-        pipeline.y_original_shape[0] *= y_pred.shape[0]
+            if pipeline.multivariate:
+                y_pred = y_pred.reshape(num_series, full_horizon, -1)
+            else:
+                y_pred = y_pred.reshape(num_series, full_horizon, 1)
 
         if pipeline.multivariate:
             y_pred = y_pred.permute(2, 0, 1)
-        if pipeline.multivariate:
             y_pred = y_pred.reshape(-1, y_pred.shape[2])
+        else:
+            y_pred = y_pred.squeeze(-1)
 
         return y_pred.numpy()

@@ -43,13 +43,13 @@ class RecursiveStrategy(Strategy):
         self,
         horizon: int,
         history: int,
-        step: int,
         trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
+        step: int = 1,
         model_horizon: int = 1,
         reduced: bool = False,
     ):
-        super().__init__(horizon, history, step, trainer, pipeline)
+        super().__init__(horizon, history, trainer, pipeline, step)
         self.model_horizon = model_horizon
         self.reduced = reduced
         self.strategy_name = "recursive"
@@ -125,7 +125,21 @@ class RecursiveStrategy(Strategy):
             self.trainer.history = self.history
 
         current_trainer = deepcopy(self.trainer)
+
+        # In Recursive strategy, we train the individual model
+        if isinstance(current_trainer, DLTrainer):
+            checkpoint_path = current_trainer.checkpoint_path
+            pretrained_path = current_trainer.pretrained_path
+
+            current_trainer.checkpoint_path /= "trainer_0"
+            if pretrained_path:
+                current_trainer.pretrained_path /= "trainer_0"
+
         current_trainer.fit(data, self.pipeline, val_data)
+
+        if isinstance(current_trainer, DLTrainer):
+            current_trainer.checkpoint_path = checkpoint_path
+            current_trainer.pretrained_path = pretrained_path
 
         self.trainers.append(current_trainer)
         return self

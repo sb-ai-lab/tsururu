@@ -1,6 +1,5 @@
 """Base classes for transformers, that are needed for feature generating."""
 
-from copy import deepcopy
 from typing import Optional, Sequence
 
 import numpy as np
@@ -50,9 +49,7 @@ class Transformer:
         self.input_features = input_features
         self.output_features = None  # array with names of resulting columns
 
-    def fit(
-        self, data: dict, input_features: Optional[Sequence[str]] = None
-    ) -> "Transformer":
+    def fit(self, data: dict, input_features: Optional[Sequence[str]] = None) -> "Transformer":
         """Fit transformer on "elongated series" and return it's instance.
 
         Args:
@@ -85,9 +82,7 @@ class Transformer:
         """
         raise NotImplementedError()
 
-    def fit_transform(
-        self, data: dict, input_features: Optional[Sequence[str]] = None
-    ) -> dict:
+    def fit_transform(self, data: dict, input_features: Optional[Sequence[str]] = None) -> dict:
         """Default implementation of fit_transform - fit and then transform.
 
         Args:
@@ -133,9 +128,7 @@ class SequentialTransformer(Transformer):
 
     """
 
-    def __init__(
-        self, transformers_list: Sequence[Transformer], input_features: Sequence[str]
-    ):
+    def __init__(self, transformers_list: Sequence[Transformer], input_features: Sequence[str]):
         super().__init__(input_features=input_features)
         self.transformers_list = transformers_list
         self.inverse_transformers_list = []
@@ -156,8 +149,7 @@ class SequentialTransformer(Transformer):
 
         """
         raise NotImplementedError(
-            "Sequential supports only fit_transform since needs output"
-            "to fit next transformer."
+            "Sequential supports only fit_transform since needs output" "to fit next transformer."
         )
 
     def transform(self, data: dict) -> dict:
@@ -184,9 +176,7 @@ class SequentialTransformer(Transformer):
 
         return data
 
-    def fit_transform(
-        self, data, input_features: Optional[Sequence[str]] = None
-    ) -> dict:
+    def fit_transform(self, data, input_features: Optional[Sequence[str]] = None) -> dict:
         """Fit and apply the sequence of transformers to data containers
             one after the other and transform "elongated series".
 
@@ -212,7 +202,9 @@ class SequentialTransformer(Transformer):
             current_input_features = trf.output_features
             if hasattr(trf, "transform_target") and trf.transform_target:
                 # Check that transform_target corresponding to transformer for target column
-                assert self.input_features == [data["target_column_name"]], f"`transform_target` can't be used with exogenous features. You try use it on {self.input_features}, while target column is `{data['target_column_name']}`"
+                assert self.input_features == [
+                    data["target_column_name"]
+                ], f"`transform_target` can't be used with exogenous features. You try use it on {self.input_features}, while target column is `{data['target_column_name']}`"
                 self.inverse_transformers_list.append(trf)
             elif hasattr(trf, "inverse_transformers_list") and trf.inverse_transformers_list:
                 self.inverse_transformers_list.extend(trf.inverse_transformers_list)
@@ -320,9 +312,7 @@ class UnionTransformer(Transformer):
 
         return data
 
-    def fit_transform(
-        self, data: dict, input_features: Optional[Sequence[str]] = None
-    ) -> dict:
+    def fit_transform(self, data: dict, input_features: Optional[Sequence[str]] = None) -> dict:
         """Fit and apply the sequence of transformers to data containers
             in parallel and transform "elongated series".
 
@@ -345,7 +335,10 @@ class UnionTransformer(Transformer):
                 output_features_list.append(trf.output_features)
             if hasattr(trf, "transform_target") and trf.transform_target:
                 # Check that transform_target corresponding to transformer for target column
-                assert self.input_features == [data["target_column_name"]], f"`transform_target` can't be used with exogenous features. You try use it on {self.input_features}, while target column is `{data['target_column_name']}`"
+                assert self.input_features == [
+                    data["target_column_name"]
+                ], "`transform_target` can't be used with exogenous features. You try use it on"
+                f"{self.input_features}, while target column is `{data['target_column_name']}`"
                 self.inverse_transformers_list.append(trf)
             elif hasattr(trf, "inverse_transformers_list") and trf.inverse_transformers_list:
                 self.inverse_transformers_list.extend(trf.inverse_transformers_list)
@@ -371,9 +364,9 @@ class UnionTransformer(Transformer):
         for trf in self.transformers_list:
             copy_X = data["X"]
             data["X"] = np.array([])
-            
+
             data = trf.generate(data)
-            
+
             if copy_X.shape != (0,) and data["X"].shape != (0,):
                 data["X"] = np.hstack((copy_X, data["X"]))
             elif data["X"].shape == (0,):
@@ -489,12 +482,17 @@ class SeriesToSeriesTransformer(Transformer):
             self._transform(data, "raw_ts_X")
         else:
             for i, column_name in enumerate(self.input_features):
-                data["raw_ts_X"].loc[:, self.output_features[i]] = data["raw_ts_X"].loc[:, column_name]
+                data["raw_ts_X"].loc[:, self.output_features[i]] = data["raw_ts_X"].loc[
+                    :, column_name
+                ]
         if self.transform_target:
             self._transform(data, "raw_ts_y")
         else:
             for i, column_name in enumerate(self.input_features):
-                data["raw_ts_y"].loc[:, self.output_features[i]] = data["raw_ts_y"].loc[:, column_name]
+                if column_name.split("__")[0] == data["target_column_name"]:
+                    data["raw_ts_y"].loc[:, self.output_features[i]] = data["raw_ts_y"].loc[
+                        :, column_name
+                    ]
 
         return data
 

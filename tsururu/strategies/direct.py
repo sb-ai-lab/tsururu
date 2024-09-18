@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Optional, Union
+from typing import Union
 
 from ..dataset.dataset import TSDataset
 from ..dataset.pipeline import Pipeline
@@ -20,10 +20,10 @@ class DirectStrategy(RecursiveStrategy):
         history: number of previous for feature generating
             (i.e., features for observation y_t are counted from observations
             (y_{t-history}, ..., y_{t-1}).
-        step:  in how many points to take the next observation while making
-            samples' matrix.
         trainer: trainer with model params and validation params.
         pipeline: pipeline for feature and target generation.
+        step:  in how many points to take the next observation while making
+            samples' matrix.
         model_horizon: how many points to predict at a time,
             if model_horizon > 1, then it's an intermediate strategy between
             RecursiveStrategy and MIMOStrategy.
@@ -42,13 +42,13 @@ class DirectStrategy(RecursiveStrategy):
         self,
         horizon: int,
         history: int,
-        step: int,
         trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
+        step: int = 1,
         model_horizon: int = 1,
         equal_train_size: bool = False,
     ):
-        super().__init__(horizon, history, step, trainer, pipeline, model_horizon)
+        super().__init__(horizon, history, trainer, pipeline, step, model_horizon)
         self.equal_train_size = equal_train_size
         self.strategy_name = "direct"
 
@@ -118,7 +118,7 @@ class DirectStrategy(RecursiveStrategy):
             else:
                 val_data = None
 
-            for horizon in range(1, self.horizon // self.model_horizon + 1):
+            for model_i, horizon in enumerate(range(1, self.horizon // self.model_horizon + 1)):
                 target_idx = index_slicer.create_idx_target(
                     dataset.data,
                     self.horizon,
@@ -147,12 +147,26 @@ class DirectStrategy(RecursiveStrategy):
                     self.trainer.history = self.history
 
                 current_trainer = deepcopy(self.trainer)
+
+                # In Direct strategy, we train several models, one for each model_horizon
+                if isinstance(current_trainer, DLTrainer):
+                    checkpoint_path = current_trainer.checkpoint_path
+                    pretrained_path = current_trainer.pretrained_path
+
+                    current_trainer.checkpoint_path /= f"trainer_{model_i}"
+                    if pretrained_path:
+                        current_trainer.pretrained_path /= f"trainer_{model_i}"
+
                 current_trainer.fit(data, self.pipeline, val_data)
+
+                if isinstance(current_trainer, DLTrainer):
+                    current_trainer.checkpoint_path = checkpoint_path
+                    current_trainer.pretrained_path = pretrained_path
 
                 self.trainers.append(current_trainer)
 
         else:
-            for horizon in range(1, self.horizon // self.model_horizon + 1):
+            for model_i, horizon in enumerate(range(1, self.horizon // self.model_horizon + 1)):
                 features_idx = index_slicer.create_idx_data(
                     dataset.data,
                     self.model_horizon * horizon,
@@ -211,7 +225,21 @@ class DirectStrategy(RecursiveStrategy):
                     self.trainer.history = self.history
 
                 current_trainer = deepcopy(self.trainer)
+
+                # In Direct strategy, we train several models, one for each model_horizon
+                if isinstance(current_trainer, DLTrainer):
+                    checkpoint_path = current_trainer.checkpoint_path
+                    pretrained_path = current_trainer.pretrained_path
+
+                    current_trainer.checkpoint_path /= f"trainer_{model_i}"
+                    if pretrained_path:
+                        current_trainer.pretrained_path /= f"trainer_{model_i}"
+
                 current_trainer.fit(data, self.pipeline, val_data)
+
+                if isinstance(current_trainer, DLTrainer):
+                    current_trainer.checkpoint_path = checkpoint_path
+                    current_trainer.pretrained_path = pretrained_path
 
                 self.trainers.append(current_trainer)
 
