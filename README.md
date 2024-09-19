@@ -10,30 +10,32 @@ Also tsururu provides various preprocessing techniques.
 
 ## Multi-series prediction strategies:
 - _Local-modelling_:
-    - Individual model for each time series.
+  - An individual model for each time series. 
+  - Each time series as independent from others.
 - _Global-modelling_:
-    - One model for all time series;
-    - features made up of individual series do not overlap. 
+  - A single model for all time series.
+  - Features created from each series do not overlap with other series. Series are related but modeled separately.
 - _Multivariate-modelling_:
-    - One model for all time series;
-    - features made up of individual series corresponding to the same time point are concatenated for all time series.
+  - A single model for all time series. 
+  - Features created from each series are concatenated at each time step. Try to capture dependencies between the series at the same time point.
 
 ## Multi-point-ahead prediction strategies:
 - _Recursive:_ 
-    - one model for all points of the forecast horizon;
-    - *training*: the model is trained to predict one point ahead;
-    - *prediction*: a prediction is iteratively made one point ahead, and then this prediction is used to further shape the features in the test data. 
-- _Recursive-reduced:_
-    - one model for all points in the prediction horizon;
-    - *training*: the model is trained to predict one point ahead;
-    - *prediction*: features are generated for all test observations at once, unavailable values are replaced by NaN.
+	- One model is used for the entire forecast horizon. 
+	- training: The model is trained to predict one point ahead.
+	- prediction: The model iteratively predicts each point, using previous predictions to update the features in the test data.
+	- Note 1: There is an option to use a “reduced” version, where features are generated for all test observations at once, and unavailable values are filled with NaN.
+	- Note 2: Recursive can also be combined with the MIMO strategy, allowing the model to predict model_horizon points ahead at each step.
 - _Direct:_ 
-    - individual models for each point in the prediction horizon. 
+	- Individual models are trained for each point in the forecast horizon.
+	- Note 1: There is an option to use "equal_train_size" option, where all models can be trained on the same X_train set, formed for the last model predicting h point. Only the target variable (y) is updated for each model, reducing the time spent generating new training sets.
+	- Note 2: Direct can also be combined with MIMO, where each individual model predicts model_horizon points ahead.
 - _MultiOutput (MIMO - Multi-input-multi-output):_
-    - one model that learns to predict the entire prediction horizon. 
-    - __Also, this strategy supports the presence of exogenous features (only for local- or global-modelling).__
+ 	- One model is trained and used for the entire forecast horizon at once. 
+	- Note 1: This strategy can also accommodate exogenous features (for local- or global-modelling strategies).
 - _FlatWideMIMO:_.
-    - mixture of Direct and MIMO, fit one model, but uses deployed over horizon Direct's features.
+	- A hybrid of Direct and MIMO. One model is trained, but Direct’s features are deployed across the forecast horizon.
+	- Note 1: To use FlatWideMIMO with date-related features, h lags of them must be included (with help of LagTransformer).
 
 ## Installation
 
