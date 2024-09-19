@@ -92,7 +92,7 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
             column mask, mean, and standard deviation.
 
         """
-        column_mask = [segment.columns.str.contains(column_name)][0]
+        column_mask = [column for column in segment.columns if column == column_name]
         mean = self.fitted_params[current_id][(column_name, "mean")]
         std = self.fitted_params[current_id][(column_name, "std")]
 
