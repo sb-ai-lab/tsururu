@@ -1,6 +1,8 @@
-import pandas as pd
+from typing import Optional, Sequence
+
 import numpy as np
-from typing import Sequence, Optional
+import pandas as pd
+
 from .base import SeriesToSeriesTransformer
 
 
@@ -68,13 +70,21 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
         Returns:
             transformed segment of 'elongated series'.
         """
-        for column_name in self.input_features:
+        for i, column_name in enumerate(self.input_features):
             if self.regime == "mean":
-                segment[column_name] = self._fill_mean(segment[column_name])
+                segment.loc[:, self.output_features[i]] = segment.loc[:, column_name].copy()
+                segment.loc[:, self.output_features[i]] = self._fill_mean(
+                    segment.loc[:, self.output_features[i]]
+                )
             elif self.regime == "lag":
-                segment[column_name] = self._fill_lag(segment[column_name])
+                segment.loc[:, self.output_features[i]] = segment.loc[:, column_name].copy()
+                segment.loc[:, self.output_features[i]] = self._fill_lag(
+                    segment.loc[:, self.output_features[i]]
+                )
             # Fill remaining missing values with constant value
-            segment[column_name].fillna(self.constant_value, inplace=True)
+            segment.loc[:, self.output_features[i]] = segment.loc[:, self.output_features[i]].fillna(
+                self.constant_value
+            )
 
         return segment
 
@@ -96,9 +106,9 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
 
         for idx in series[series.isnull()].index:
             if idx >= window_size:
-                window = series[idx - window_size : idx]
+                window = series.loc[idx - window_size : idx]
             else:
-                window = series[:idx]
+                window = series.loc[:idx]
 
             try:
                 if self.weighted_alpha > 0:
@@ -109,7 +119,7 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
                 else:
                     mean_value = window.mean()
             except:
-                mean_value = series[idx]
+                mean_value = series.loc[idx]
 
             filled_series.at[idx] = mean_value
 
@@ -129,9 +139,9 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
 
         for idx in series[series.isnull()].index:
             try:
-                current_lag = series[idx - self.lag]
+                current_lag = series.loc[idx - self.lag]
             except:
-                current_lag = series[idx]
+                current_lag = series.loc[idx]
 
             filled_series.at[idx] = current_lag
 
