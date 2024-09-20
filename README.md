@@ -1,4 +1,4 @@
-![tsururu_logo](tsururu_logo.png)
+![tsururu_logo](imgs/tsururu_logo.png)
 
 # Tsururu – a time series forecasting strategies framework
 

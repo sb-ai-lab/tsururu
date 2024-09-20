@@ -112,6 +112,8 @@ class MLTrainer:
         models_preds = [model.predict(X) for model in self.models]
         y_pred = np.mean(models_preds, axis=0)
 
+        y_pred = y_pred.reshape(pipeline.y_original_shape)
+
         return y_pred
 
 

@@ -104,7 +104,7 @@ class Pipeline:
             - target_lags (necessary): list of lags for target
             - date_lags (optional, default False): list of lags for date
             - exog_lags (optional, deafult False): list of lags for exogenous features
-            - target_normalizer (optional, default none): type of target normalizer
+            - target_normalizer (optional, default standard_scaler): type of target normalizer
                 (none, standard_scaler, difference_normalizer, last_known_normalizer)
             - target_normalizer_regime (optional, default none): regime of target normalizer
                 (none, delta, ratio)
@@ -119,7 +119,7 @@ class Pipeline:
         if "exog_lags" not in pipeline_params:
             pipeline_params["exog_lags"] = False
         if "target_normalizer" not in pipeline_params:
-            pipeline_params["target_normalizer"] = "none"
+            pipeline_params["target_normalizer"] = "standard_scaler"
         if "target_normalizer_regime" not in pipeline_params:
             pipeline_params["target_normalizer_regime"] = "none"
 
@@ -194,6 +194,10 @@ class Pipeline:
                     current_sequential_transformers_list.append(target_union)
                     current_sequential_transformers_list.append(target_normalizer)
 
+                elif pipeline_params["target_normalizer"] == "none":
+                    current_sequential_transformers_list.append(target_union)
+                    current_sequential_transformers_list.append(target_lag)
+
                 else:
                     assert (
                         pipeline_params["target_normalizer"] == "none"
@@ -212,6 +216,7 @@ class Pipeline:
                     {
                         "transform_features": True,
                         "transform_target": False,
+                        "agg_by_id": False,
                     },
                 )
                 date_lag = transormers_factory.create_transformer(
@@ -229,6 +234,7 @@ class Pipeline:
                     {
                         "transform_features": True,
                         "transform_target": False,
+                        "agg_by_id": False,
                     },
                 )
                 id_lag = transormers_factory.create_transformer("LagTransformer", {"lags": 1})
