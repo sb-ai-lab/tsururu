@@ -28,7 +28,7 @@ class DLinear_NN(nn.Module):
         self,
         seq_len: int,
         pred_len: int,
-        moving_avg: int = 7,
+        moving_avg: int = 25,
         individual: bool = False,
         enc_in: int = 1,
     ):

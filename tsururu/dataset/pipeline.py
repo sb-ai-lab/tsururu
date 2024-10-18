@@ -362,10 +362,22 @@ class Pipeline:
             id_count = len(
                 data["raw_ts_X"].iloc[data["idx_X"][:, 0]][data["id_column_name"]].value_counts()
             )
-        direct_lag_index_dict["ID"] = np.repeat(
-            np.arange(id_count),
-            repeats=(len(X) / id_count * len(fh_array)),
-        )
+        
+        if self.multivariate:
+            direct_lag_index_dict["ID"] = np.repeat(
+                np.arange(id_count),
+                repeats=(len(X) / id_count * len(fh_array)),
+            )
+        else: 
+            unique_id = np.unique([tuple(x) for x in X.loc[:, id_features_mask].values], axis=0, return_index=1)
+            sort_unique_id = unique_id[0][np.argsort(unique_id[1])]
+            
+            for id_idx, id_feature in enumerate(X.loc[:, id_features_mask].columns):
+                direct_lag_index_dict[id_feature] = np.repeat(
+                    sort_unique_id[:, id_idx],
+                    repeats=(len(X) / id_count * len(fh_array)),
+                )
+
         direct_lag_index_dict["FH"] = np.tile(fh_array, len(X.index))
         direct_lag_index_df = pd.DataFrame(direct_lag_index_dict)
 
@@ -439,7 +451,13 @@ class Pipeline:
         date_features_idx = index_slicer.get_cols_idx(X, date_features_colname)
         other_features_idx = index_slicer.get_cols_idx(X, other_features_colname)
 
-        segments_ids = np.append(np.unique(X[id_features_colname], return_index=1)[1], len(X))
+        segments_ids = np.append(
+            np.unique([tuple(x) for x in X[id_features_colname].values], axis=0, return_index=1)[
+                1
+            ],
+            len(X),
+        )
+        segments_ids = np.sort(segments_ids)
         segments_ids_array = np.array(
             [
                 np.arange(segments_ids[segment_id - 1], segments_ids[segment_id])
@@ -502,6 +520,7 @@ class Pipeline:
         fh_feature_idx = index_slicer.get_cols_idx(X, fh_feature_colname)
 
         segments_ids = np.append(np.unique(X[id_feature_colname], return_index=1)[1], len(X))
+        segments_ids = np.sort(segments_ids)
         segments_ids_array = np.array(
             [
                 np.arange(segments_ids[segment_id - 1], segments_ids[segment_id])

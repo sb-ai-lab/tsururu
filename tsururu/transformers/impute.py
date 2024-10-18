@@ -82,9 +82,14 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
                     segment.loc[:, self.output_features[i]]
                 )
             # Fill remaining missing values with constant value
-            segment.loc[:, self.output_features[i]] = segment.loc[:, self.output_features[i]].fillna(
-                self.constant_value
-            )
+            if self.output_features[i] in segment.columns:
+                segment.loc[:, self.output_features[i]] = segment.loc[:, self.output_features[i]].fillna(
+                    self.constant_value
+                )
+            else:
+                segment.loc[:, self.output_features[i]] = segment.loc[:, column_name].fillna(
+                    self.constant_value
+                )
 
         return segment
 
