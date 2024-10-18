@@ -153,3 +153,4 @@ poetry.lock
 *temp*
 *test*
 *checkpoints*
+*logs*

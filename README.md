@@ -47,6 +47,11 @@ To install tsururu via pip you can use:
 
 For usage example please see:
 
-* [Tutorial_1_Quick_Start](https://github.com/sb-ai-lab/tsururu/blob/main/Tutorial_1_Quick_start.ipynb) for simple usage examples
+* [Tutorial_1_Quick_Start](https://github.com/sb-ai-lab/tsururu/blob/main/examples/Tutorial_1_Quick_start.ipynb) for simple usage examples
 
-More examples are coming soon.
+## Other tutorials and examples
+
+* [Tutorial_2_Strategies](https://github.com/sb-ai-lab/tsururu/blob/main/examples/Tutorial_2_Strategies.ipynb) covers forecasting strategies.
+* [Tutorial_3_Transformers_and_Pipeline](https://github.com/sb-ai-lab/tsururu/blob/main/examples/Tutorial_3_Transformers_and_Pipeline.ipynb) provides a description of available data preprocessing techniques.
+* [Tutorial_4_Neural_Networks](https://github.com/sb-ai-lab/tsururu/blob/main/examples/Tutorial_4_Neural_Networks.ipynb) demonstrates working with neural networks.
+* [Example_1_All_configurations](https://github.com/sb-ai-lab/tsururu/blob/main/examples/Example_1_All_configurations.py) script for benchmarking multiple configurations from available strategies, models and preprocessing methods on a dataset.
