@@ -2,6 +2,9 @@
 
 from .base import Estimator
 from .boost import CatBoost
+from .torch_based.dlinear import DLinear_NN
+from .torch_based.patch_tst import PatchTST_NN
+from .torch_based.times_net import TimesNet_NN
 
 
 # Factory Object
@@ -9,6 +12,9 @@ class ModelsFactory:
     def __init__(self):
         self.models = {
             "CatBoost": CatBoost,
+            "DLinear_NN": DLinear_NN,
+            "PatchTST_NN": PatchTST_NN,
+            "TimesNet_NN": TimesNet_NN,
         }
 
     def get_allowed(self):
@@ -24,4 +30,4 @@ class ModelsFactory:
         return self.models[model_name](**model_params)
 
 
-__all__ = ["CatBoost", "Estimator", "ModelsFactory"]
+__all__ = ["CatBoost", "Estimator", "ModelsFactory", "DLinear_NN", "PatchTST_NN", "TimesNet_NN"]
