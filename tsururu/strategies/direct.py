@@ -243,6 +243,8 @@ class DirectStrategy(RecursiveStrategy):
 
                 self.trainers.append(current_trainer)
 
+        self.is_fitted = True
+
         return self
 
     def make_step(self, step, dataset):

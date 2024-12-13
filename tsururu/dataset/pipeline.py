@@ -61,6 +61,10 @@ class Pipeline:
 
             transformers_dict = columns_params["features"]
             for transformer_name, transformer_params in transformers_dict.items():
+                assert (
+                    role != "target" and transformer_params.get("transform_target", False)
+                ) is False, "It is not possible to use transform_target=True with transformers for exogenous variables"
+
                 if transformer_name == "LagTransformer" and role == "target":
                     features_transformer = transormers_factory.create_transformer(
                         transformer_name, transformer_params
@@ -73,6 +77,7 @@ class Pipeline:
                     transformer = transormers_factory.create_transformer(
                         transformer_name, transformer_params
                     )
+
                 current_sequential_transformers_list.append(transformer)
 
             result_union_transformers_list.append(
@@ -362,16 +367,18 @@ class Pipeline:
             id_count = len(
                 data["raw_ts_X"].iloc[data["idx_X"][:, 0]][data["id_column_name"]].value_counts()
             )
-        
+
         if self.multivariate:
             direct_lag_index_dict["ID"] = np.repeat(
                 np.arange(id_count),
                 repeats=(len(X) / id_count * len(fh_array)),
             )
-        else: 
-            unique_id = np.unique([tuple(x) for x in X.loc[:, id_features_mask].values], axis=0, return_index=1)
+        else:
+            unique_id = np.unique(
+                [tuple(x) for x in X.loc[:, id_features_mask].values], axis=0, return_index=1
+            )
             sort_unique_id = unique_id[0][np.argsort(unique_id[1])]
-            
+
             for id_idx, id_feature in enumerate(X.loc[:, id_features_mask].columns):
                 direct_lag_index_dict[id_feature] = np.repeat(
                     sort_unique_id[:, id_idx],
@@ -390,29 +397,32 @@ class Pipeline:
                 new_date_features[i::horizon, :] = X.loc[:, date_features_mask].values[
                     :, i::horizon
                 ]
+
+            # get unique date feature names without lag suffix
+            date_feature_names = (
+                X.columns[date_features_mask].str.replace("__lag_\d+$", "", regex=True).unique()
+            )
+
+            features_df = pd.DataFrame(
+                np.repeat(
+                    X.loc[:, ~id_features_mask & ~date_features_mask].values, horizon, axis=0
+                ),
+                columns=X.loc[:, ~id_features_mask & ~date_features_mask].columns,
+            )
+
+            X = pd.concat(
+                [
+                    direct_lag_index_df,
+                    pd.DataFrame(new_date_features, columns=date_feature_names),
+                    features_df,
+                ],
+                axis=1,
+            )
+
         except ValueError:
             raise ValueError(
                 "Something is wrong while making FlatWideMIMO strategy's X. Check that you use number of lags equal to horizon for datetime features!"
             )
-
-        # get unique date feature names without lag suffix
-        date_feature_names = (
-            X.columns[date_features_mask].str.replace("__lag_\d+$", "", regex=True).unique()
-        )
-
-        features_df = pd.DataFrame(
-            np.repeat(X.loc[:, ~id_features_mask & ~date_features_mask].values, horizon, axis=0),
-            columns=X.loc[:, ~id_features_mask & ~date_features_mask].columns,
-        )
-
-        X = pd.concat(
-            [
-                direct_lag_index_df,
-                pd.DataFrame(new_date_features, columns=date_feature_names),
-                features_df,
-            ],
-            axis=1,
-        )
 
         data["X"] = X.values
 

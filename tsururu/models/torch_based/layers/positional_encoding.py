@@ -3,8 +3,6 @@
 import math
 from typing import Optional
 
-from .utils import pv
-
 try:
     import torch
     import torch.nn as nn
@@ -68,7 +66,6 @@ def Coord2dPosEncoding(
             * (torch.linspace(0, 1, d_model).reshape(1, -1) ** x)
             - 1
         )
-        pv(f"{i:4.0f}  {x:5.3f}  {cpe.mean():+6.3f}", verbose)
         if abs(cpe.mean()) <= eps:
             break
         elif cpe.mean() > eps:

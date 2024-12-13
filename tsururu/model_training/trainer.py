@@ -22,6 +22,10 @@ except ImportError:
     Subset = None
     nn = None
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class MLTrainer:
     """Class for training and predicting using a model and a validation strategy.
@@ -74,6 +78,21 @@ class MLTrainer:
         else:
             X_val, y_val = None, None
 
+        if (
+            np.isnan(X).sum() != 0
+            or (X_val is not None and np.isnan(X_val).sum() != 0)
+            or np.isnan(y).sum() != 0
+            or (y_val is not None and np.isnan(y_val).sum() != 0)
+        ):
+            if np.isnan(X).sum() != 0 or np.isnan(X_val).sum() != 0:
+                logger.warning("It seems that there are NaN values in the input data.")
+            else:
+                logger.warning("It seems that there are NaN values in the target data.")
+            logger.warning(
+                "Try to check pipeline configuration (normalization part, especially)."
+                "NaN values can be caused by division by zero in DifferenceNormalizer or LastKnownNormalizer."
+            )
+
         # Initialize columns' order and reorder columns
         self.features_argsort = np.argsort(pipeline.output_features)
         X = X[:, self.features_argsort]
@@ -85,11 +104,10 @@ class MLTrainer:
             model.fit_one_fold(X_train, y_train, X_val, y_val)
             self.models.append(model)
             self.scores.append(model.score)
+            logger.info(f"Fold {fold_i}. Score: {model.score}")
 
-            print(f"Fold {fold_i}. Score: {model.score}")
-
-        print(f"Mean score: {np.mean(self.scores).round(4)}")
-        print(f"Std: {np.std(self.scores).round(4)}")
+        logger.info(f"Mean score: {np.mean(self.scores).round(4)}")
+        logger.info(f"Std: {np.std(self.scores).round(4)}")
 
     def predict(self, data: dict, pipeline: Pipeline) -> np.ndarray:
         """Generates predictions using the trained model.
@@ -332,6 +350,17 @@ class DLTrainer:
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
 
                 optimizer.zero_grad()
+
+                if torch.isnan(inputs).sum() != 0 or torch.isnan(targets).sum() != 0:
+                    if torch.isnan(inputs).sum() != 0:
+                        logger.warning("It seems that there are NaN values in the input data.")
+                    else:
+                        logger.warning("It seems that there are NaN values in the target data.")
+                    logger.warning(
+                        "Try to check pipeline configuration (normalization part, especially)."
+                        "NaN values can be caused by division by zero in DifferenceNormalizer or LastKnownNormalizer."
+                    )
+
                 outputs = model(inputs)
                 if self.target_len is None:
                     self.target_len = targets.shape[2]
@@ -347,19 +376,19 @@ class DLTrainer:
 
                 if not self.scheduler_after_epoch and scheduler is not None:
                     scheduler.step()
-                    print(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
+                    logger.info(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
 
             epoch_loss = running_loss / len(train_loader.dataset)
             epoch_time = time.time() - start_time
-            print(f"Epoch {epoch+1}/{self.n_epochs}, cost time: {epoch_time:.2f}s")
-            print(f"train loss: {epoch_loss:.4f}")
+            logger.info(f"Epoch {epoch+1}/{self.n_epochs}, cost time: {epoch_time:.2f}s")
+            logger.info(f"train loss: {epoch_loss:.4f}")
 
             val_loss, val_metric = self.validate_model(val_loader, model)
-            print(f"val loss: {val_loss:.4f}")
+            logger.info(f"val loss: {val_loss:.4f}, val metric: {val_metric:.4f}")
 
             if self.scheduler_after_epoch and scheduler is not None:
                 scheduler.step()
-                print(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
+                logger.info(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
 
             # Сохранение модели и проверка early stopping
             logs = {
@@ -435,7 +464,7 @@ class DLTrainer:
         loss = self.criterion(all_outputs, all_targets).item()
         metric = self.metric(all_outputs, all_targets).item() if self.metric else 0.0
 
-        print(f"Validation, Loss: {loss:.4f}, Metric: {metric:.4f}")
+        logger.info(f"Validation, Loss: {loss:.4f}, Metric: {metric:.4f}")
 
         if return_outputs:
             return loss, metric, all_outputs, all_targets
@@ -498,8 +527,8 @@ class DLTrainer:
                 num_workers=self.num_workers,
             )
 
-            print(f"length of train dataset: {len(train_subset)}")
-            print(f"length of val dataset: {len(val_subset)}")
+            logger.info(f"length of train dataset: {len(train_subset)}")
+            logger.info(f"length of val dataset: {len(val_subset)}")
 
             num_features = train_dataset[0][0].shape[0]
 
@@ -518,12 +547,12 @@ class DLTrainer:
             self.schedulers.append(scheduler)
             self.scores.append(score)
 
-            print(f"Fold {fold_i}. Score: {score}")
+            logger.info(f"Fold {fold_i}. Score: {score}")
             self.checkpoint_path = checkpoint_path
             self.pretrained_path = pretrained_path
 
-        print(f"Mean score: {np.mean(self.scores).round(4)}")
-        print(f"Std: {np.std(self.scores).round(4)}")
+        logger.info(f"Mean score: {np.mean(self.scores).round(4)}")
+        logger.info(f"Std: {np.std(self.scores).round(4)}")
 
     def predict(self, data: dict, pipeline: Pipeline) -> np.ndarray:
         """Generates predictions using the trained model.
@@ -547,7 +576,7 @@ class DLTrainer:
             num_workers=self.num_workers,
         )
 
-        print(f"length of test dataset: {len(test_dataset)}")
+        logger.info(f"length of test dataset: {len(test_dataset)}")
 
         models_preds = [
             self.validate_model(test_loader, model, return_outputs=True)[2].cpu()

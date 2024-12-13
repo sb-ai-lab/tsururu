@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional, Union
 
 import numpy as np
@@ -7,7 +8,10 @@ from ..dataset.dataset import TSDataset
 from ..dataset.pipeline import Pipeline
 from ..dataset.slice import IndexSlicer
 from ..model_training.trainer import DLTrainer, MLTrainer
+from ..utils.logging import set_stdout_level, verbosity_to_loglevel
 from .utils import timing_decorator
+
+logger = logging.getLogger(__name__)
 
 
 class Strategy:
@@ -31,6 +35,23 @@ class Strategy:
         future.
 
     """
+
+    @staticmethod
+    def set_verbosity_level(verbose):
+        """Verbosity level setter.
+
+        Args:
+            verbose: Controls the verbosity: the higher, the more messages.
+                <1  : messages are not displayed;
+                >=1 : the common information about training and testing is displayed;
+                >=2 : the information about folds processing is also displayed;
+                >=3 : the training process for every algorithm is displayed;
+                >=4 : the debug information is displayed;
+        """
+        level = verbosity_to_loglevel(verbose)
+        set_stdout_level(level)
+
+        logger.info(f"Stdout logging level is {logging._levelToName[level]}.")
 
     @staticmethod
     def check_step_param(step: int):
@@ -62,6 +83,7 @@ class Strategy:
         self.pipeline = pipeline
 
         self.trainers = []
+        self.is_fitted = False
 
     @staticmethod
     def _make_preds_df(

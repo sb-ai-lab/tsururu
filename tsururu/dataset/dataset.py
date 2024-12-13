@@ -9,6 +9,10 @@ from .slice import IndexSlicer
 
 slicer = IndexSlicer()
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class TSDataset:
     """Class for initializing data from pandas DataFrame.
@@ -54,23 +58,51 @@ class TSDataset:
                 len(self.columns_params[role]["columns"]) == 1
             ), f"the `columns` container for role {role} should contain only one column"
 
-    def _print_freq_period_info(self):
-        """Print the frequency and period information for data for
-        validation purposes.
+    def _check_regular(self, print_freq_period_info):
+        """Check that the data is regular.
+
+        Raises:
+            AssertionError: if the data is not regular.
 
         """
-        info = slicer.timedelta(
-            self.data[self.date_column], delta=self.delta, return_freq_period_info=True
-        )[2]
+        ts_count = self.data.loc[:, self.id_column].nunique()
 
-        print(info)
+        _, delta, info = slicer.timedelta(
+            self.data[self.date_column], self.delta, return_freq_period_info=True
+        )
+
+        if print_freq_period_info:
+            logger.info(info)
+            
+        # Try to reconstruct regular data
+        min_data = self.data.min()
+        max_data = self.data.max()
+        
+        reconstructed_data = pd.date_range(
+            start=min_data[self.date_column],
+            end=max_data[self.date_column],
+            freq=delta,
+        )
+        reconstructed_data = np.tile(reconstructed_data, ts_count)
+
+        if (
+            reconstructed_data.shape[0] != self.data.shape[0]
+            or not np.all(reconstructed_data == self.data[self.date_column].values)
+        ):
+            logger.warning(
+                f"""
+                It seems that the data is not regular. Please, check the data and the frequency info.                
+                For multivariate regime it is critical to have regular data.
+                For global regime each regular part of time series will be processed as separate time series.           
+                """
+            )
 
     def __init__(
         self,
         data: pd.DataFrame,
         columns_params: dict,
         delta: pd.DateOffset = None,
-        print_freq_period_info: bool = False,
+        print_freq_period_info: bool = True,
     ):
         # Columns typing
         for _, role_dict in columns_params.items():
@@ -93,8 +125,7 @@ class TSDataset:
 
         self.data = data.sort_values([self.id_column, self.date_column])
 
-        if print_freq_period_info:
-            self._print_freq_period_info()
+        self._check_regular(print_freq_period_info)
 
     def _crop_segment(
         self,

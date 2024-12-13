@@ -1,6 +1,7 @@
 """Module for callbacks used in training process."""
 
 import heapq
+import logging
 import os
 from pathlib import Path
 from typing import Optional
@@ -9,6 +10,9 @@ try:
     import torch
 except ImportError:
     torch = None
+
+
+logger = logging.getLogger(__name__)
 
 
 class Callback:
@@ -249,10 +253,11 @@ class ES_Checkpoints_Manager(Callback):
             if scheduler_state:
                 torch.save(scheduler_state, sch_path)
             if self.verbose:
-                print(f"Last epoch model saved to {model_path}")
-                print(f"Last epoch optimizer saved to {opt_path}")
+                logger.info(f"Last epoch model saved to {model_path}")
+                logger.info(f"Last epoch optimizer saved to {opt_path}")
+                
                 if scheduler_state:
-                    print(f"Last epoch scheduler saved to {sch_path}")
+                    logger.info(f"Last epoch scheduler saved to {sch_path}")
 
         # Save top-k best snapshots
         if self.save_k_best > 0 and self._should_save_checkpoint(current_score):
@@ -263,7 +268,7 @@ class ES_Checkpoints_Manager(Callback):
                     self._safe_remove(worst_snapshot[1]["optimizer"])
                     self._safe_remove(worst_snapshot[1]["scheduler"])
                 if self.verbose:
-                    print(
+                    logger.info(
                         f"Removing worst model snapshot: from epoch {worst_snapshot[1]['epoch']}"
                     )
 
@@ -282,7 +287,7 @@ class ES_Checkpoints_Manager(Callback):
             self._update_worst_best_score()
             if self.save_to_dir:
                 if self.verbose:
-                    print(f"Best model snapshot saved to {model_path}")
+                    logger.info(f"Best model snapshot saved to {model_path}")
 
         # Early stopping logic
         if self.early_stopping_patience > 0:
@@ -291,19 +296,19 @@ class ES_Checkpoints_Manager(Callback):
                 self.early_stopping_counter = 0
             else:
                 self.early_stopping_counter += 1
-                print(f"Early stopping counter: {self.early_stopping_counter}")
+                logger.info(f"Early stopping counter: {self.early_stopping_counter}")
                 if self.early_stopping_counter >= self.early_stopping_patience:
                     if self.verbose:
-                        print("Early stopping triggered")
+                        logger.info("Early stopping triggered")
                     self.stop_training = True
 
         if self.save_to_dir:
             manager_path = Path(logs.get("filepath")) / "es_checkpoint_manager.pth"
             torch.save(self, manager_path)
             if self.verbose:
-                print(f"Checkpoint manager saved to {manager_path}")
+                logger.info(f"Checkpoint manager saved to {manager_path}")
 
     def on_train_end(self, logs: Optional[dict] = None):
         """Called at the end of training."""
         if self.verbose:
-            print("Training finished.")
+            logger.info("Training finished.")

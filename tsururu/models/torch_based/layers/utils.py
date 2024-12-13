@@ -10,12 +10,6 @@ except ImportError:
     nn = None
 
 
-# https://github.com/fastai/fastai/blob/85625d621ff1a068f114a3318cc31b927019de05/fastai/imports.py
-def pv(text, verbose):
-    if verbose:
-        print(text)
-
-
 def get_activation_fn(activation: Union[str, Callable[[], nn.Module]]) -> nn.Module:
     """Get the activation function based on the provided name or callable.
 

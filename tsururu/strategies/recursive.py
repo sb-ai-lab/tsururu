@@ -142,6 +142,9 @@ class RecursiveStrategy(Strategy):
             current_trainer.pretrained_path = pretrained_path
 
         self.trainers.append(current_trainer)
+        
+        self.is_fitted = True
+        
         return self
 
     def make_step(self, step: int, dataset: TSDataset) -> TSDataset:
@@ -194,6 +197,9 @@ class RecursiveStrategy(Strategy):
             a pandas DataFrame containing the predicted target values.
 
         """
+        if not self.is_fitted:
+            raise ValueError("The strategy is not fitted yet.")
+        
         new_data = dataset.make_padded_test(
             self.horizon, self.history, test_all=test_all, step=self.step
         )

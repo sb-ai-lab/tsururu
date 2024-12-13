@@ -1,6 +1,9 @@
+import logging
 from typing import Dict, Optional, Union
 
 import numpy as np
+
+from ..utils.logging import LoggerStream
 
 try:
     from catboost import CatBoostRegressor, Pool
@@ -8,6 +11,8 @@ except ImportError:
     Pool = None
     CatBoostRegressor = None
 from .base import Estimator
+
+logger = logging.getLogger(__name__)
 
 
 class CatBoost(Estimator):
@@ -43,6 +48,7 @@ class CatBoost(Estimator):
             ("thread_count", -1),
             ("random_state", 42),
             ("early_stopping_rounds", 100),
+            ("verbose", 100),
         ]:
             if self.model_params.get(param) is None:
                 self.model_params[param] = default_value
@@ -54,6 +60,7 @@ class CatBoost(Estimator):
             eval_set=eval_dataset,
             use_best_model=True,
             plot=False,
+            log_cout=LoggerStream(logger, verbose_eval=self.model_params["verbose"]),
         )
 
         self.score = self.model.best_score_["validation"][f"{self.model_params['loss_function']}"]
