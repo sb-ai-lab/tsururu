@@ -10,6 +10,7 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
     """Imputes missing values in time series data using various strategies.
 
     Args:
+        impute_inf: whether to impute infinite values additionally to missing values.
         regime: the strategy to use for imputation. Options are 'mean' or 'lag'.
             if None, the transformer will fill missing values with a constant value.
         constant_value: the constant value to fill remaining missing values
@@ -28,6 +29,7 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
 
     def __init__(
         self,
+        impute_inf: bool = False,
         regime: Optional[str] = None,
         constant_value: Optional[float] = None,
         transform_features: bool = True,
@@ -37,6 +39,7 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
         lag: Optional[int] = None,
     ):
         super().__init__(transform_features=transform_features, transform_target=transform_target)
+        self.impute_inf = impute_inf
         self.regime = regime
         self.constant_value = constant_value
         self.window = window if window is not None else -1
@@ -86,10 +89,18 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
                 segment.loc[:, self.output_features[i]] = segment.loc[:, self.output_features[i]].fillna(
                     self.constant_value
                 )
+                if self.impute_inf:
+                    segment.loc[:, self.output_features[i]] = segment.loc[:, self.output_features[i]].replace(
+                        [np.inf, -np.inf], self.constant_value
+                    )
             else:
                 segment.loc[:, self.output_features[i]] = segment.loc[:, column_name].fillna(
                     self.constant_value
                 )
+                if self.impute_inf:
+                    segment.loc[:, self.output_features[i]] = segment.loc[:, self.output_features[i]].replace(
+                        [np.inf, -np.inf], self.constant_value
+                    )
 
         return segment
 
@@ -108,8 +119,12 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
             window_size = len(series)
         else:
             window_size = self.window
+            
+        idx_list = series[series.isnull()].index
+        if self.impute_inf:
+            idx_list = idx_list.union(series.index[~np.isfinite(series)])
 
-        for idx in series[series.isnull()].index:
+        for idx in idx_list:
             if idx >= window_size:
                 window = series.loc[idx - window_size : idx]
             else:
@@ -142,7 +157,11 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
         """
         filled_series = series.copy()
 
-        for idx in series[series.isnull()].index:
+        idx_list = series[series.isnull()].index
+        if self.impute_inf:
+            idx_list = idx_list.union(series.index[~np.isfinite(series)])
+        
+        for idx in idx_list:
             try:
                 current_lag = series.loc[idx - self.lag]
             except:
