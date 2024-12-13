@@ -63,36 +63,36 @@ MODELS = [
 ]
 
 STRATEGIES_OVER_TIME = [
-#    "RecursiveStrategy",
-#    "DirectStrategy",
-#    "MIMOStrategy",
+    "RecursiveStrategy",
+    "DirectStrategy",
+    "MIMOStrategy",
     "FlatWideMIMOStrategy",
 ]
 MULTIVARIATE = [
-#    True, 
+    True, 
     False
 ]
 
 DATE_FEATURES = [
-    "with_normalization",
-#    "with_normalization_over_all",
-#    "with_normalization_by_id",
-#    False,
+    "without_normalization",
+    "with_normalization_over_all",
+    False,
 ]
 
 ID_FEATURES = [
     "with_ohe",
-#    "with_le_normalization_over_all",
-#    False,
+    "with_le_without_normalization",
+    "with_le_normalization_over_all",
+    False,
 ]
 
 INDIVIDUAL_MODEL_HORIZON = [None, 1, 2]
 
 TRANSFORMERS = {
     None,
-#    "StandardScalerTransformer",
-#    "DifferenceNormalizer",
-#    "LastKnownNormalizer",
+    "StandardScalerTransformer",
+    "DifferenceNormalizer",
+    "LastKnownNormalizer",
 }
 TRANSFORMERS_REGIMES = [None, "delta", "ratio"]
 TRANSFORM_TARGET = [True, False]
@@ -423,6 +423,14 @@ def main():
                     "LagTransformer": {"lags": 1},
                 },
             }
+        elif id_features == "with_le_without_normalization":
+            pipeline_params["id"] = {
+                "columns": ["id"],
+                "features": {
+                    "LabelEncodingTransformer": {},
+                    "LagTransformer": {"lags": 1},
+                },
+            }
         elif id_features == "with_le_normalization_over_all":
             pipeline_params["id"] = {
                 "columns": ["id"],
@@ -432,19 +440,6 @@ def main():
                         "transform_features": True,
                         "transform_target": False,
                         "agg_by_id": False,
-                    },
-                    "LagTransformer": {"lags": 1},
-                },
-            }
-        elif id_features == "with_le_normalization_by_id":
-            pipeline_params["id"] = {
-                "columns": ["id"],
-                "features": {
-                    "LabelEncodingTransformer": {},
-                    "StandardScalerTransformer": {
-                        "transform_features": True,
-                        "transform_target": False,
-                        "agg_by_id": True,
                     },
                     "LagTransformer": {"lags": 1},
                 },
