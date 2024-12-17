@@ -6,7 +6,7 @@ from numba import jit
 from .slice import IndexSlicer, IndexSlicerPolars
 import logging
 
-slicer = IndexSlicer() # IndexSlicerPolars() 
+slicer = IndexSlicerPolars() # IndexSlicer() 
 logger = logging.getLogger(__name__)
 
 class TSDatasetPolars:
@@ -681,7 +681,7 @@ class TSDatasetNumbaPolars:
         ts_count = self.data[self.id_column].n_unique()
 
         _, delta, info = slicer.timedelta(
-            self.data[self.date_column].to_pandas(), self.delta, return_freq_period_info=True
+            self.data[self.date_column], self.delta, return_freq_period_info=True
         )
 
         if print_freq_period_info:

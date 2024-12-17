@@ -3,12 +3,12 @@ from typing import Union
 
 import pandas as pd
 
-from ..dataset import IndexSlicer, Pipeline, TSDataset
+from ..dataset import IndexSlicer, IndexSlicerPolars, Pipeline, TSDataset
 from ..model_training.trainer import DLTrainer, MLTrainer
 from .base import Strategy
 from .utils import timing_decorator
 
-index_slicer = IndexSlicer()
+index_slicer = IndexSlicerPolars() # IndexSlicer()
 
 
 class RecursiveStrategy(Strategy):

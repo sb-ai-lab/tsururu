@@ -288,6 +288,7 @@ class Pipeline:
 
         """
         data = {}
+        dataset.data = dataset.data.to_pandas() # TODO: change to polars later
         data["raw_ts_X"] = dataset.data.copy()
         data["raw_ts_y"] = dataset.data.copy()
         data["X"] = np.array([])

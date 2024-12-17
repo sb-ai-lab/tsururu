@@ -70,21 +70,38 @@ class IndexSlicerPolars:
             AssertionError: If the frequency and period fail to be defined.
         """
         if not x.dtype == pl.Datetime:
-            x = x.cast(pl.Datetime)
+            x = pl.from_numpy(x) # x = x.cast(pl.Datetime)
 
         if delta is None:
             # Calculate differences
-            diffs = x.diff().drop_nulls()
+            # Perform operations based on type
+            if isinstance(x, pl.DataFrame):
+                # Select a column from DataFrame
+                diffs = x["column_0"].diff().drop_nulls()
+            elif isinstance(x, pl.Series):
+                # Compute the difference for a Series
+                diffs = x.diff().drop_nulls()
+            # diffs = x.diff().drop_nulls() # .select(pl.col("timestamp").diff().drop_nulls()) # x.diff().drop_nulls()
             delta = diffs[-1]
 
             # Infer frequency
             inferred_freq = None  # Polars doesn't have `infer_freq`, so leaving this as None
             freq_period_info = ""
 
+            # print((pl.duration(days=delta.days) > pl.duration(days=360)).all())
+
+            # if pl.duration(days=delta.days) > pl.duration(days=360) and (
+            #     (pl.duration(days=delta.days).days() % 365 == 0) | (pl.duration(days=delta.days).days() % 366 == 0)
+            # ):
+            # if delta > pl.duration(days=360) and (
+            #     (delta.days() % 365 == 0) | (delta.days() % 366 == 0)
+            # ):
+
             # N Years
-            if delta > pl.duration(days=360) and (
-                delta.days() % 365 == 0 or delta.days() % 366 == 0
-            ):
+            # if delta > pl.duration(days=360) and (
+            #     delta.days() % 365 == 0 or delta.days() % 366 == 0
+            # ):
+            if delta > pd.Timedelta(days=360) and (delta.days % 365 == 0 or delta.days % 366 == 0):
                 delta, freq_period_info = self._timedelta_above_daily_freq(
                     d_multiplier=12,
                     check_end_regex=r"\b\d*A-|\b\d*YE-",
@@ -94,8 +111,8 @@ class IndexSlicerPolars:
                 )
 
             # N Quarters and Months
-            elif delta > pl.duration(days=27):
-                if delta > pl.duration(days=88):
+            elif delta > pd.Timedelta(days=72): # elif delta > pl.duration(days=27):
+                if delta > pd.Timedelta(days=88):
                     check_end_regex = r"\b\d*Q-|\b\d*QE-"
                 else:
                     check_end_regex = r"\b\d*M\b|\b\d*ME\b"
@@ -109,11 +126,11 @@ class IndexSlicerPolars:
                 )
 
             # N Days
-            elif delta >= pl.duration(days=1):
-                freq_period_info = f"freq: Day; period: {delta.days()}"
+            elif delta >= pd.Timedelta(days=1):
+                freq_period_info = f"freq: Day; period: {delta}"
 
             # N Hours; Min; Sec; etc
-            elif delta <= pl.duration(days=1):
+            elif delta <= pd.Timedelta(days=1):
                 freq_period_info = f"freq: less than Day (Hour, Min, Sec, etc); period: {delta.nanoseconds()} nanoseconds"
 
         else:
@@ -121,7 +138,12 @@ class IndexSlicerPolars:
 
         assert delta is not None, "Frequency and period failed to be defined."
 
-        diffs = x.diff().fill_null(delta)
+        if isinstance(x, pl.DataFrame):
+            diffs = x["column_0"].diff().fill_null(delta)
+        elif isinstance(x, pl.Series):
+            diffs = x.diff().fill_null(delta)
+
+        # diffs = x.diff().fill_null(delta)
 
         if return_freq_period_info:
             return diffs, delta, freq_period_info
