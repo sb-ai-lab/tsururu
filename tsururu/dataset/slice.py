@@ -8,6 +8,523 @@ import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype as is_datetime
 from pandas.tseries.offsets import MonthEnd
 from scipy import stats as st
+import polars as pl
+import re
+
+class IndexSlicerPolars:
+    """Combines ways to create indexes and manipulate data."""
+
+    @staticmethod
+    def _timedelta_above_daily_freq(
+        d_multiplier: int,
+        check_end_regex: str,
+        d_from_series: int,
+        freq_name: str,
+        inferred_freq: str,
+    ) -> Tuple[pl.Duration, str]:
+        """Calculate the timedelta based on the given parameters for
+        frequencies above daily.
+
+        Args:
+            d_multiplier: the multiplier for the number of months.
+            check_end_regex: the regular expression to check if the
+                inferred frequency is an end frequency.
+            d_from_series: the number of periods from the series.
+            freq_name: the name of the frequency.
+            inferred_freq: the inferred frequency.
+
+        Returns:
+            The calculated timedelta and the information about the
+            frequency and period.
+        """
+        if inferred_freq and re.match(check_end_regex, inferred_freq):
+            delta = pl.duration(days=d_multiplier * d_from_series * 30)  # Approximation for months
+            freq_period_info = f"freq: {freq_name}End; period: {d_from_series}"
+        else:
+            delta = pl.duration(days=d_multiplier * d_from_series * 30)  # Approximation for months
+            freq_period_info = f"freq: {freq_name}; period: {d_from_series}"
+
+        return delta, freq_period_info
+
+    def timedelta(
+        self,
+        x: pl.Series,
+        delta: Optional[pl.Duration] = None,
+        return_freq_period_info: bool = False,
+    ) -> Union[Tuple[pl.Series, pl.Duration], Tuple[pl.Series, pl.Duration, str]]:
+        """Returns the difference between neighboring observations in
+        the array in terms of delta and the delta itself.
+
+        Args:
+            x: Series with datetime points.
+            delta: Custom offset if needed.
+            return_freq_period_info: Whether to return information about
+                inferred frequency and period.
+
+        Returns:
+            Difference between neighboring observations and the delta
+            itself; if return_freq_period_info is True, also returns
+            information about inferred frequency and period.
+
+        Raises:
+            AssertionError: If the frequency and period fail to be defined.
+        """
+        if not x.dtype == pl.Datetime:
+            x = x.cast(pl.Datetime)
+
+        if delta is None:
+            # Calculate differences
+            diffs = x.diff().drop_nulls()
+            delta = diffs[-1]
+
+            # Infer frequency
+            inferred_freq = None  # Polars doesn't have `infer_freq`, so leaving this as None
+            freq_period_info = ""
+
+            # N Years
+            if delta > pl.duration(days=360) and (
+                delta.days() % 365 == 0 or delta.days() % 366 == 0
+            ):
+                delta, freq_period_info = self._timedelta_above_daily_freq(
+                    d_multiplier=12,
+                    check_end_regex=r"\b\d*A-|\b\d*YE-",
+                    d_from_series=(x.dt.year().diff().drop_nulls()[-1]),
+                    freq_name="Year",
+                    inferred_freq=inferred_freq,
+                )
+
+            # N Quarters and Months
+            elif delta > pl.duration(days=27):
+                if delta > pl.duration(days=88):
+                    check_end_regex = r"\b\d*Q-|\b\d*QE-"
+                else:
+                    check_end_regex = r"\b\d*M\b|\b\d*ME\b"
+
+                delta, freq_period_info = self._timedelta_above_daily_freq(
+                    d_multiplier=1,
+                    check_end_regex=check_end_regex,
+                    d_from_series=x.dt.month().diff().drop_nulls().mode()[0],
+                    freq_name="Month",
+                    inferred_freq=inferred_freq,
+                )
+
+            # N Days
+            elif delta >= pl.duration(days=1):
+                freq_period_info = f"freq: Day; period: {delta.days()}"
+
+            # N Hours; Min; Sec; etc
+            elif delta <= pl.duration(days=1):
+                freq_period_info = f"freq: less than Day (Hour, Min, Sec, etc); period: {delta.nanoseconds()} nanoseconds"
+
+        else:
+            freq_period_info = f"Custom Offset: {delta}"
+
+        assert delta is not None, "Frequency and period failed to be defined."
+
+        diffs = x.diff().fill_null(delta)
+
+        if return_freq_period_info:
+            return diffs, delta, freq_period_info
+
+        return diffs, delta
+
+    
+    @staticmethod
+    def get_cols_idx(
+        data: pl.DataFrame, columns: Union[str, Sequence[str]]
+    ) -> Union[int, list[int]]:
+        """Get numeric index of columns by column names.
+
+        Args:
+            data: Source DataFrame.
+            columns: Sequence of columns or single column.
+
+        Returns:
+            Sequence of int indexes or single int.
+        """
+        if isinstance(columns, str):
+            idx = data.columns.index(columns)
+        else:
+            idx = [data.columns.index(col) for col in columns]
+
+        return idx
+    
+    @staticmethod
+    def get_slice(data: Union[pl.DataFrame, np.ndarray], k: Tuple[np.ndarray, Optional[np.ndarray]]) -> np.ndarray:
+        """Get 3D slice.
+
+        Args:
+            data: Source DataFrame or NumPy array.
+            k: Tuple of integer sequences (row and column indices).
+
+        Returns:
+            Slice as a NumPy array.
+        """
+        rows, cols = k
+
+        if cols is None:
+            if isinstance(data, np.ndarray):
+                new_data = data[rows, :]
+            else:
+                new_data = data.to_numpy()[rows, :]
+        else:
+            if isinstance(data, np.ndarray):
+                new_data = data[rows, cols]
+            else:
+                new_data = data.to_numpy()[rows, cols]
+
+        if len(new_data.shape) == 2:
+            return np.expand_dims(new_data, axis=0)
+
+        return new_data
+    
+    def ids_from_date(
+        self,
+        data: pl.DataFrame,
+        date_column: str,
+        delta: Optional[pl.duration] = None,
+        return_delta: bool = False,
+    ) -> Union[List[int], Tuple[List[int], pl.duration]]:
+        """Find indexes by which the dataset can be divided into
+        segments that are "identical" in terms of time stamps but
+        different in terms of some identifier.
+
+        Args:
+            data: Source DataFrame.
+            date_column: Date column name in source DataFrame.
+            delta: Custom offset if needed.
+            return_delta: Whether to return value of delta.
+
+        Returns:
+            Indexes of the ends of segments; if return_delta is True,
+            return value of delta.
+        """
+        # Compute time deltas
+        _, time_delta = self.timedelta(data[date_column].to_numpy(), delta=delta)
+
+        # Find where the difference in timestamps deviates from the expected time_delta
+        shifted_dates = data[date_column][:-1] + time_delta
+        mismatch = data[date_column][1:] != shifted_dates
+        ids = np.argwhere(mismatch.to_numpy()) + 1
+
+        if return_delta:
+            return list(ids.flatten()), time_delta
+
+        return list(ids.flatten())
+    
+    def _rolling_window(
+        self,
+        a: Union[pl.Series, np.ndarray],
+        window: int,
+        step: int,
+        from_last: bool = True,
+    ) -> np.ndarray:
+        """Generate a rolling window view of an array or series.
+
+        Args:
+            a: The input Series or NumPy array.
+            window: The size of the window.
+            step: The step size between windows.
+            from_last: Whether to start the window from the last element.
+
+        Returns:
+            The rolling window view of the input array.
+        """
+        if isinstance(a, pl.Series):
+            a = a.to_numpy()
+
+        # Create the rolling window view using NumPy
+        sliding_window = np.lib.stride_tricks.sliding_window_view(a, window)
+        start_idx = (len(a) - window) % step if from_last else 0
+
+        return sliding_window[start_idx:][::step]
+    
+    def _create_idx_data(
+        self, data: Union[pl.Series, np.ndarray], horizon: int, history: int, step: int, *_
+    ) -> np.ndarray:
+        """Create index data for train observations' windows.
+
+        Args:
+            data: The input data as a Series or NumPy array.
+            horizon: The number of steps to predict into the future.
+            history: The number of past steps to consider.
+            step: The step size between each window.
+
+        Returns:
+            The index data array for train observations' windows.
+        """
+        if isinstance(data, pl.Series):
+            data_length = data.len()
+        else:
+            data_length = len(data)
+
+        indices = np.arange(data_length - horizon)
+
+        # Use the rolling window function to generate indices
+        return self._rolling_window(indices, history, step)
+    
+    def _create_idx_target(
+        self,
+        data: Union[pl.Series, np.ndarray],
+        horizon: int,
+        history: int,
+        step: int,
+        n_last_horizon: Optional[int],
+    ) -> np.ndarray:
+        """Create index data for targets.
+
+        Args:
+            data: The input data as a Series or NumPy array.
+            horizon: The number of steps to predict into the future.
+            history: The number of past steps to consider.
+            step: The step size between each window.
+            n_last_horizon: How many last points we wish to leave.
+
+        Returns:
+            The index data array for targets.
+        """
+        if isinstance(data, pl.Series):
+            data_length = data.len()
+        else:
+            data_length = len(data)
+
+        indices = np.arange(data_length)[history:]
+
+        # Use the rolling window function to generate indices
+        rolling_indices = self._rolling_window(indices, horizon, step)
+
+        # Slice the last n_last_horizon values
+        if n_last_horizon is not None:
+            return rolling_indices[:, -n_last_horizon:]
+
+        return rolling_indices
+    
+    def _create_idx_test(
+        self, data: Union[pl.Series, np.ndarray], horizon: int, history: int, step: int, *_
+    ) -> np.ndarray:
+        """Create index data for test observations' windows.
+
+        Args:
+            data: The input data as a Series or NumPy array.
+            horizon: The number of steps to predict into the future.
+            history: The number of past steps to consider.
+            step: The step size between each window.
+
+        Returns:
+            The index data array for test observations' windows.
+        """
+        if isinstance(data, pl.Series):
+            data_length = data.len()
+        else:
+            data_length = len(data)
+
+        indices = np.arange(data_length)
+
+        # Use the rolling window function to generate indices
+        rolling_indices = self._rolling_window(indices, history, step)
+
+        # Slice for the test data range
+        return rolling_indices[-(horizon + 1): -horizon]
+    
+    def _get_ids(
+        self,
+        func,
+        data: Union[pl.Series, np.ndarray],
+        horizon: int,
+        history: int,
+        step: int,
+        ids: np.ndarray,
+        cond: int = 0,
+        n_last_horizon: Optional[int] = None,
+    ) -> np.ndarray:
+        """Get indices for creating windows of data.
+
+        Args:
+            func: The function to create index data.
+            data: The input data as a Series or NumPy array.
+            horizon: The number of steps to predict into the future.
+            history: The number of past steps to consider.
+            step: The step size between each window.
+            ids: Indexes of the ends of segments.
+            cond: The condition for segment length.
+            n_last_horizon: How many last points to leave.
+
+        Returns:
+            The index data array.
+        """
+        prev = 0
+        inds = []
+        
+        # Iterate over each segment, using ids as split points
+        for i, split in enumerate(ids + [len(data)]):
+            if isinstance(data, pl.Series):
+                segment = data[prev:split].to_numpy()
+            else:
+                segment = data[prev:split]
+            
+            if len(segment) >= cond:
+                ind = func(segment, horizon, history, step, n_last_horizon) + prev
+                inds.append(ind)
+            prev = split
+
+        # Combine all the indices into a single array
+        inds = np.vstack(inds)
+
+        return inds
+    
+    def create_idx_data(
+        self,
+        data: Union[pl.DataFrame, np.ndarray],
+        horizon: int,
+        history: int,
+        step: int,
+        ids: Optional[np.ndarray] = None,
+        date_column: Optional[str] = None,
+        delta: Optional[pl.Duration] = None,
+    ) -> np.ndarray:
+        """Find indices that, when applied to the original dataset,
+            can be used to obtain windows for building train observations' features.
+
+        Args:
+            data: source dataframe (Polars) or NumPy array.
+            horizon: the number of steps to predict into the future.
+            history: the number of past steps to consider.
+            step: number of points to take the next observation.
+            ids: indexes of the ends of segments.
+            date_column: date column name in source dataframe,
+                needs in the absence of ids.
+
+        Returns:
+            indices of train observations' windows.
+        """
+        if ids is None:
+            # If `ids` is None, derive them using the date column (if provided)
+            if date_column is not None:
+                ids = self.ids_from_date(data, date_column, delta=delta)
+            else:
+                raise ValueError("Either 'ids' or 'date_column' must be provided.")
+        
+        # Generate index data using the appropriate method
+        seq_idx_data = self._get_ids(
+            self._create_idx_data,
+            data,
+            horizon,
+            history,
+            step,
+            ids,
+            history + horizon,
+        )
+
+        return seq_idx_data
+
+    def create_idx_test(
+        self,
+        data: Union[pl.DataFrame, np.ndarray],
+        horizon: int,
+        history: int,
+        step: int,
+        ids: Optional[np.ndarray] = None,
+        date_column: Optional[str] = None,
+        delta: Optional[pl.Duration] = None,
+    ) -> np.ndarray:
+        """Find indices that, when applied to the original dataset,
+            can be used to obtain windows for building test observations' features.
+
+        Arguments:
+            data: source dataframe (Polars) or NumPy array.
+            horizon: the number of steps to predict into the future.
+            history: the number of past steps to consider.
+            step: number of points to take the next observation.
+            ids: indexes of the ends of segments.
+            date_column: date column name in source dataframe,
+                needs in the absence of ids.
+
+        Returns:
+            indices of test observations' windows.
+        """
+        if ids is None:
+            # If `ids` is None, derive them using the date column (if provided)
+            if date_column is not None:
+                ids = self.ids_from_date(data, date_column, delta=delta)
+            else:
+                raise ValueError("Either 'ids' or 'date_column' must be provided.")
+        
+        # Generate index data using the appropriate method
+        seq_idx_test = self._get_ids(
+            self._create_idx_test,
+            data,
+            horizon,
+            history,
+            step,
+            ids,
+            history,
+        )
+
+        return seq_idx_test
+    
+    def create_idx_target(
+        self,
+        data: Union[pl.DataFrame, np.ndarray],
+        horizon: int,
+        history: int,
+        step: int,
+        ids: Optional[np.ndarray] = None,
+        date_column: Optional[str] = None,
+        delta: Optional[pl.Duration] = None,
+        n_last_horizon: Optional[int] = None,
+    ) -> np.ndarray:
+        """Find indices that, when applied to the original dataset,
+            can be used to obtain targets.
+
+        Arguments:
+            data: source dataframe (Polars) or NumPy array.
+            horizon: number of points to predict.
+            history: number of points to use for prediction.
+            step: number of points to take the next observation.
+            ids: indexes of the ends of segments.
+            date_column: date column name in source dataframe,
+                needs in the absence of ids.
+            n_last_horizon: how many last points we wish to leave.
+
+        Returns:
+            indices of targets.
+        """
+        if ids is None:
+            # If `ids` is None, derive them using the date column (if provided)
+            if date_column is not None:
+                ids = self.ids_from_date(data, date_column, delta=delta)
+            else:
+                raise ValueError("Either 'ids' or 'date_column' must be provided.")
+        
+        # If `n_last_horizon` is None, set it to horizon value
+        if n_last_horizon is None:
+            n_last_horizon = horizon
+        
+        # Generate index data for targets
+        seq_idx_target = self._get_ids(
+            self._create_idx_target,
+            data,
+            horizon,
+            history,
+            step,
+            ids,
+            history + horizon,
+            n_last_horizon,
+        )
+
+        return seq_idx_target
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class IndexSlicer:
