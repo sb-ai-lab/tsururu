@@ -66,7 +66,10 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
         else:
             overall_mean_std = data["raw_ts_X"][self.input_features].agg(["mean", "std"])
             ids = data["raw_ts_X"][data["id_column_name"]].unique()
-            stat_df = pd.DataFrame(index=ids, columns=pd.MultiIndex.from_product([self.input_features, ["mean", "std"]]))
+            stat_df = pd.DataFrame(
+                index=ids,
+                columns=pd.MultiIndex.from_product([self.input_features, ["mean", "std"]]),
+            )
             for column in self.input_features:
                 stat_df[(column, "mean")] = overall_mean_std.loc["mean", column]
                 stat_df[(column, "std")] = overall_mean_std.loc["std", column]
@@ -118,7 +121,9 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
                 column_name=column_name,
                 current_id=current_id,
             )
-            segment.loc[:, self.output_features[i]] = (segment.loc[:, column_mask] - mean) / std
+            segment.loc[:, self.output_features[i]] = (
+                (segment.loc[:, column_mask] - mean) / std
+            ).values
 
         return segment
 
@@ -224,13 +229,13 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
         """
         for i, column_name in enumerate(self.input_features):
             if self.regime == "delta":
-                segment.loc[:, self.output_features[i]] = segment.loc[
-                    :, column_name
-                ] - segment.loc[:, column_name].shift(1)
+                segment.loc[:, self.output_features[i]] = (
+                    segment.loc[:, column_name] - segment.loc[:, column_name].shift(1)
+                ).values
             elif self.regime == "ratio":
-                segment.loc[:, self.output_features[i]] = segment.loc[
-                    :, column_name
-                ] / segment.loc[:, column_name].shift(1)
+                segment.loc[:, self.output_features[i]] = (
+                    segment.loc[:, column_name] / segment.loc[:, column_name].shift(1)
+                ).values
 
         return segment
 
