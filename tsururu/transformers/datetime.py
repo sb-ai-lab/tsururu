@@ -199,7 +199,8 @@ class DateSeasonsGenerator(FeaturesGenerator):
                     prov=self._prov,
                     state=self._state,
                 )
-                new_arr[:, n] = time_col.date.isin(hol)
+                dates, names = zip(*hol.items())
+                new_arr[:, n] = np.isin(time_col.date, dates)
                 n += 1
             result_data.append(new_arr)
 
