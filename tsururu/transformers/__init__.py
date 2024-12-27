@@ -28,7 +28,7 @@ class TransformersFactory:
             "DateSeasonsGenerator": DateSeasonsGenerator,
             "LagTransformer": LagTransformer,
             "TargetGenerator": TargetGenerator,
-            "MissingValueImputer": MissingValuesImputer,
+            "MissingValuesImputer": MissingValuesImputer,
         }
 
     def get_allowed(self):
