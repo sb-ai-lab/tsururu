@@ -295,6 +295,7 @@ class Pipeline:
         data["id_column_name"] = dataset.id_column
         data["date_column_name"] = dataset.date_column
         data["target_column_name"] = dataset.target_column
+        data["num_series"] = dataset.data[dataset.id_column].nunique()
         data["idx_X"] = features_idx
         data["idx_y"] = target_idx
 

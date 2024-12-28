@@ -166,7 +166,7 @@ class Dataset_NN(Dataset):
                 else:
                     target_column_idx_list.append(i)
 
-            num_series = self.data["raw_ts_X"]["id"].nunique()
+            num_series = self.data["num_series"]
 
             X_tensor_target_column = X_tensor[:, target_column_idx_list]
             X_tensor_other_column = X_tensor[:, other_columns_idx_list]
