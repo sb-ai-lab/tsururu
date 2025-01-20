@@ -11,7 +11,7 @@ except ImportError:
     nn = None
 
 
-def PositionalEncoding(q_len: int, d_model: int, normalize: bool = True) -> torch.Tensor:
+def PositionalEncoding(q_len: int, d_model: int, normalize: bool = True) -> "torch.Tensor":
     """Generate positional encoding.
 
     Args:
@@ -42,7 +42,7 @@ def Coord2dPosEncoding(
     normalize: bool = True,
     eps: float = 1e-3,
     verbose: bool = False,
-) -> torch.Tensor:
+) -> "torch.Tensor":
     """Generate 2D coordinate positional encoding.
 
     Args:
@@ -82,7 +82,7 @@ def Coord2dPosEncoding(
 
 def Coord1dPosEncoding(
     q_len: int, exponential: bool = False, normalize: bool = True
-) -> torch.Tensor:
+) -> "torch.Tensor":
     """Generate 1D coordinate positional encoding.
 
     Args:
@@ -104,7 +104,7 @@ def Coord1dPosEncoding(
 
 def positional_encoding(
     pe: Optional[str], learn_pe: bool, q_len: int, d_model: int
-) -> nn.Parameter:
+) -> "nn.Parameter":
     """Initialize positional encoding.
 
     Args:

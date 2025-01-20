@@ -13,15 +13,18 @@ try:
     import torch.nn as nn
     import torch.nn.functional as F
     from torch import Tensor
+    from torch.nn import Module
 except ImportError:
+    from abc import ABC
     torch = None
     nn = None
     Tensor = None
     F = None
+    Module = ABC
 
 
 # Cell
-class PatchTST_backbone(nn.Module):
+class PatchTST_backbone(Module):
     """Backbone for Patch Time Series Transformer.
 
     Args:
@@ -215,7 +218,7 @@ class PatchTST_backbone(nn.Module):
         return nn.Sequential(nn.Dropout(dropout), nn.Conv1d(head_nf, vars, 1))
 
 
-class Flatten_Head(nn.Module):
+class Flatten_Head(Module):
     """Flatten head for PatchTST.
 
     Args:
@@ -271,7 +274,7 @@ class Flatten_Head(nn.Module):
         return x
 
 
-class TSTiEncoder(nn.Module):
+class TSTiEncoder(Module):
     """Time Series Transformer independent encoder.
 
     Args:
@@ -398,7 +401,7 @@ class TSTiEncoder(nn.Module):
 
 
 # Cell
-class TSTEncoder(nn.Module):
+class TSTEncoder(Module):
     """Time Series Transformer encoder.
 
     Args:
@@ -493,7 +496,7 @@ class TSTEncoder(nn.Module):
             return output
 
 
-class TSTEncoderLayer(nn.Module):
+class TSTEncoderLayer(Module):
     """Encoder layer for the Time Series Transformer.
 
     Args:
@@ -634,7 +637,7 @@ class TSTEncoderLayer(nn.Module):
             return src
 
 
-class _MultiheadAttention(nn.Module):
+class _MultiheadAttention(Module):
     """Multi-Head Attention Layer.
 
     Args:
@@ -752,7 +755,7 @@ class _MultiheadAttention(nn.Module):
             return output, attn_weights
 
 
-class _ScaledDotProductAttention(nn.Module):
+class _ScaledDotProductAttention(Module):
     """Scaled Dot-Product Attention module.
 
     Args:

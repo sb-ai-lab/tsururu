@@ -3,12 +3,15 @@
 try:
     import torch
     import torch.nn as nn
+    from torch.nn import Module
 except ImportError:
+    from abc import ABC
     torch = None
     nn = None
+    Module = ABC
 
 
-class RevIN(nn.Module):
+class RevIN(Module):
     def __init__(self, num_features: int, eps=1e-5, affine=True, subtract_last=False):
         """Reversible Instance Normalization (RevIN) module.
 
@@ -56,7 +59,7 @@ class RevIN(nn.Module):
         self.affine_weight = nn.Parameter(torch.ones(self.num_features))
         self.affine_bias = nn.Parameter(torch.zeros(self.num_features))
 
-    def _get_statistics(self, x: torch.Tensor):
+    def _get_statistics(self, x: "torch.Tensor"):
         """Compute mean and standard deviation for normalization.
 
         Args:
@@ -72,7 +75,7 @@ class RevIN(nn.Module):
             torch.var(x, dim=dim2reduce, keepdim=True, unbiased=False) + self.eps
         ).detach()
 
-    def _normalize(self, x: torch.Tensor) -> torch.Tensor:
+    def _normalize(self, x: "torch.Tensor") -> "torch.Tensor":
         """Normalize the input tensor.
 
         Args:
@@ -93,7 +96,7 @@ class RevIN(nn.Module):
 
         return x
 
-    def _denormalize(self, x: torch.Tensor) -> torch.Tensor:
+    def _denormalize(self, x: "torch.Tensor") -> "torch.Tensor":
         """Denormalize the input tensor.
 
         Args:

@@ -3,12 +3,15 @@
 try:
     import torch
     import torch.nn as nn
+    from torch.nn import Module
 except ImportError:
+    from abc import ABC
     torch = None
     nn = None
+    Module = ABC
 
 
-class moving_avg(nn.Module):
+class moving_avg(Module):
     """Moving average block to highlight the trend of time series.
 
     Args:
@@ -22,7 +25,7 @@ class moving_avg(nn.Module):
         self.kernel_size = kernel_size
         self.avg = nn.AvgPool1d(kernel_size=kernel_size, stride=stride, padding=0)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass for computing the moving average.
 
         Args:
@@ -42,7 +45,7 @@ class moving_avg(nn.Module):
         return x
 
 
-class series_decomp(nn.Module):
+class series_decomp(Module):
     """Series decomposition block.
 
     Args:
@@ -54,7 +57,7 @@ class series_decomp(nn.Module):
         super(series_decomp, self).__init__()
         self.moving_avg = moving_avg(kernel_size, stride=1)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: "torch.Tensor") -> tuple["torch.Tensor", "torch.Tensor"]:
         """Forward pass for decomposing the series into trend and remainder.
 
         Args:

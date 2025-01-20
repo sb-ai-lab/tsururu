@@ -5,12 +5,15 @@ from typing import Callable, Union
 try:
     import torch
     import torch.nn as nn
+    from torch.nn import Module
 except ImportError:
+    from abc import ABC
     torch = None
     nn = None
+    Module = ABC
 
 
-def get_activation_fn(activation: Union[str, Callable[[], nn.Module]]) -> nn.Module:
+def get_activation_fn(activation: Union[str, Callable[[], Module]]) -> Module:
     """Get the activation function based on the provided name or callable.
 
     Args:
@@ -32,7 +35,7 @@ def get_activation_fn(activation: Union[str, Callable[[], nn.Module]]) -> nn.Mod
     raise ValueError(f'{activation} is not available. You can use "relu", "gelu", or a callable')
 
 
-class Transpose(nn.Module):
+class Transpose(Module):
     """Module for transposing tensors with optional contiguous memory layout.
 
     Args:
@@ -46,7 +49,7 @@ class Transpose(nn.Module):
         self.dims = dims
         self.contiguous = contiguous
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass for transposing the tensor.
 
         Args:

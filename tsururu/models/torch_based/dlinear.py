@@ -5,12 +5,15 @@ from .layers.decomposition import series_decomp
 try:
     import torch
     import torch.nn as nn
+    from torch.nn import Module
 except ImportError:
+    from abc import ABC
     torch = None
     nn = None
+    Module = ABC
 
 
-class DLinear_NN(nn.Module):
+class DLinear_NN(Module):
     """DLInear model from the paper https://arxiv.org/pdf/2205.13504.pdf.
 
     Args:
@@ -69,7 +72,7 @@ class DLinear_NN(nn.Module):
 
         self.trainer_type = "DLTrainer"
 
-    def encoder(self, x: torch.Tensor) -> torch.Tensor:
+    def encoder(self, x: "torch.Tensor") -> "torch.Tensor":
         """Encode the input sequence by decomposing it into seasonal and trend components.
 
         Args:
@@ -99,7 +102,7 @@ class DLinear_NN(nn.Module):
 
         return x.permute(0, 2, 1)
 
-    def forecast(self, x_enc: torch.Tensor) -> torch.Tensor:
+    def forecast(self, x_enc: "torch.Tensor") -> "torch.Tensor":
         """Forecast the output sequence.
 
         Args:
@@ -111,7 +114,7 @@ class DLinear_NN(nn.Module):
         """
         return self.encoder(x_enc)
 
-    def forward(self, x_enc: torch.Tensor) -> torch.Tensor:
+    def forward(self, x_enc: "torch.Tensor") -> "torch.Tensor":
         """Forward pass of the model.
 
         Args:

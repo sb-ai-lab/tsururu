@@ -8,12 +8,15 @@ from .layers.patch_tst import PatchTST_backbone
 try:
     import torch
     import torch.nn as nn
+    from torch.nn import Module
 except ImportError:
+    from abc import ABC
     torch = None
     nn = None
+    Module = ABC
 
 
-class PatchTST_NN(nn.Module):
+class PatchTST_NN(Module):
     """PatchTST_NN model from the paper https://arxiv.org/abs/2211.14730.
 
     Args:
@@ -85,7 +88,7 @@ class PatchTST_NN(nn.Module):
         act: str = "gelu",
         key_padding_mask: Union[str, bool] = "auto",
         padding_var: Optional[int] = None,
-        attn_mask: Optional[torch.Tensor] = None,
+        attn_mask: Optional["torch.Tensor"] = None,
         res_attention: bool = True,
         pre_norm: bool = False,
         store_attn: bool = False,
@@ -242,7 +245,7 @@ class PatchTST_NN(nn.Module):
                 **kwargs
             )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass for the PatchTST_NN model.
 
         Args:

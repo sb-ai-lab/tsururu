@@ -9,8 +9,9 @@ try:
     import torch
     from torch.utils.data import Dataset
 except ImportError:
+    from abc import ABC
     torch = None
-    Dataset = None
+    Dataset = ABC
 
 
 class Dataset_NN(Dataset):
@@ -141,7 +142,7 @@ class Dataset_NN(Dataset):
         }
 
     def _reshape_tensors(
-        self, X_tensor: torch.Tensor, y_tensor: torch.Tensor, index_of_sample: int
+        self, X_tensor: "torch.Tensor", y_tensor: "torch.Tensor", index_of_sample: int
     ) -> tuple:
         """Reshapes and transposes tensors to fit the neural network input.
 

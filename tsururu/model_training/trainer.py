@@ -179,14 +179,14 @@ class DLTrainer:
         n_epochs: int = 10,
         batch_size: int = 32,
         drop_last: bool = False,
-        device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+        device: Optional["torch.device"] = None,
         device_ids: List[int] = [0],
         num_workers: int = 4,
         metric: Callable = NegativeMSEMetric(),
-        criterion: torch.nn.Module = torch.nn.MSELoss(),
-        optimizer: Optional[torch.optim.Optimizer] = torch.optim.Adam,
+        criterion: Optional["torch.nn.Module"] = None,
+        optimizer: Optional["torch.optim.Optimizer"] = None,
         optimizer_params: Dict = {},
-        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
+        scheduler: Optional["torch.optim.lr_scheduler.LRScheduler"] = None,
         scheduler_params: Dict = {},
         scheduler_after_epoch: bool = True,
         pretrained_path: Optional[Union[Path, str]] = None,
@@ -200,6 +200,15 @@ class DLTrainer:
         train_shuffle: bool = True,
         verbose: int = 1,
     ):
+        if device is None:
+            device = torch.device("cuda")
+
+        if criterion is None:
+            criterion = torch.nn.MSELoss()
+
+        if optimizer is None:
+            optimizer = torch.optim.Adam
+
         self.model_base = model
         self.model_params = model_params
         self.validator_base = validator
@@ -284,9 +293,9 @@ class DLTrainer:
     def load_trainer_one_fold(
         self,
         fold_i: int,
-        model: nn.Module,
-        optimizer: torch.optim.Optimizer,
-        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
+        model: "nn.Module",
+        optimizer: "torch.optim.Optimizer",
+        scheduler: Optional["torch.optim.lr_scheduler._LRScheduler"],
     ):
         """Loads pretrained model, optimizer, and scheduler states for one fold.
 
@@ -312,13 +321,13 @@ class DLTrainer:
 
     def train_model(
         self,
-        train_loader: torch.utils.data.DataLoader,
-        val_loader: torch.utils.data.DataLoader,
-        model: nn.Module,
-        optimizer: torch.optim.Optimizer,
-        scheduler: Optional[torch.optim.lr_scheduler._LRScheduler],
+        train_loader: "torch.utils.data.DataLoader",
+        val_loader: "torch.utils.data.DataLoader",
+        model: "nn.Module",
+        optimizer: "torch.optim.Optimizer",
+        scheduler: Optional["torch.optim.lr_scheduler._LRScheduler"],
     ) -> Tuple[
-        nn.Module, torch.optim.Optimizer, Optional[torch.optim.lr_scheduler._LRScheduler], float
+        "nn.Module", "torch.optim.Optimizer", Optional["torch.optim.lr_scheduler._LRScheduler"], float
     ]:
         """Trains the model for all epochs.
 
@@ -427,16 +436,18 @@ class DLTrainer:
 
     def validate_model(
         self,
-        val_loader: torch.utils.data.DataLoader,
-        model: nn.Module,
+        val_loader: "torch.utils.data.DataLoader",
+        model: "nn.Module",
         return_outputs: bool = False,
-    ) -> Union[float, Tuple[float, float], Tuple[float, float, torch.Tensor, torch.Tensor]]:
+        inference: bool = False,
+    ) -> Union[float, Tuple[float, float], Tuple[float, float, "torch.Tensor", "torch.Tensor"]]:
         """Validates the model on the validation data.
 
         Args:
             val_loader: data loader for the validation data.
             model: model to be validated.
             return_outputs: whether to return the outputs and targets.
+            inference: if True, skips logging and assumes test data.
 
         Returns:
             validation loss, metric, and optionally the outputs and targets.
@@ -464,7 +475,8 @@ class DLTrainer:
         loss = self.criterion(all_outputs, all_targets).item()
         metric = self.metric(all_outputs, all_targets).item() if self.metric else 0.0
 
-        logger.info(f"Validation, Loss: {loss:.4f}, Metric: {metric:.4f}")
+        if not inference:
+            logger.info(f"Validation, Loss: {loss:.4f}, Metric: {metric:.4f}")
 
         if return_outputs:
             return loss, metric, all_outputs, all_targets
@@ -579,7 +591,7 @@ class DLTrainer:
         logger.info(f"length of test dataset: {len(test_dataset)}")
 
         models_preds = [
-            self.validate_model(test_loader, model, return_outputs=True)[2].cpu()
+            self.validate_model(test_loader, model, return_outputs=True, inference=True)[2].cpu()
             for model in self.models
         ]
 

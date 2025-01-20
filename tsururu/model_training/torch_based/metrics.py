@@ -2,20 +2,22 @@
 
 try:
     import torch
-    import torch.nn as nn
+    from torch.nn import Module, MSELoss
 except ImportError:
+    from abc import ABC
     torch = None
-    nn = None
+    Module = ABC
+    MSELoss = ABC
 
 
-class NegativeMSEMetric(nn.Module):
+class NegativeMSEMetric(Module):
     """Custom metric that returns the negative of the Mean Squared Error (MSE)."""
 
     def __init__(self):
         super(NegativeMSEMetric, self).__init__()
-        self.mse_loss = nn.MSELoss()
+        self.mse_loss = MSELoss()
 
-    def forward(self, input: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: "torch.Tensor", target: "torch.Tensor") -> "torch.Tensor":
         """Computes the negative mean squared error between input and target.
 
         Args:
