@@ -459,8 +459,8 @@ class SeriesToSeriesTransformer(Transformer):
         data[data_key] = (
             data[data_key]
             .groupby(data["id_column_name"], sort=False)
-            .apply(self._transform_segment, data["id_column_name"])
-            .reset_index(level=data["id_column_name"], drop=True)
+            .apply(lambda group: self._transform_segment(group, group.name), include_groups=False)
+            .reset_index(level=data["id_column_name"], drop=False)
         )
 
         return data

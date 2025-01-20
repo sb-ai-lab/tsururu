@@ -101,19 +101,18 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
 
         return column_mask, mean, std
 
-    def _transform_segment(self, segment: pd.Series, id_column_name: str) -> pd.Series:
+    def _transform_segment(self, segment: pd.Series, current_id: str) -> pd.Series:
         """Transform segment (points with similar id) of "elongated series"
             for features' and targets' further generation.
 
         Args:
             segment: segment of "elongated series" to transform.
-            id_column_name: name of id column.
+            current_id: id of current segment.
 
         Returns:
             transformed segment of "elongated series".
 
         """
-        current_id = segment[id_column_name].values[0]
 
         for i, column_name in enumerate(self.input_features):
             column_mask, mean, std = self._get_mask_mean_std(
@@ -349,7 +348,7 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         # Update the params if self.transform_target is True
         if self.transform_target:
             try:
-                feature = re.compile("^(.*)__(lag_\d+)$").findall(self.input_features[0])[0][0]
+                feature = re.compile(r"^(.*)__(lag_\d+)$").findall(self.input_features[0])[0][0]
             except IndexError:
                 raise ValueError(
                     "There is no lags in data['raw_ts_X']! Make sure that you initialize LastKnownNormalizer AFTER LagTransformer!"
@@ -379,7 +378,7 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         last_lag_idx_by_feature = {}
         feature_by_idx = {}
         for i, column in enumerate(self.input_features):
-            feature, lag_suffix = re.compile("^(.*)__(lag_\d+)$").findall(column)[0]
+            feature, lag_suffix = re.compile(r"^(.*)__(lag_\d+)$").findall(column)[0]
             feature_by_idx[i] = feature
             if lag_suffix == self.last_lag_substring:
                 last_lag_idx_by_feature[feature] = i
