@@ -41,7 +41,7 @@ class MLTrainer:
     def __init__(
         self,
         model: Estimator,
-        model_params: Dict,
+        model_params: Dict = {},
         validator: Optional[Validator] = None,
         validation_params: Dict = {},
     ):
