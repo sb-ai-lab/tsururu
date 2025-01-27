@@ -11,6 +11,10 @@ from .base import FeaturesGenerator
 class LabelEncodingTransformer(FeaturesGenerator):
     """A transformer that encodes categorical features into integer values."""
 
+    def __init__(self):
+        super().__init__()
+        self.les = {}
+
     def fit(
         self, data: dict, input_features: Optional[Sequence[str]] = None
     ) -> "LabelEncodingTransformer":
@@ -27,6 +31,8 @@ class LabelEncodingTransformer(FeaturesGenerator):
 
         """
         super().fit(data, input_features)
+        for column_name in self.input_features:
+            self.les[column_name] = LabelEncoder().fit(data["raw_ts_X"][column_name])
 
         self.output_features = [f"{column_name}__label" for column_name in self.input_features]
 
@@ -46,7 +52,7 @@ class LabelEncodingTransformer(FeaturesGenerator):
         """
         new_arr = np.empty((len(data["raw_ts_X"]), len(self.output_features)), np.int32)
         for i, column_name in enumerate(self.input_features):
-            new_arr[:, i] = LabelEncoder().fit_transform(data["raw_ts_X"][column_name])
+            new_arr[:, i] = self.les[column_name].transform(data["raw_ts_X"][column_name])
         data["raw_ts_X"][self.output_features] = new_arr
 
         return data
@@ -71,6 +77,7 @@ class OneHotEncodingTransformer(FeaturesGenerator):
     def __init__(self, drop: str = None):
         super().__init__()
         self.drop = drop
+        self.ohes = {}
 
     def fit(
         self, data: dict, input_features: Optional[Sequence[str]] = None
@@ -89,6 +96,11 @@ class OneHotEncodingTransformer(FeaturesGenerator):
         """
         super().fit(data, input_features)
         self.output_features = []
+
+        for column_name in self.input_features:
+            self.ohes[column_name] = OneHotEncoder(drop=self.drop).fit(
+                data["raw_ts_X"][column_name].values.reshape(-1, 1)
+            )
 
         if self.drop == "first":
             for column_name in self.input_features:
@@ -132,8 +144,8 @@ class OneHotEncodingTransformer(FeaturesGenerator):
 
         """
         result_data = [
-            OneHotEncoder(drop=self.drop)
-            .fit_transform(data["raw_ts_X"][column_name].values.reshape(-1, 1))
+            self.ohes[column_name]
+            .transform(data["raw_ts_X"][column_name].values.reshape(-1, 1))
             .todense()
             for column_name in self.input_features
         ]
