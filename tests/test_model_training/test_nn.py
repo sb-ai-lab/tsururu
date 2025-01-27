@@ -18,7 +18,7 @@ HISTORY = 7
 DATASET_PARAMS = {
     "target": {
         "columns": ["value"],
-        "type": "continious",
+        "type": "continuous",
     },
     "date": {
         "columns": ["date"],

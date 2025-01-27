@@ -187,7 +187,7 @@ def main():
     dataset_params = {
         "target": {
             "columns": [TARGET_COLUMN],
-            "type": "continious",
+            "type": "continuous",
         },
         "date": {
             "columns": [DATE_COLUMN],

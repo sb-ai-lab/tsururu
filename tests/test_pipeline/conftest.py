@@ -28,7 +28,7 @@ def get_dataset():
     dataset_params = {
         "target": {
             "columns": ["value"],
-            "type": "continious",
+            "type": "continuous",
         },
         "date": {
             "columns": ["date"],
@@ -45,7 +45,7 @@ def get_dataset():
                 "feature_0",
                 "feature_2",
             ],
-            "type": "continious",
+            "type": "continuous",
         },
         "exog_2": {
             "columns": [
@@ -53,7 +53,7 @@ def get_dataset():
                 "объем Продаж! (Q3_2023)...анализ#данных",
                 "feature_1",
             ],
-            "type": "continious",
+            "type": "continuous",
         },
     }
 

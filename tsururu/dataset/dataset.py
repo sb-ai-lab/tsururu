@@ -24,7 +24,7 @@ class TSDataset:
                 {
                     "target": {
                         "columns": ["value"],
-                        "type": "continious",
+                        "type": "continuous",
                     },
                     "date": {...},
                     "id": {...},
@@ -111,12 +111,12 @@ class TSDataset:
         # Columns typing
         self._auto_type_columns(columns_params, "date", "datetime")
         self._auto_type_columns(columns_params, "id", "categorical")
-        self._auto_type_columns(columns_params, "target", "continious")
+        self._auto_type_columns(columns_params, "target", "continuous")
 
         for _, role_dict in columns_params.items():
             column_name = role_dict["columns"][0]
             column_type = role_dict["type"]
-            if column_type == "continious":
+            if column_type == "continuous":
                 data[column_name] = data[column_name].astype("float")
             elif column_type == "datetime":
                 data[column_name] = pd.to_datetime(data[column_name])
