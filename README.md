@@ -64,7 +64,7 @@ pip install -U tsururu[catboost]
 ## Multi-series prediction strategies:
 - _Local-modelling_:
   - An individual model for each time series. 
-  - Each time series is independent from others.
+  - Each time series is modeled independently of the others.
 - _Global-modelling_:
   - A single model for all time series.
   - Features created from each series do not overlap with other series. Series are related but modeled separately.
@@ -97,7 +97,7 @@ pip install -U tsururu[catboost]
 - _TimeToNumGenerator_ and _DateSeasonsGenerator_: generates seasonal features (e.g., month, quarter, day of the week) from date information.
 - _LabelEncodingTransformer_ and _OneHotEncodingTransformer_: encodes categorical features.
 - _MissingValuesImputer_: handles missing values by imputing them with a chosen strategy.
-- _LagTransformer_: generates for lags. 
+- _LagTransformer_: generates lagged features. 
 - _LastKnownNormalizer_: normalizes lagged features by the last known value in history, either by subtracting it or dividing by it.
 
 <a name="license"></a>
