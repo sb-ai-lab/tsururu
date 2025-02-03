@@ -318,23 +318,8 @@ class Dataset_NN(Dataset):
                 "Failed to reshape data. Check feature lags and data shape compatibility."
             )
 
-        # try:
         X_tensor = torch.from_numpy(X).float()
         y_tensor = torch.from_numpy(y).float()
-        # except:
-
-        print("X", X)
-        print("X shape", X.shape)
-        print("X type", X.dtype)
-        print("X float", np.float32(X))
-
-
-        print("Y", y)
-        print("Y shape", y.shape)
-        print("Y type", y.dtype)
-        print("Y float", np.float32(y))
-
-        raise ValueError
 
         if self.pipeline.multivariate:
             y_tensor = y_tensor.reshape(self.data["num_series"], -1)
