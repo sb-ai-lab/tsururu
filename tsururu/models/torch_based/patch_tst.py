@@ -23,6 +23,7 @@ class PatchTST_NN(Module):
         seq_len: input sequence length
         pred_len: prediction sequence length
         enc_in: encoder input size
+        channel_independent: 
         e_layers: number of encoder layers
         n_heads: number of attention heads
         d_model: dimension of model
@@ -64,6 +65,7 @@ class PatchTST_NN(Module):
         seq_len: int,
         pred_len: int,
         enc_in: int,
+        channel_independent: float = True,
         e_layers: int = 3,
         n_heads: int = 4,
         d_model: int = 16,
@@ -139,6 +141,7 @@ class PatchTST_NN(Module):
                 patch_len=patch_len,
                 stride=stride,
                 max_seq_len=max_seq_len,
+                channel_independent=channel_independent,
                 n_layers=n_layers,
                 d_model=d_model,
                 n_heads=n_heads,
@@ -176,6 +179,7 @@ class PatchTST_NN(Module):
                 patch_len=patch_len,
                 stride=stride,
                 max_seq_len=max_seq_len,
+                channel_independent=channel_independent,
                 n_layers=n_layers,
                 d_model=d_model,
                 n_heads=n_heads,
@@ -214,6 +218,7 @@ class PatchTST_NN(Module):
                 patch_len=patch_len,
                 stride=stride,
                 max_seq_len=max_seq_len,
+                channel_independent=channel_independent,
                 n_layers=n_layers,
                 d_model=d_model,
                 n_heads=n_heads,
@@ -255,6 +260,7 @@ class PatchTST_NN(Module):
             Output tensor of shape [Batch, Input length, Channel].
 
         """
+
         if self.decomposition:
             res_init, trend_init = self.decomp_module(x)
             res_init, trend_init = res_init.permute(0, 2, 1), trend_init.permute(0, 2, 1)

@@ -34,6 +34,7 @@ class PatchTST_backbone(Module):
         patch_len: length of each patch.
         stride: stride between patches.
         max_seq_len: maximum sequence length.
+        channel_independent: 
         n_layers: number of layers in the encoder.
         d_model: dimension of the model.
         n_heads: number of attention heads.
@@ -73,6 +74,7 @@ class PatchTST_backbone(Module):
         patch_len: int,
         stride: int,
         max_seq_len: Optional[int] = 1024,
+        channel_independent: bool = True,
         n_layers: int = 3,
         d_model: int = 128,
         n_heads: int = 16,
@@ -126,6 +128,7 @@ class PatchTST_backbone(Module):
             patch_num=patch_num,
             patch_len=patch_len,
             max_seq_len=max_seq_len,
+            channel_independent=channel_independent,
             n_layers=n_layers,
             d_model=d_model,
             n_heads=n_heads,
@@ -240,7 +243,7 @@ class Flatten_Head(Module):
             self.linears = nn.ModuleList()
             self.dropouts = nn.ModuleList()
             self.flattens = nn.ModuleList()
-            for i in range(self.n_vars):
+            for _ in range(self.n_vars):
                 self.flattens.append(nn.Flatten(start_dim=-2))
                 self.linears.append(nn.Linear(nf, target_window))
                 self.dropouts.append(nn.Dropout(head_dropout))
@@ -282,6 +285,7 @@ class TSTiEncoder(Module):
         patch_num: number of patches.
         patch_len: length of each patch.
         max_seq_len: maximum sequence length. Default is 1024.
+        channel_independent: 
         n_layers: number of layers in the encoder. Default is 3.
         d_model: dimension of the model. Default is 128.
         n_heads: number of attention heads. Default is 16.
@@ -311,6 +315,7 @@ class TSTiEncoder(Module):
         patch_num: int,
         patch_len: int,
         max_seq_len: int = 1024,
+        channel_independent: bool = True,
         n_layers: int = 3,
         d_model: int = 128,
         n_heads: int = 16,
@@ -338,11 +343,11 @@ class TSTiEncoder(Module):
         self.patch_num = patch_num
         self.patch_len = patch_len
 
+        self.channel_independent = channel_independent
+
         # Input encoding
         q_len = patch_num
-        self.W_P = nn.Linear(
-            patch_len, d_model
-        )  # Eq 1: projection of feature vectors onto a d-dim vector space
+        self.W_P = nn.LazyLinear(d_model) # Eq 1: projection of feature vectors onto a d-dim vector space
         self.seq_len = q_len
 
         # Positional encoding
@@ -379,24 +384,38 @@ class TSTiEncoder(Module):
             output tensor of shape (batch_size, nvars, d_model, patch_num).
 
         """
+        if self.channel_independent:
+            n_vars = x.shape[1]
 
-        n_vars = x.shape[1]
-        # Input encoding
-        x = x.permute(0, 1, 3, 2)  # x: [bs x nvars x patch_num x patch_len]
-        x = self.W_P(x)  # x: [bs x nvars x patch_num x d_model]
+            # Input encoding
+            x = x.permute(0, 1, 3, 2)  # x: [bs x nvars x patch_num x patch_len]
+            x = self.W_P(x)  # x: [bs x nvars x patch_num x d_model]
 
-        u = torch.reshape(
-            x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3])
-        )  # u: [bs * nvars x patch_num x d_model]
-        u = self.dropout(u + self.W_pos)  # u: [bs * nvars x patch_num x d_model]
+            u = torch.reshape(
+                x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3])
+            )  # u: [bs * nvars x patch_num x d_model]
+            u = self.dropout(u + self.W_pos)  # u: [bs * nvars x patch_num x d_model]
 
-        # Encoder
-        z = self.encoder(u)  # z: [bs * nvars x patch_num x d_model]
-        z = torch.reshape(
-            z, (-1, n_vars, z.shape[-2], z.shape[-1])
-        )  # z: [bs x nvars x patch_num x d_model]
-        z = z.permute(0, 1, 3, 2)  # z: [bs x nvars x d_model x patch_num]
+            # Encoder
+            z = self.encoder(u)  # z: [bs * nvars x patch_num x d_model]
+            z = torch.reshape(
+                z, (-1, n_vars, z.shape[-2], z.shape[-1])
+            )  # z: [bs x nvars x patch_num x d_model]
+            z = z.permute(0, 1, 3, 2)  # z: [bs x nvars x d_model x patch_num]
+        else:
+            # Input encoding
+            x = x.reshape(x.shape[0], -1, x.shape[-1]) # x: [bs x nvars * patch_len x patch_num]
+            x = x.permute(0, 2, 1) # x: [bs x patch_num x nvars * patch_len]
+    
+            # Channel mixing
+            x = self.W_P(x)  # x: [bs x patch_num x d_model]
 
+            x = self.dropout(x + self.W_pos)  # u: [bs x patch_num x d_model]
+
+            # Encoder
+            z = self.encoder(x)    # z: [bs x patch_num x d_model]
+            z = z.permute(0, 2, 1) # z: [bs x d_model x patch_num]
+            z = z.unsqueeze(1)     # z: [bs x 1 x d_model x patch_num] for consistency
         return z
 
 

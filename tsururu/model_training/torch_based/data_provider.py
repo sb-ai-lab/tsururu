@@ -13,6 +13,12 @@ except ImportError:
     torch = None
     Dataset = ABC
 
+from typing import List, Optional, Sequence, Union, Tuple, Dict
+
+
+import re
+import pandas as pd
+
 
 class Dataset_NN(Dataset):
     """Custom Dataset for neural networks.
@@ -25,6 +31,89 @@ class Dataset_NN(Dataset):
 
     """
 
+    @staticmethod
+    def sort_features_names(
+        features_names: Union[List[str], np.ndarray],
+        target_column_name: str,
+        id_column_name: str,
+        date_column_name: str,
+        is_fwm: bool = False,
+    ) -> Tuple[np.ndarray, Dict[str, int]]:
+        """Sorts the features names in the following order:
+            1) Target column features,
+            2) Id column features,
+            3) FWM feature (if is_fwm is True),
+            4) Date column features,
+            5) Series-specific features,
+            6) Common features.
+
+        Args:
+            features_names: array of features names.
+            target_column_name: name of the target column.
+            id_column_name: name of the id column.
+            date_column_name: name of the date column.
+            is_fwm: flag to indicate if the strategy is FlatWideMIMO.
+
+        Returns
+            an array of indices that can be used to sort features in the required order.
+            a dict with number of features of each type.
+
+        """
+        # target -> "{target_column_name}__" in the beginning of the string
+        target_mask = np.array(
+            [bool(re.match(f"{target_column_name}__", feature)) for feature in features_names]
+        )
+
+        # id -> "{id_column_name}__" in the beginning of the string
+        id_mask = np.array(
+            [bool(re.match(f"{id_column_name}__", feature)) for feature in features_names]
+        )
+
+        if is_fwm:
+            fh_mask = np.array([element == "FH" for element in features_names])
+        else:
+            fh_mask = np.array([False for element in features_names])
+
+        # date -> "{date_column_name}__" in the beginning of the string
+        date_mask = np.array(
+            [bool(re.match(f"{date_column_name}__", feature)) for feature in features_names]
+        )
+
+        # features per series -> "__{int}" in the end of the string shows the series except target features
+        # we want to sort features by series (all for first, all for second, etc.)
+        series_mask = np.array(
+            [bool(re.search(r"(?:__)(\d+)$", feature)) for feature in features_names]
+        )
+        series_mask = np.logical_and(series_mask, ~target_mask)
+
+        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask)
+
+        new_order_idx = np.concatenate(
+            [
+                np.where(target_mask)[0],
+                np.where(id_mask)[0],
+                np.where(fh_mask)[0],
+                np.where(date_mask)[0],
+                np.where(series_mask)[0],
+                np.where(other_mask)[0],
+            ]
+        )
+
+        counts = {
+            "target": np.sum(target_mask),
+            "id": np.sum(id_mask),
+            "fh": np.sum(fh_mask),
+            "date": np.sum(date_mask),
+            "series": np.sum(series_mask),
+            "other": np.sum(other_mask),
+        }
+
+        assert len(new_order_idx) == len(
+            features_names
+        ), "Number of features should not change after sorting"
+
+        return new_order_idx, counts
+
     def __init__(self, data: dict, pipeline: Pipeline):
         self.data = data
         self.pipeline = pipeline
@@ -32,6 +121,8 @@ class Dataset_NN(Dataset):
         self.idx_y = self.data["idx_y"]
 
         self.indices = self._create_indices()
+
+        self.num_lags = None
 
     def _create_date_indices(self):
         """Creates indices for each unique date for multivariate data."""
@@ -141,53 +232,6 @@ class Dataset_NN(Dataset):
             "id_column_name": self.data["id_column_name"],
         }
 
-    def _reshape_tensors(
-        self, X_tensor: "torch.Tensor", y_tensor: "torch.Tensor", index_of_sample: int
-    ) -> tuple:
-        """Reshapes and transposes tensors to fit the neural network input.
-
-        Args:
-            X_tensor: feature tensor.
-            y_tensor: target tensor.
-            index_of_sample: index of the sample in the horizon.
-
-        Returns:
-            reshaped feature and target tensors.
-        """
-        if self.pipeline.strategy_name == "FlatWideMIMOStrategy":
-            X_tensor = X_tensor[index_of_sample, :].reshape(-1, X_tensor.shape[1])
-            y_tensor = y_tensor[index_of_sample, :].reshape(-1, y_tensor.shape[1])
-
-        if self.pipeline.multivariate:
-            other_columns_idx_list = []
-            target_column_idx_list = []
-            for i, feature in enumerate(self.pipeline.output_features):
-                if feature.split("__")[0] != self.data["target_column_name"]:
-                    other_columns_idx_list.append(i)
-                else:
-                    target_column_idx_list.append(i)
-
-            num_series = self.data["num_series"]
-
-            X_tensor_target_column = X_tensor[:, target_column_idx_list]
-            X_tensor_other_column = X_tensor[:, other_columns_idx_list]
-
-            X_tensor_target_column = X_tensor_target_column.view(num_series, -1).T
-            X_tensor_other_column = torch.repeat_interleave(
-                X_tensor_other_column,
-                X_tensor_target_column.size(0) // X_tensor_other_column.size(0),
-                dim=0,
-            )
-            X_tensor = torch.cat([X_tensor_target_column, X_tensor_other_column], dim=1)
-
-            y_tensor = y_tensor.view(num_series, -1).T
-
-        else:
-            X_tensor = X_tensor.reshape(-1, 1)
-            y_tensor = y_tensor.reshape(-1, 1)
-
-        return X_tensor, y_tensor
-
     def __getitem__(self, index: int) -> tuple:
         """Gets a data sample for the given index.
 
@@ -213,11 +257,91 @@ class Dataset_NN(Dataset):
 
         X, y = self.pipeline.generate(data)
 
+        if self.num_lags is None:
+            self.num_lags = self.find_lags(self.pipeline.output_features)
+
+        if self.pipeline.strategy_name == "FlatWideMIMOStrategy":
+            X = X[index_of_sample, :]
+            y = y[index_of_sample, :].reshape(1, -1)
+
+            # Find "FH" feature idx
+            FH_idx_start = np.where(self.pipeline.output_features == "FH")[0][0]
+            FH_idx_end = np.where(self.pipeline.output_features == "FH")[0][-1]
+
+            # Breed "FH" feature N = self.num_lags times
+            X = np.concatenate(
+                (X[:FH_idx_start], np.tile(X[FH_idx_start], self.num_lags), X[FH_idx_end + 1 :]),
+                axis=0,
+            )
+
+            # Correct pipeline output features
+            self.pipeline.output_features = pd.concat(
+                [
+                    pd.Series(self.pipeline.output_features[:FH_idx_start]),
+                    pd.Series(["FH"] * self.num_lags),
+                    pd.Series(self.pipeline.output_features[FH_idx_end + 1 :]),
+                ]
+            )
+
+            X = X.reshape(1, -1)
+
+        idx_sorted, counts = self.sort_features_names(
+            self.pipeline.output_features,
+            self.data["target_column_name"],
+            self.data["id_column_name"],
+            self.data["date_column_name"],
+            is_fwm=True,
+        )
+
+        X = X[:, idx_sorted]
+
+        if self.pipeline.strategy_name == "FlatWideMIMOStrategy":
+            # Breed datetime features N = self.num_lags times
+            datetime_features_start = counts["target"] + counts["id"] + counts["fh"]
+            datetime_features_end = datetime_features_start + counts["date"]
+
+            X = np.concatenate(
+                (
+                    X[:, :datetime_features_start],
+                    np.repeat(
+                        X[:, datetime_features_start:datetime_features_end], self.num_lags
+                    ).reshape(1, -1),
+                    X[:, datetime_features_end:],
+                ),
+                axis=1,
+            )
+
+        try:
+            X = X.reshape(self.num_lags, -1, order="F")
+        except:
+            raise ValueError(
+                "Failed to reshape data. Check feature lags and data shape compatibility."
+            )
+
+        # try:
         X_tensor = torch.from_numpy(X).float()
         y_tensor = torch.from_numpy(y).float()
+        # except:
 
-        # Reshape and transpose tensors to fit the neaural network input
-        return self._reshape_tensors(X_tensor, y_tensor, index_of_sample)
+        print("X", X)
+        print("X shape", X.shape)
+        print("X type", X.dtype)
+        print("X float", np.float32(X))
+
+
+        print("Y", y)
+        print("Y shape", y.shape)
+        print("Y type", y.dtype)
+        print("Y float", np.float32(y))
+
+        raise ValueError
+
+        if self.pipeline.multivariate:
+            y_tensor = y_tensor.reshape(self.data["num_series"], -1)
+
+        y_tensor = y_tensor.T # (horizon, num_series)
+
+        return X_tensor, y_tensor
 
     def __len__(self) -> int:
         """Returns the number of samples in the dataset.
@@ -227,3 +351,17 @@ class Dataset_NN(Dataset):
 
         """
         return len(self.indices)
+
+    @staticmethod
+    def find_lags(output_features):
+        max_lag = 0
+        pattern = re.compile(r"^(.*?)__lag_(\d+)(.*)$")
+        for feature in output_features:
+            match = pattern.match(feature)
+            if match:
+                feature_name, lag, series_id = match.groups()
+                if int(lag) > max_lag:
+                    max_lag = int(lag)
+
+        num_lags = max_lag + 1
+        return num_lags
