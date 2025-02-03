@@ -79,14 +79,18 @@ class TimeToNumGenerator(FeaturesGenerator):
                 horizon = data["target_idx"][0, -1] - data["features_idx"][0, -1]
                 time_col = time_col + horizon * time_delta
 
-            data = pd.to_datetime(time_col.to_numpy().reshape(-1), origin="unix")
+            new_arr = pd.to_datetime(time_col.to_numpy().reshape(-1), origin="unix")
             data_transformed = (
-                (data - np.datetime64(self.basic_date)) / np.timedelta64(1, self.delta)
+                (new_arr - np.datetime64(self.basic_date)) / np.timedelta64(1, self.delta)
             ).values.astype(np.float32)
 
             result_data.append(data_transformed)
 
-        data["raw_ts_X"][:, self.output_features] = result_data
+        result_data = np.hstack(result_data)
+        if result_data.ndim == 1:
+            result_data = result_data.reshape(-1, 1)
+
+        data["raw_ts_X"][self.output_features] = result_data
 
         return data
 
@@ -195,7 +199,8 @@ class DateSeasonsGenerator(FeaturesGenerator):
                     prov=self._prov,
                     state=self._state,
                 )
-                new_arr[:, n] = time_col.date.isin(hol)
+                dates, names = zip(*hol.items())
+                new_arr[:, n] = np.isin(time_col.date, dates)
                 n += 1
             result_data.append(new_arr)
 

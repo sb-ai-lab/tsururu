@@ -1,5 +1,7 @@
+from typing import Union
+
 from ..dataset.pipeline import Pipeline
-from ..models import Estimator
+from ..model_training.trainer import DLTrainer, MLTrainer
 from .recursive import RecursiveStrategy
 
 
@@ -12,10 +14,10 @@ class MIMOStrategy(RecursiveStrategy):
         history: number of previous for feature generating
             (i.e., features for observation y_t are counted from observations
             (y_{t-history}, ..., y_{t-1}).
+        trainer: trainer with model params and validation params.
+        pipeline: pipeline for feature and target generation.
         step:  in how many points to take the next observation while making
             samples' matrix.
-        model: base model.
-        pipeline: pipeline for feature and target generation.
 
     Notes:
         1. Technically, `MIMOStrategy` is a `RecursiveStrategy` or
@@ -32,9 +34,9 @@ class MIMOStrategy(RecursiveStrategy):
         self,
         horizon: int,
         history: int,
-        step: int,
-        model: Estimator,
+        trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
+        step: int = 1,
     ):
-        super().__init__(horizon, history, step, model, pipeline, model_horizon=horizon)
+        super().__init__(horizon, history, trainer, pipeline, step, model_horizon=horizon)
         self.strategy_name = "MIMOStrategy"

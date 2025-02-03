@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional, Union
 
 import numpy as np
@@ -6,8 +7,11 @@ import pandas as pd
 from ..dataset.dataset import TSDataset
 from ..dataset.pipeline import Pipeline
 from ..dataset.slice import IndexSlicer
-from ..models import Estimator
+from ..model_training.trainer import DLTrainer, MLTrainer
+from ..utils.logging import set_stdout_level, verbosity_to_loglevel
 from .utils import timing_decorator
+
+logger = logging.getLogger(__name__)
 
 
 class Strategy:
@@ -19,10 +23,10 @@ class Strategy:
         history: number of previous for feature generating
             (i.e., features for observation y_t are counted from
             observations (y_{t-history}, ..., y_{t-1}).
+        trainer: trainer with model params and validation params.
+        pipeline: pipeline for feature and target generation.
         step:  in how many points to take the next observation while
             making samples' matrix.
-        model: base model.
-        pipeline: pipeline for feature and target generation.
 
     Notes:
         1. A type of strategy defines what features and targets will be
@@ -31,6 +35,23 @@ class Strategy:
         future.
 
     """
+
+    @staticmethod
+    def set_verbosity_level(verbose):
+        """Verbosity level setter.
+
+        Args:
+            verbose: Controls the verbosity: the higher, the more messages.
+                <1  : messages are not displayed;
+                >=1 : the common information about training and testing is displayed;
+                >=2 : the information about folds processing is also displayed;
+                >=3 : the training process for every algorithm is displayed;
+                >=4 : the debug information is displayed;
+        """
+        level = verbosity_to_loglevel(verbose)
+        set_stdout_level(level)
+
+        logger.info(f"Stdout logging level is {logging._levelToName[level]}.")
 
     @staticmethod
     def check_step_param(step: int):
@@ -49,19 +70,20 @@ class Strategy:
         self,
         horizon: int,
         history: int,
-        step: int,
-        model: Estimator,
+        trainer: Union[MLTrainer, DLTrainer],
         pipeline: Pipeline,
+        step: int = 1,
     ):
         self.check_step_param(step)
 
         self.horizon = horizon
         self.history = history
         self.step = step
-        self.model = model
+        self.trainer = trainer
         self.pipeline = pipeline
 
-        self.models = []
+        self.trainers = []
+        self.is_fitted = False
 
     @staticmethod
     def _make_preds_df(
@@ -176,7 +198,10 @@ class Strategy:
         raise NotImplementedError()
 
     @timing_decorator
-    def fit(self, dataset: TSDataset):
+    def fit(
+        self,
+        dataset: TSDataset,
+    ):
         """Fits the strategy to the given dataset.
 
         Args:
@@ -230,11 +255,13 @@ class Strategy:
         return (ids_list, test_list, preds_list, fit_time_list, forecast_time_list)
 
     @timing_decorator
-    def predict(self, dataset: TSDataset) -> np.ndarray:
+    def predict(self, dataset: TSDataset, test_all: bool = False) -> np.ndarray:
         """Predicts the target values for the given dataset.
 
         Args:
             dataset: the dataset to make predictions on.
+            test_all: whether to predict all the target values
+                (like rolling forecast) or only the last one.
 
         Returns:
             a pandas DataFrame containing the predicted target values.

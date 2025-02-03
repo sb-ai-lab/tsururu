@@ -151,4 +151,5 @@ catboost_info/
 poetry.lock
 *check*.ipynb
 *temp*
-*demand*
+*checkpoints*
+*logs*

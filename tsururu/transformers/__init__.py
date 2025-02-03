@@ -9,6 +9,7 @@ from .numeric import (
     StandardScalerTransformer,
 )
 from .seq import LagTransformer, TargetGenerator
+from .impute import MissingValuesImputer
 
 
 # Factory Object
@@ -27,6 +28,7 @@ class TransformersFactory:
             "DateSeasonsGenerator": DateSeasonsGenerator,
             "LagTransformer": LagTransformer,
             "TargetGenerator": TargetGenerator,
+            "MissingValuesImputer": MissingValuesImputer,
         }
 
     def get_allowed(self):
@@ -55,4 +57,5 @@ __all__ = [
     "LagTransformer",
     "TargetGenerator",
     "TransformersFactory",
+    "MissingValuesImputer",
 ]
