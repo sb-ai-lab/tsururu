@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from ..dataset.pipeline import Pipeline
-from ..models.base import Estimator
+from ..models.ml_base import Estimator
 from .torch_based.callbacks import ES_Checkpoints_Manager
 from .torch_based.data_provider import Dataset_NN
 from .torch_based.metrics import NegativeMSEMetric
@@ -41,7 +41,7 @@ class MLTrainer:
     def __init__(
         self,
         model: Estimator,
-        model_params: Dict,
+        model_params: Dict = {},
         validator: Optional[Validator] = None,
         validation_params: Dict = {},
     ):
@@ -263,20 +263,24 @@ class DLTrainer:
         self.schedulers = []
         self.scores = []
 
-    def init_trainer_one_fold(self, num_features: int):
+    def init_trainer_one_fold(
+        self, features_groups: dict
+    ) -> Tuple[
+        "nn.Module", "torch.optim.Optimizer", Optional["torch.optim.lr_scheduler._LRScheduler"]
+    ]:
         """Initializes the model, optimizer, and scheduler for one fold.
 
         Args:
-            num_features: Number of features in the input data.
+            features_groups: dictionary with features groups from pipeline.
 
         Returns:
             Initialized model, optimizer, and scheduler.
 
         """
-        self.model_params["seq_len"] = num_features
-        self.model_params["pred_len"] = self.horizon
-
-        model = self.model_base(**self.model_params)
+        model = self.model_base(features_groups, self.horizon, self.history, **self.model_params)
+        
+        
+        
         if len(self.device_ids) > 1:
             model = torch.nn.DataParallel(model, device_ids=self.device_ids)
         else:
@@ -327,7 +331,10 @@ class DLTrainer:
         optimizer: "torch.optim.Optimizer",
         scheduler: Optional["torch.optim.lr_scheduler._LRScheduler"],
     ) -> Tuple[
-        "nn.Module", "torch.optim.Optimizer", Optional["torch.optim.lr_scheduler._LRScheduler"], float
+        "nn.Module",
+        "torch.optim.Optimizer",
+        Optional["torch.optim.lr_scheduler._LRScheduler"],
+        float,
     ]:
         """Trains the model for all epochs.
 
@@ -542,10 +549,8 @@ class DLTrainer:
             logger.info(f"length of train dataset: {len(train_subset)}")
             logger.info(f"length of val dataset: {len(val_subset)}")
 
-            num_features = train_dataset[0][0].shape[0]
-
             # load or initialize model, optimizer, scheduler
-            model, optimizer, scheduler = self.init_trainer_one_fold(num_features)
+            model, optimizer, scheduler = self.init_trainer_one_fold(pipeline.features_groups)
             if self.pretrained_path:
                 model, optimizer, scheduler = self.load_trainer_one_fold(
                     fold_i, model, optimizer, scheduler

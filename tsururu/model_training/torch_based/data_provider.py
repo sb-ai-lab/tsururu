@@ -10,14 +10,12 @@ try:
     from torch.utils.data import Dataset
 except ImportError:
     from abc import ABC
+
     torch = None
     Dataset = ABC
 
-from typing import List, Optional, Sequence, Union, Tuple, Dict
-
-
 import re
-import pandas as pd
+from typing import Dict, List, Tuple, Union
 
 
 class Dataset_NN(Dataset):
@@ -30,89 +28,6 @@ class Dataset_NN(Dataset):
         pipeline: pipeline object for creating and applying a pipeline of transformers.
 
     """
-
-    @staticmethod
-    def sort_features_names(
-        features_names: Union[List[str], np.ndarray],
-        target_column_name: str,
-        id_column_name: str,
-        date_column_name: str,
-        is_fwm: bool = False,
-    ) -> Tuple[np.ndarray, Dict[str, int]]:
-        """Sorts the features names in the following order:
-            1) Target column features,
-            2) Id column features,
-            3) FWM feature (if is_fwm is True),
-            4) Date column features,
-            5) Series-specific features,
-            6) Common features.
-
-        Args:
-            features_names: array of features names.
-            target_column_name: name of the target column.
-            id_column_name: name of the id column.
-            date_column_name: name of the date column.
-            is_fwm: flag to indicate if the strategy is FlatWideMIMO.
-
-        Returns
-            an array of indices that can be used to sort features in the required order.
-            a dict with number of features of each type.
-
-        """
-        # target -> "{target_column_name}__" in the beginning of the string
-        target_mask = np.array(
-            [bool(re.match(f"{target_column_name}__", feature)) for feature in features_names]
-        )
-
-        # id -> "{id_column_name}__" in the beginning of the string
-        id_mask = np.array(
-            [bool(re.match(f"{id_column_name}__", feature)) for feature in features_names]
-        )
-
-        if is_fwm:
-            fh_mask = np.array([element == "FH" for element in features_names])
-        else:
-            fh_mask = np.array([False for element in features_names])
-
-        # date -> "{date_column_name}__" in the beginning of the string
-        date_mask = np.array(
-            [bool(re.match(f"{date_column_name}__", feature)) for feature in features_names]
-        )
-
-        # features per series -> "__{int}" in the end of the string shows the series except target features
-        # we want to sort features by series (all for first, all for second, etc.)
-        series_mask = np.array(
-            [bool(re.search(r"(?:__)(\d+)$", feature)) for feature in features_names]
-        )
-        series_mask = np.logical_and(series_mask, ~target_mask)
-
-        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask)
-
-        new_order_idx = np.concatenate(
-            [
-                np.where(target_mask)[0],
-                np.where(id_mask)[0],
-                np.where(fh_mask)[0],
-                np.where(date_mask)[0],
-                np.where(series_mask)[0],
-                np.where(other_mask)[0],
-            ]
-        )
-
-        counts = {
-            "target": np.sum(target_mask),
-            "id": np.sum(id_mask),
-            "fh": np.sum(fh_mask),
-            "date": np.sum(date_mask),
-            "series": np.sum(series_mask),
-            "other": np.sum(other_mask),
-        }
-
-        assert len(new_order_idx) == len(
-            features_names
-        ), "Number of features should not change after sorting"
-
-        return new_order_idx, counts
 
     def __init__(self, data: dict, pipeline: Pipeline):
         self.data = data
@@ -225,11 +140,12 @@ class Dataset_NN(Dataset):
             "raw_ts_y": raw_ts_y_adjusted,
             "X": np.array([]),
             "y": np.array([]),
+            "id_column_name": self.data["id_column_name"],
+            "date_column_name": self.data["date_column_name"],
+            "target_column_name": self.data["target_column_name"],
+            "num_series": self.data["num_series"],
             "idx_X": idx_X_adjusted,
             "idx_y": idx_y_adjusted,
-            "target_column_name": self.data["target_column_name"],
-            "date_column_name": self.data["date_column_name"],
-            "id_column_name": self.data["id_column_name"],
         }
 
     def __getitem__(self, index: int) -> tuple:
@@ -274,31 +190,16 @@ class Dataset_NN(Dataset):
                 axis=0,
             )
 
-            # Correct pipeline output features
-            self.pipeline.output_features = pd.concat(
-                [
-                    pd.Series(self.pipeline.output_features[:FH_idx_start]),
-                    pd.Series(["FH"] * self.num_lags),
-                    pd.Series(self.pipeline.output_features[FH_idx_end + 1 :]),
-                ]
-            )
-
             X = X.reshape(1, -1)
-
-        idx_sorted, counts = self.sort_features_names(
-            self.pipeline.output_features,
-            self.data["target_column_name"],
-            self.data["id_column_name"],
-            self.data["date_column_name"],
-            is_fwm=True,
-        )
-
-        X = X[:, idx_sorted]
 
         if self.pipeline.strategy_name == "FlatWideMIMOStrategy":
             # Breed datetime features N = self.num_lags times
-            datetime_features_start = counts["target"] + counts["id"] + counts["fh"]
-            datetime_features_end = datetime_features_start + counts["date"]
+            datetime_features_start = (
+                self.pipeline.features_groups["target"]
+                + self.pipeline.features_groups["id"]
+                + self.pipeline.features_groups["fh"]
+            )
+            datetime_features_end = datetime_features_start + self.pipeline.features_groups["date"]
 
             X = np.concatenate(
                 (
@@ -317,14 +218,14 @@ class Dataset_NN(Dataset):
             raise ValueError(
                 "Failed to reshape data. Check feature lags and data shape compatibility."
             )
-
+            
         X_tensor = torch.from_numpy(X).float()
         y_tensor = torch.from_numpy(y).float()
 
         if self.pipeline.multivariate:
             y_tensor = y_tensor.reshape(self.data["num_series"], -1)
 
-        y_tensor = y_tensor.T # (horizon, num_series)
+        y_tensor = y_tensor.T  # (horizon, num_series)
 
         return X_tensor, y_tensor
 

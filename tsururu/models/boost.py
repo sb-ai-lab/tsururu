@@ -10,7 +10,7 @@ try:
 except ImportError:
     Pool = None
     CatBoostRegressor = None
-from .base import Estimator
+from .ml_base import Estimator
 
 logger = logging.getLogger(__name__)
 

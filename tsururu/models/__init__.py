@@ -1,6 +1,6 @@
 """Algorithms for time series forecasting."""
 
-from .base import Estimator
+from .ml_base import Estimator
 from .boost import CatBoost
 from .torch_based.dlinear import DLinear_NN
 from .torch_based.patch_tst import PatchTST_NN

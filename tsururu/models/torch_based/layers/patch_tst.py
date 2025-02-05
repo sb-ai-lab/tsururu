@@ -28,6 +28,7 @@ class PatchTST_backbone(Module):
     """Backbone for Patch Time Series Transformer.
 
     Args:
+        n_vars: number of series.
         c_in: number of input channels.
         context_window: length of the context window.
         target_window: length of the target window.
@@ -68,6 +69,7 @@ class PatchTST_backbone(Module):
 
     def __init__(
         self,
+        n_vars: int,
         c_in: int,
         context_window: int,
         target_window: int,
@@ -111,7 +113,8 @@ class PatchTST_backbone(Module):
         # RevIn
         self.revin = revin
         if self.revin:
-            self.revin_layer = RevIN(c_in, affine=affine, subtract_last=subtract_last)
+            self.revin_layer_series = RevIN(n_vars, affine=affine, subtract_last=subtract_last)
+            self.revin_layer_exog_features = RevIN(c_in-n_vars, affine=affine, subtract_last=subtract_last)
 
         # Patching
         self.patch_len = patch_len
@@ -124,6 +127,7 @@ class PatchTST_backbone(Module):
 
         # Backbone
         self.backbone = TSTiEncoder(
+            n_vars,
             c_in,
             patch_num=patch_num,
             patch_len=patch_len,
@@ -152,7 +156,7 @@ class PatchTST_backbone(Module):
 
         # Head
         self.head_nf = d_model * patch_num
-        self.n_vars = c_in
+        self.n_vars = n_vars
         self.pretrain_head = pretrain_head
         self.head_type = head_type
         self.individual = individual
@@ -174,7 +178,7 @@ class PatchTST_backbone(Module):
         """Forward pass of the PatchTST backbone.
 
         Args:
-            z: input tensor of shape (batch_size, nvars, seq_len).
+            z: input tensor of shape (batch_size, c_in, seq_len).
 
         Returns:
             output tensor of shape (batch_size, nvars, target_window).
@@ -183,7 +187,11 @@ class PatchTST_backbone(Module):
         # norm
         if self.revin:
             z = z.permute(0, 2, 1)
-            z = self.revin_layer(z, "norm")
+
+            z_series = self.revin_layer_series(z[:, :, :self.n_vars], "norm")
+            z_exog = self.revin_layer_exog_features(z[:, :, self.n_vars:], "norm")
+            z = torch.cat([z_series, z_exog], dim=2)
+
             z = z.permute(0, 2, 1)
 
         # do patching
@@ -191,8 +199,8 @@ class PatchTST_backbone(Module):
             z = self.padding_patch_layer(z)
         z = z.unfold(
             dimension=-1, size=self.patch_len, step=self.stride
-        )  # z: [bs x nvars x patch_num x patch_len]
-        z = z.permute(0, 1, 3, 2)  # z: [bs x nvars x patch_len x patch_num]
+        )  # z: [bs x c_in x patch_num x patch_len]
+        z = z.permute(0, 1, 3, 2)  # z: [bs x c_in x patch_len x patch_num]
 
         # model
         z = self.backbone(z)  # z: [bs x nvars x d_model x patch_num]
@@ -201,7 +209,7 @@ class PatchTST_backbone(Module):
         # denorm
         if self.revin:
             z = z.permute(0, 2, 1)
-            z = self.revin_layer(z, "denorm")
+            z = self.revin_layer_series(z, "denorm")
             z = z.permute(0, 2, 1)
 
         return z
@@ -281,6 +289,7 @@ class TSTiEncoder(Module):
     """Time Series Transformer independent encoder.
 
     Args:
+        n_vars: number of series.
         c_in: number of input channels.
         patch_num: number of patches.
         patch_len: length of each patch.
@@ -311,6 +320,7 @@ class TSTiEncoder(Module):
 
     def __init__(
         self,
+        n_vars: int,
         c_in: int,
         patch_num: int,
         patch_len: int,
@@ -342,7 +352,7 @@ class TSTiEncoder(Module):
 
         self.patch_num = patch_num
         self.patch_len = patch_len
-
+        self.n_vars = n_vars
         self.channel_independent = channel_independent
 
         # Input encoding
@@ -355,6 +365,10 @@ class TSTiEncoder(Module):
 
         # Residual dropout
         self.dropout = nn.Dropout(dropout)
+
+        # Projection
+        if not channel_independent:
+            self.projection = nn.Linear(d_model, d_model * self.n_vars)
 
         # Encoder
         self.encoder = TSTEncoder(
@@ -378,45 +392,70 @@ class TSTiEncoder(Module):
         """Forward pass of the TSTi encoder.
 
         Args:
-            x: input tensor of shape (batch_size, nvars, patch_len, patch_num).
+            x: input tensor of shape (batch_size, c_in, patch_len, patch_num).
 
         Returns:
-            output tensor of shape (batch_size, nvars, d_model, patch_num).
+            output tensor of shape (batch_size, n_vars, d_model, patch_num).
 
         """
         if self.channel_independent:
-            n_vars = x.shape[1]
+            x = self._reorganize_tensor(x, self.n_vars)  # x: [bs * n_vars x сhannels x patch_len x patch_num]
 
-            # Input encoding
-            x = x.permute(0, 1, 3, 2)  # x: [bs x nvars x patch_num x patch_len]
-            x = self.W_P(x)  # x: [bs x nvars x patch_num x d_model]
+        # Input encoding
+        x = x.reshape(x.shape[0], -1, x.shape[-1])  # x: [... x сhannels * patch_len x patch_num]
+        x = x.permute(0, 2, 1)  # x: [... x patch_num x сhannels * patch_len]
 
-            u = torch.reshape(
-                x, (x.shape[0] * x.shape[1], x.shape[2], x.shape[3])
-            )  # u: [bs * nvars x patch_num x d_model]
-            u = self.dropout(u + self.W_pos)  # u: [bs * nvars x patch_num x d_model]
+        x = self.W_P(x)  # x: [... x patch_num x d_model]
+        x = self.dropout(x + self.W_pos)  # u: [... x patch_num x d_model]
 
-            # Encoder
-            z = self.encoder(u)  # z: [bs * nvars x patch_num x d_model]
-            z = torch.reshape(
-                z, (-1, n_vars, z.shape[-2], z.shape[-1])
-            )  # z: [bs x nvars x patch_num x d_model]
-            z = z.permute(0, 1, 3, 2)  # z: [bs x nvars x d_model x patch_num]
+        # Encoder
+        x = self.encoder(x)       # x: [... x patch_num x d_model]
+
+        if self.channel_independent:
+            x = torch.reshape(
+                x, (-1, self.n_vars, x.shape[-2], x.shape[-1])
+            )  # x: [bs x n_vars x patch_num x d_model]
+            x = x.permute(0, 1, 3, 2)  # x: [bs x n_vars x d_model x patch_num]
         else:
-            # Input encoding
-            x = x.reshape(x.shape[0], -1, x.shape[-1]) # x: [bs x nvars * patch_len x patch_num]
-            x = x.permute(0, 2, 1) # x: [bs x patch_num x nvars * patch_len]
-    
-            # Channel mixing
-            x = self.W_P(x)  # x: [bs x patch_num x d_model]
+            x = self.projection(x)    # x: [bs x patch_num x d_model * n_vars]
+            x = x.reshape(
+                x.shape[0], x.shape[1], -1, self.n_vars
+            )                         # x: [bs x patch_num x d_model x n_vars]
+            x = x.permute(0, 3, 2, 1) # x: [bs x n_vars x d_model x patch_num]
 
-            x = self.dropout(x + self.W_pos)  # u: [bs x patch_num x d_model]
+        return x
 
-            # Encoder
-            z = self.encoder(x)    # z: [bs x patch_num x d_model]
-            z = z.permute(0, 2, 1) # z: [bs x d_model x patch_num]
-            z = z.unsqueeze(1)     # z: [bs x 1 x d_model x patch_num] for consistency
-        return z
+    @staticmethod
+    def _reorganize_tensor(x: Tensor, n_vars: int) -> Tensor:
+        """Reorganizes input tensor to pair time series channels with exogenous features.
+        
+        Args:
+            x: input tensor of shape (batch_size, c_in, patch_len, patch_num)
+            n_vars: number of time series channels (first N channels)
+            
+        Returns:
+            reorganized tensor of shape 
+            (batch_size * n_vars, 1 + exog_channels, patch_len, patch_num)
+
+        """
+        # Split into series and exogenous components
+        series = x[:, :n_vars]
+        exog = x[:, n_vars:]
+
+        # Reorganize series channels into batch dimension
+        series = torch.movedim(series, 1, 0)  # series: [bs x patch_num x d_model x n_vars]
+        series = series.reshape(-1, 1, *series.shape[2:])  # [batch*series, 1, ...]
+
+        if exog.numel() == 0:
+            return series
+
+        # Expand exogenous features to match new batch dimension
+        exog = exog.unsqueeze(0)  # [1, batch, exog, patches, patch_len]
+        exog = exog.expand(n_vars, -1, -1, -1, -1)  # [series, batch, ...]
+        exog = exog.reshape(-1, *exog.shape[2:])  # [batch*series, exog, ...]
+
+        # Combine along channel dimension
+        return torch.cat([series, exog], dim=1)
 
 
 # Cell
