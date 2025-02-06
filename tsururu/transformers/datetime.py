@@ -209,11 +209,14 @@ class DateSeasonsGenerator(FeaturesGenerator):
         return data
 
 
-
-
 class CycleGenerator(FeaturesGenerator):
-    """Generates cyclic features based on time intervals."""
+    """A transformer that generates cyclic features.
 
+    Args:
+        cycle: the length of the cycle.
+        delta: frequency of the time series.
+
+    """
     def __init__(
         self,
         cycle: int = 24,
@@ -223,12 +226,21 @@ class CycleGenerator(FeaturesGenerator):
 
         self.cycle = cycle
         self.delta = delta
-        self.min_date = None
+        self.basic_date = None
 
     def fit(
         self, data: dict, input_features: Optional[Sequence[str]] = None
     ) -> "CycleGenerator":
-        """
+        """Fit transformer on "elongated series" and return it's instance.
+        
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+
+        Returns:
+            self.
+
         """
         super().fit(data, input_features)
 
@@ -242,9 +254,17 @@ class CycleGenerator(FeaturesGenerator):
         return self
 
     def transform(self, data: dict) -> dict:
-        """
-        """
+        """Generate features in `raw_ts_X`.
 
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+
+        Returns:
+            current states of `data` dictionary.
+
+        """
         time_col = data["raw_ts_X"][self.input_features[0]]
         result_data = np.array((time_col - self.min_date) // self.delta % self.cycle).reshape(-1, 1)
 

@@ -398,7 +398,8 @@ class Pipeline:
             3) FWM feature (if self.strategy_name == "FlatWideMIMOStrategy"),
             4) Date column features,
             5) Series-specific features,
-            6) Common features.
+            6) Cyclic features.
+            7) Common features.
 
         Args:
             data: dictionary with current states of "elongated series",

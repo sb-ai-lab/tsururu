@@ -1,13 +1,9 @@
 import torch
 import torch.nn as nn
 
-# import einops
-
 from .layers.rev_in import RevIN
 from .dl_base import DLEstimator
 from .utils import slice_features, slice_features_4d
-
-
 
 
 class RecurrentCycle(torch.nn.Module):
@@ -43,11 +39,8 @@ class CycleNet(DLEstimator):
         ):
         super(CycleNet, self).__init__(features_groups, pred_len, seq_len)
 
-        enc_in = sum(self.features_groups_corrected.values())
-
         self.seq_len = seq_len
         self.pred_len = pred_len
-        self.enc_in = enc_in
         self.cycle_len = cycle_len
         self.model_type = model_type
         self.d_model = d_model
