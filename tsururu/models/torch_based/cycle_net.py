@@ -23,7 +23,7 @@ class RecurrentCycle(torch.nn.Module):
         return self.data[gather_index]
 
 
-class CycleNet(DLEstimator):
+class CycleNet_NN(DLEstimator):
     def __init__(
             self, 
             features_groups: dict,
