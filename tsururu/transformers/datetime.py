@@ -207,3 +207,47 @@ class DateSeasonsGenerator(FeaturesGenerator):
         data["raw_ts_X"][self.output_features] = np.hstack(result_data)
 
         return data
+
+
+
+
+class CycleGenerator(FeaturesGenerator):
+    """Generates cyclic features based on time intervals."""
+
+    def __init__(
+        self,
+        cycle: int = 24,
+        delta: Optional[pd.DateOffset] = None,
+    ):
+        super().__init__()
+
+        self.cycle = cycle
+        self.delta = delta
+        self.min_date = None
+
+    def fit(
+        self, data: dict, input_features: Optional[Sequence[str]] = None
+    ) -> "CycleGenerator":
+        """
+        """
+        super().fit(data, input_features)
+
+        time_col = data["raw_ts_X"][input_features[0]]
+
+        self.min_date = time_col.min()
+        self.output_features = [f"cycle_{self.cycle}"]
+
+        _, self.delta = index_slicer.timedelta(time_col, delta=self.delta)
+
+        return self
+
+    def transform(self, data: dict) -> dict:
+        """
+        """
+
+        time_col = data["raw_ts_X"][self.input_features[0]]
+        result_data = np.array((time_col - self.min_date) // self.delta % self.cycle).reshape(-1, 1)
+
+        data["raw_ts_X"][self.output_features] = result_data
+
+        return data
