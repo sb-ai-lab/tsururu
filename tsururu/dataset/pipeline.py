@@ -256,7 +256,7 @@ class Pipeline:
                     },
                 )
                 exog_lag = transormers_factory.create_transformer(
-                    "LagTransformer", {pipeline_params["exog_lags"]}
+                    "LagTransformer", {"lags": pipeline_params["exog_lags"]}
                 )
                 current_sequential_transformers_list.append(exog_scaler)
                 current_sequential_transformers_list.append(exog_lag)
