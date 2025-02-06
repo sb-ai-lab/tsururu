@@ -59,20 +59,18 @@ class CycleNet(DLEstimator):
 
         assert self.model_type in ['linear', 'mlp']
 
-        exog_channels = self.features_groups_corrected["id"] + \
-                        self.features_groups_corrected["fh"] + \
-                        self.features_groups_corrected["datetime_features"] + \
-                        self.features_groups_corrected["series_features"] + \
-                        self.features_groups_corrected["other_features"]
-        
+        exog_channels = (
+            sum(self.features_groups_corrected.values()) - 
+            self.features_groups_corrected["series"] -
+            self.features_groups_corrected["cycle_features"]
+        )
+
         if self.channel_independent: 
             input_size = self.seq_len * (1 + exog_channels) 
             output_size = self.pred_len
         else:
             input_size = self.seq_len * (self.num_series + exog_channels) 
             output_size = self.pred_len * self.num_series
-        # input_size = seq_len
-        # output_size = pred_len
 
         if self.model_type == 'linear':
             self.model = nn.Linear(input_size, output_size)
@@ -97,8 +95,6 @@ class CycleNet(DLEstimator):
 
         cycle_index = slice_features(x, ["cycle_features"], self.features_groups_corrected)[:, -1, 0].long()
         series = series - self.cycleQueue(cycle_index, self.seq_len) # [batch_size, seq_len, num_series]
-
-        # y = self.model(series.permute(0, 2, 1)).permute(0, 2, 1)
 
         if self.channel_independent:
             exog_features = slice_features_4d(

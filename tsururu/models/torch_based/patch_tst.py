@@ -5,6 +5,7 @@ from typing import Optional, Union
 from .dl_base import DLEstimator
 from .layers.decomposition import series_decomp
 from .layers.patch_tst import PatchTST_backbone
+from .utils import slice_features
 
 try:
     import torch
@@ -237,9 +238,11 @@ class PatchTST_NN(DLEstimator):
             Output tensor of shape [Batch, Input length, Channel].
 
         """
-        series = self.slice_features(x, ["series"])
-        exog_features = self.slice_features(
-            x, ["id", "fh", "datetime_features", "series_features", "other_features"]
+        series = slice_features(x, ["series"], self.features_groups_corrected)
+        exog_features = slice_features(
+            x, 
+            ["id", "fh", "datetime_features", "series_features", "other_features"], 
+            self.features_groups_corrected
         )
 
         if self.decomposition:
