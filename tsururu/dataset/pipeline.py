@@ -398,7 +398,8 @@ class Pipeline:
             3) FWM feature (if self.strategy_name == "FlatWideMIMOStrategy"),
             4) Date column features,
             5) Series-specific features,
-            6) Common features.
+            6) Cyclic features.
+            7) Common features.
 
         Args:
             data: dictionary with current states of "elongated series",
@@ -439,14 +440,20 @@ class Pipeline:
             ]
         )
 
+        cycle_mask = np.array(
+            [bool(re.match(f"cycle_", feature)) for feature in self.output_features]
+        )
+
         # features per series -> "__{int}" in the end of the string shows the series except target features
         # we want to sort features by series (all for first, all for second, etc.)
         series_mask = np.array(
             [bool(re.search(r"(?:__)(\d+)$", feature)) for feature in self.output_features]
         )
-        series_mask = np.logical_and(series_mask, ~target_mask)
 
-        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask)
+        series_mask = np.logical_and(series_mask, ~(target_mask | cycle_mask))
+
+        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask)
+
 
         new_order_idx = np.concatenate(
             [
@@ -455,6 +462,7 @@ class Pipeline:
                 np.where(fh_mask)[0],
                 np.where(date_mask)[0],
                 np.where(series_mask)[0],
+                np.where(cycle_mask)[0],
                 np.where(other_mask)[0],
             ]
         )
@@ -465,6 +473,7 @@ class Pipeline:
             "fh": np.sum(fh_mask),
             "datetime_features": np.sum(date_mask),
             "series_features": np.sum(series_mask),
+            "cycle_features": np.sum(cycle_mask),
             "other_features": np.sum(other_mask),
         }
 

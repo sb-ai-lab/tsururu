@@ -28,6 +28,7 @@ def adjust_features_groups(features_groups: Dict[str, int], num_lags: int) -> Di
         "fh": features_groups["fh"] // num_lags,
         "datetime_features": features_groups["datetime_features"] // num_lags,
         "series_features": features_groups["series_features"] // num_lags,
+        "cycle_features": features_groups["cycle_features"] // num_lags,
         "other_features": features_groups["other_features"] // num_lags,
     }
 
@@ -61,6 +62,7 @@ def slice_features(
         "fh",
         "datetime_features",
         "series_features",
+        "cycle_features",
         "other_features",
     ]
 
@@ -100,10 +102,11 @@ def slice_features_4d(
         "fh",
         "datetime_features",
         "series_features",
+        "cycle_features",
         "other_features",
     ]
     unique_group_names = {"series", "id", "series_features"}
-    common_group_names = {"fh", "datetime_features", "other_features"}
+    common_group_names = {"fh", "datetime_features", "cycle_features", "other_features"}
 
     # Compute starting and ending indices for each group in tensor X
     indices = {}
@@ -113,7 +116,7 @@ def slice_features_4d(
         indices[group] = (start_idx, start_idx + group_size)
         start_idx += group_size
 
-    # Разбиваем features_list на уникальные и общие группы в порядке их следования в features_list
+    # Split features_list into unique and common groups based on their order in features_list
     unique_groups = []
     common_groups = []
     for group in features_list:
@@ -124,15 +127,15 @@ def slice_features_4d(
         else:
             raise ValueError(f"Неизвестная группа признаков: {group}")
 
-    # Извлекаем срезы для уникальных групп
+    # Extract slices for unique groups
     unique_tensors = []
     for group in unique_groups:
         s, e = indices[group]
-        # Извлекаем срез: форма [batch_size, seq_len, group_feature_count]
+        # Extract slice: shape [batch_size, seq_len, group_feature_count]
         slice_tensor = X[:, :, s:e]
         unique_tensors.append(slice_tensor)
 
-    # Извлекаем срезы для общих групп
+    # Extract slices for common groups
     common_tensors = []
     for group in common_groups:
         s, e = indices[group]
@@ -141,8 +144,9 @@ def slice_features_4d(
 
     batch_size, seq_len, _ = X.shape
 
-    # Для каждой уникальной группы делим признаки на ряды, меняя форму с [batch_size, seq_len, total_features]
-    # на [batch_size, seq_len, num_series, per_series_features]
+    # Reshape unique groups by splitting features into series:
+    # Transform from [batch_size, seq_len, total_features] 
+    # to [batch_size, seq_len, num_series, per_series_features]
     reshaped_uniques = []
     for tensor, group in zip(unique_tensors, unique_groups):
         total_features = tensor.shape[-1]
@@ -150,9 +154,10 @@ def slice_features_4d(
         tensor_reshaped = tensor.view(batch_size, seq_len, num_series, per_series_features)
         reshaped_uniques.append(tensor_reshaped)
 
-    # Для общих признаков расширяем размерность так, чтобы они повторялись для каждого ряда.
-    # Исходная форма [batch_size, seq_len, common_features] -> unsqueeze -> [batch_size, seq_len, 1, common_features],
-    # затем expand до [batch_size, seq_len, num_series, common_features].
+    # Expand common features to repeat across all series:
+    # Original shape [batch_size, seq_len, common_features] 
+    # -> unsqueeze -> [batch_size, seq_len, 1, common_features]
+    # -> expand to [batch_size, seq_len, num_series, common_features]
     expanded_commons = []
     for tensor, group in zip(common_tensors, common_groups):
         tensor_expanded = tensor.unsqueeze(2).expand(-1, -1, num_series, -1)
