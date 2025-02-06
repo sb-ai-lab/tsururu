@@ -448,9 +448,11 @@ class Pipeline:
         series_mask = np.array(
             [bool(re.search(r"(?:__)(\d+)$", feature)) for feature in self.output_features]
         )
+
         series_mask = np.logical_and(series_mask, ~(target_mask | cycle_mask))
 
         other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask)
+
 
         new_order_idx = np.concatenate(
             [
@@ -473,8 +475,6 @@ class Pipeline:
             "cycle_features": np.sum(cycle_mask),
             "other_features": np.sum(other_mask),
         }
-        print("new_order_idx", len(new_order_idx))
-        print("output_features", len(self.output_features))
 
         assert len(new_order_idx) == len(
             self.output_features

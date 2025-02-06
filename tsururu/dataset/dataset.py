@@ -24,7 +24,7 @@ class TSDataset:
                 {
                     "target": {
                         "columns": ["value"],
-                        "type": "continious",
+                        "type": "continuous",
                     },
                     "date": {...},
                     "id": {...},
@@ -42,6 +42,11 @@ class TSDataset:
             parameter.
 
     """
+
+    def _auto_type_columns(self, columns_params, column_name, default_type):
+        if columns_params.get(column_name, None) is not None:
+            if columns_params[column_name].get("type", None) is None:
+                columns_params[column_name]["type"] = default_type
 
     def _check_single_column(self):
         """Check that `target`, `id`, `date` columns contains only one
@@ -73,11 +78,11 @@ class TSDataset:
 
         if print_freq_period_info:
             logger.info(info)
-            
+
         # Try to reconstruct regular data
         min_data = self.data.min()
         max_data = self.data.max()
-        
+
         reconstructed_data = pd.date_range(
             start=min_data[self.date_column],
             end=max_data[self.date_column],
@@ -85,9 +90,8 @@ class TSDataset:
         )
         reconstructed_data = np.tile(reconstructed_data, ts_count)
 
-        if (
-            reconstructed_data.shape[0] != self.data.shape[0]
-            or not np.all(reconstructed_data == self.data[self.date_column].values)
+        if reconstructed_data.shape[0] != self.data.shape[0] or not np.all(
+            reconstructed_data == self.data[self.date_column].values
         ):
             logger.warning(
                 f"""
@@ -105,10 +109,14 @@ class TSDataset:
         print_freq_period_info: bool = True,
     ):
         # Columns typing
+        self._auto_type_columns(columns_params, "date", "datetime")
+        self._auto_type_columns(columns_params, "id", "categorical")
+        self._auto_type_columns(columns_params, "target", "continuous")
+
         for _, role_dict in columns_params.items():
             column_name = role_dict["columns"][0]
             column_type = role_dict["type"]
-            if column_type == "continious":
+            if column_type == "continuous":
                 data[column_name] = data[column_name].astype("float")
             elif column_type == "datetime":
                 data[column_name] = pd.to_datetime(data[column_name])

@@ -106,7 +106,7 @@ def slice_features_4d(
         "other_features",
     ]
     unique_group_names = {"series", "id", "series_features"}
-    common_group_names = {"fh", "datetime_features", "other_features", "cycle_features"}
+    common_group_names = {"fh", "datetime_features", "cycle_features", "other_features"}
 
     # Compute starting and ending indices for each group in tensor X
     indices = {}

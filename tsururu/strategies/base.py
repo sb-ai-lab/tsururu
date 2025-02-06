@@ -184,7 +184,7 @@ class Strategy:
 
             yield (full_train, full_test)
 
-    def make_step(self, dataset: TSDataset):
+    def make_step(self, step: int, dataset: TSDataset, inverse_transform: bool) -> TSDataset:
         """Make a step in the strategy.
 
         Args:
@@ -255,7 +255,9 @@ class Strategy:
         return (ids_list, test_list, preds_list, fit_time_list, forecast_time_list)
 
     @timing_decorator
-    def predict(self, dataset: TSDataset, test_all: bool = False) -> np.ndarray:
+    def predict(
+        self, dataset: TSDataset, test_all: bool = False, inverse_transform: bool = True
+    ) -> np.ndarray:
         """Predicts the target values for the given dataset.
 
         Args:
