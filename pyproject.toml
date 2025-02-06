@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tsururu"
-version = "1.0.0"
+version = "1.0.1"
 description = "Python tool for time series forecasting"
 authors = ["Alina Kostromina <AMaKostromina@sberbank.ru>", "Dmitry Simakov <Simakov.D.E@sberbank.ru>"]
 license = "Apache License 2.0"
