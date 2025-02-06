@@ -113,8 +113,7 @@ class PatchTST_backbone(Module):
         # RevIn
         self.revin = revin
         if self.revin:
-            self.revin_layer_series = RevIN(n_vars, affine=affine, subtract_last=subtract_last)
-            self.revin_layer_exog_features = RevIN(c_in-n_vars, affine=affine, subtract_last=subtract_last)
+            self.revin_layer = RevIN(n_vars, affine=affine, subtract_last=subtract_last)
 
         # Patching
         self.patch_len = patch_len
@@ -163,7 +162,7 @@ class PatchTST_backbone(Module):
 
         if self.pretrain_head:
             self.head = self.create_pretrain_head(
-                self.head_nf, c_in, fc_dropout
+                self.head_nf, n_vars, fc_dropout
             )  # custom head passed as a partial func with all its kwargs
         elif head_type == "flatten":
             self.head = Flatten_Head(
@@ -188,9 +187,8 @@ class PatchTST_backbone(Module):
         if self.revin:
             z = z.permute(0, 2, 1)
 
-            z_series = self.revin_layer_series(z[:, :, :self.n_vars], "norm")
-            z_exog = self.revin_layer_exog_features(z[:, :, self.n_vars:], "norm")
-            z = torch.cat([z_series, z_exog], dim=2)
+            z_series = self.revin_layer(z[:, :, :self.n_vars], "norm")
+            z = torch.cat([z_series, z[:, :, self.n_vars:]], dim=2)
 
             z = z.permute(0, 2, 1)
 
@@ -209,7 +207,7 @@ class PatchTST_backbone(Module):
         # denorm
         if self.revin:
             z = z.permute(0, 2, 1)
-            z = self.revin_layer_series(z, "denorm")
+            z = self.revin_layer(z, "denorm")
             z = z.permute(0, 2, 1)
 
         return z
@@ -357,6 +355,8 @@ class TSTiEncoder(Module):
 
         # Input encoding
         q_len = patch_num
+
+        # TODO: precompute input shape
         self.W_P = nn.LazyLinear(d_model) # Eq 1: projection of feature vectors onto a d-dim vector space
         self.seq_len = q_len
 
