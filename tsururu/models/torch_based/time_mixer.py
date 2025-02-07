@@ -4,8 +4,9 @@ import torch.nn.functional as F
 
 from .dl_base import DLEstimator
 from .layers.decomposition import series_decomp
-from .layers.embedding import DataEmbedding_wo_pos
+from .layers.embedding import Embedding
 from .layers.rev_in import RevIN
+from .utils import slice_features
 
 
 class DFT_series_decomp(nn.Module):
@@ -288,11 +289,30 @@ class TimeMixer_NN(DLEstimator):
             - self.features_groups_corrected["datetime_features"]
         )
 
+        num_datetime_features = self.features_groups_corrected["datetime_features"]
+        num_features_wo_datetime = (
+            sum(self.features_groups_corrected.values()) - self.num_series - num_datetime_features
+        )
+
         if self.channel_independence == 1:
-            self.enc_embedding = DataEmbedding_wo_pos(1, d_model, embed, freq, dropout)
+            self.enc_embedding = Embedding(
+                1,
+                d_model,
+                use_pos=False,
+                num_datetime_features=num_datetime_features,
+                embed_type=embed,
+                freq=freq,
+                dropout=dropout,
+            )
         else:
-            self.enc_embedding = DataEmbedding_wo_pos(
-                self.num_features_wo_datetime, d_model, embed, freq, dropout
+            self.enc_embedding = Embedding(
+                num_features_wo_datetime,
+                d_model,
+                use_pos=False,
+                num_datetime_features=num_datetime_features,
+                embed_type=embed,
+                freq=freq,
+                dropout=dropout,
             )
 
         self.layer = e_layers
@@ -307,7 +327,7 @@ class TimeMixer_NN(DLEstimator):
                 for i in range(down_sampling_layers + 1)
             ]
         )
-
+        
         self.predict_layers = torch.nn.ModuleList(
             [
                 torch.nn.Linear(
@@ -485,9 +505,9 @@ class TimeMixer_NN(DLEstimator):
         return dec_out_list
 
     def forward(self, x):
-        series = self.slice_features(x, ["series"])
-        date_features = self.slice_features(x, ["datetime_features"])
-        exog_features = self.slice_features(x, ["id", "fh", "series_features", "other_features"])
+        series = slice_features(x, ["series"], self.features_groups_corrected)
+        date_features = slice_features(x, ["datetime_features"], self.features_groups_corrected)
+        exog_features = slice_features(x, ["id", "fh", "series_features", "other_features"], self.features_groups_corrected)
 
         series = torch.concat([series, exog_features], dim=2)
 
