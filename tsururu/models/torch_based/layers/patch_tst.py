@@ -413,9 +413,9 @@ class TSTiEncoder(Module):
 
         if self.channel_independent:
             x = torch.reshape(
-                x, (-1, self.n_vars, x.shape[-2], x.shape[-1])
-            )  # x: [bs x n_vars x patch_num x d_model]
-            x = x.permute(0, 1, 3, 2)  # x: [bs x n_vars x d_model x patch_num]
+                x, (self.n_vars, -1, x.shape[-2], x.shape[-1])
+            )  # x: [n_vars x bs x patch_num x d_model]
+            x = x.permute(1, 0, 3, 2)  # x: [bs x n_vars x d_model x patch_num]
         else:
             x = self.projection(x)    # x: [bs x patch_num x d_model * n_vars]
             x = x.reshape(
@@ -443,16 +443,16 @@ class TSTiEncoder(Module):
         exog = x[:, n_vars:]
 
         # Reorganize series channels into batch dimension
-        series = torch.movedim(series, 1, 0)  # series: [bs x patch_num x d_model x n_vars]
-        series = series.reshape(-1, 1, *series.shape[2:])  # [batch*series, 1, ...]
+        series = torch.movedim(series, 1, 0)  # series: [n_vars, batch_size, patch_len, patch_num]
+        series = series.reshape(-1, 1, *series.shape[2:])  # [n_vars*batch_size, 1, ...]
 
         if exog.numel() == 0:
             return series
 
         # Expand exogenous features to match new batch dimension
         exog = exog.unsqueeze(0)  # [1, batch, exog, patches, patch_len]
-        exog = exog.expand(n_vars, -1, -1, -1, -1)  # [series, batch, ...]
-        exog = exog.reshape(-1, *exog.shape[2:])  # [batch*series, exog, ...]
+        exog = exog.expand(n_vars, -1, -1, -1, -1)  # [n_vars, batch, ...]
+        exog = exog.reshape(-1, *exog.shape[2:])  # [n_vars*batch_size, exog, ...]
 
         # Combine along channel dimension
         return torch.cat([series, exog], dim=1)
