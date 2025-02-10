@@ -1,0 +1,30 @@
+horizon: 96
+history: 336
+
+data:
+  root_path: ./datasets
+  data_path: ETTh1.csv
+
+model:
+  model_type: DLinear_NN
+  model_params:
+    moving_avg: 25
+    individual: False
+    channel_independent: True
+
+scheduler: 
+  scheduler_type: LambdaLR
+  scheduler_params:
+    lr_lambda: "lambda epoch: 0.5 ** ((epoch - 1) // 1)"
+
+trainer_params:
+  n_epochs: 10
+  batch_size: 8
+  optimizer_params:
+    lr: 0.0001
+  num_workers: 15
+  early_stopping_patience: 3
+  best_by_metric: True
+  save_to_dir: False
+  drop_last: True
+  device: cuda:0

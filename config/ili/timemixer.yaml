@@ -1,0 +1,34 @@
+horizon: 24
+history: 96
+
+data:
+  root_path: ./datasets
+  data_path: ILI.csv
+
+model:
+  model_type: TimesNet_NN
+  model_params:
+    e_layers: 2 
+    down_sampling_layers: 3
+    down_sampling_window: 2
+    d_model: 16
+    d_ff: 32
+    down_sampling_method: avg 
+    channel_independent: True
+
+scheduler: 
+  scheduler_type: LambdaLR
+  scheduler_params:
+    lr_lambda: "lambda epoch: 1.0"
+
+trainer_params:
+  n_epochs: 10
+  batch_size: 128
+  optimizer_params:
+    lr: 0.01
+  num_workers: 15
+  early_stopping_patience: 10
+  best_by_metric: True
+  save_to_dir: False
+  drop_last: True
+  device: cuda:0
