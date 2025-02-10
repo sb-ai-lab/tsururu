@@ -37,7 +37,7 @@ class CycleNet_NN(DLEstimator):
             subtract_last: bool = False,
             channel_independent: bool = True,
         ):
-        super(CycleNet, self).__init__(features_groups, pred_len, seq_len)
+        super(CycleNet_NN, self).__init__(features_groups, pred_len, seq_len)
 
         self.seq_len = seq_len
         self.pred_len = pred_len

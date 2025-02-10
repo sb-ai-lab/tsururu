@@ -4,7 +4,10 @@ from .ml_base import Estimator
 from .boost import CatBoost
 from .torch_based.dlinear import DLinear_NN
 from .torch_based.patch_tst import PatchTST_NN
-
+from .torch_based.gpt import GPT4TS_NN
+from .torch_based.time_mixer import TimeMixer_NN
+from .torch_based.times_net import TimesNet_NN
+from .torch_based.cycle_net import CycleNet_NN
 
 # Factory Object
 class ModelsFactory:
@@ -13,6 +16,10 @@ class ModelsFactory:
             "CatBoost": CatBoost,
             "DLinear_NN": DLinear_NN,
             "PatchTST_NN": PatchTST_NN,
+            "GPT4TS_NN": GPT4TS_NN,
+            "TimeMixer_NN": TimeMixer_NN,
+            "TimesNet_NN": TimesNet_NN,
+            "CycleNet_NN": CycleNet_NN,
         }
 
     def get_allowed(self):
