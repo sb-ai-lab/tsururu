@@ -2,7 +2,7 @@
 
 OUTPUT_DIR="results"
 
-Run the experiments with different configurations
+# Run the experiments with different configurations
 python run_exp.py --config=config/ili/dlinear.yaml --output_dir=$OUTPUT_DIR
 python run_exp.py --config=config/ili/cyclenet.yaml --output_dir=$OUTPUT_DIR
 python run_exp.py --config=config/ili/patchtst.yaml --output_dir=$OUTPUT_DIR
