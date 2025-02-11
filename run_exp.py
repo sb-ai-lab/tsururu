@@ -23,7 +23,6 @@ from tsururu.dataset import Pipeline
 from tsururu.model_training.trainer import DLTrainer
 from tsururu.model_training.validator import HoldOutValidator
 from tsururu.models import DLinear_NN, PatchTST_NN, TimesNet_NN, TimeMixer_NN, GPT4TS_NN, CycleNet_NN
-from tsururu.models.torch_based.time_mixer import TimeMixer_NN
 from tsururu.strategies import DirectStrategy, MIMOStrategy, RecursiveStrategy
 from tsururu.transformers import (
     LagTransformer,
@@ -40,6 +39,7 @@ from torch.optim import lr_scheduler
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 
 from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR
+
 
 MODELS = {
     "DLinear_NN": DLinear_NN,
@@ -58,7 +58,7 @@ SCHEDULERS = {
 DATASET_PARAMS = {
     "target": {
         "columns": ["value"],
-        "type": "continious",
+        "type": "continuous",
     },
     "date": {
         "columns": ["date"],
@@ -71,10 +71,18 @@ DATASET_PARAMS = {
 }
 
 
-def run_experiment(config_path):
-    # Load YAML config
-    with open(config_path, "r") as file:
-        config = yaml.safe_load(file)
+def seed_everything(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def run_experiment(config):
 
     horizon = config["horizon"]
     history = config["history"]
@@ -98,7 +106,7 @@ def run_experiment(config_path):
     seq_1 = SequentialTransformer(transformers_list=[ss, union_1], input_features=["value"])
     transformers = [seq_1]
 
-    if config["model"]["model_type"] == "TimesNet_NN":
+    if config["model"]["model_type"] == "TimeMixer_NN":
         datetime = DateSeasonsGenerator(seasonalities=["hour", "wd", "d", "doy"], from_target_date=True)
         datetime_lag = LagTransformer(lags=history)
         datetime_ss = StandardScalerTransformer(
@@ -124,7 +132,7 @@ def run_experiment(config_path):
         transformers.append(seq_2)
 
     union = UnionTransformer(transformers_list=transformers)
-    pipeline = Pipeline(union, multivariate=config["multivaraiate"])
+    pipeline = Pipeline(union, multivariate=config["multivariate"])
 
     model_class = MODELS[config["model"]["model_type"]]
     model_params = config["model"]["model_params"]
@@ -177,10 +185,57 @@ def run_experiment(config_path):
     print(f'MAE: {mae}')
     print(f'MSE: {mse}')
 
+    return mae, mse
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run time series forecasting experiment.")
     parser.add_argument("--config", type=str, required=True, help="Path to the YAML config file.")
+    parser.add_argument("--output_dir", type=str, default="results", 
+                      help="Directory to store results CSV (default: results/)")
     args = parser.parse_args()
-    
-    run_experiment(args.config)
+
+    # Create output directory if it doesn't exist
+    output_path = Path(args.output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # Load YAML config
+    with open(args.config, "r") as file:
+        config = yaml.safe_load(file)
+
+    results = []
+    for i, seed in enumerate(config["seed"]):
+        print(f"Iteration: {i+1}, seed: {seed}")
+
+        seed_everything(seed)
+
+        mae, mse = run_experiment(config)
+
+        # Collect experiment metadata
+        results.append({
+            "model": config["model"]["model_type"],
+            "seed": seed,
+            "dataset": Path(config["data"]["data_path"]).stem,  # Get filename without extension
+            "mae": mae,
+            "mse": mse
+        })
+
+    # Save results to CSV
+    results_df = pd.DataFrame(results)
+
+    print("\n------------------------------------")
+    print(f"MAE: {results_df['mae'].mean():.4f} ± {results_df['mae'].std():.4f}")
+    print(f"MSE: {results_df['mse'].mean():.4f} ± {results_df['mse'].std():.4f}")
+
+    csv_path = output_path / "results.csv"
+
+    if csv_path.exists():
+        # Load existing CSV data
+        existing_df = pd.read_csv(csv_path)
+        # Append new results
+        results_df = pd.concat([existing_df, results_df], ignore_index=True)
+
+    results_df.to_csv(csv_path, index=False)
+
+    print(f"\nResults saved to {csv_path}")
