@@ -183,7 +183,15 @@ class RecursiveStrategy(Strategy):
         if inverse_transform:
             pred = self.pipeline.inverse_transform_y(pred)
 
+        num_series = data["num_series"] if self.pipeline.multivariate else 1
+
+        target_idx = target_idx.reshape(num_series, -1, self.horizon) # .shape)
+        pred = pred.reshape(num_series, -1, self.horizon)
+
+        target_idx = target_idx[:, :pred.shape[1]]
+
         dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
+        dataset.data.dropna(inplace=True)
 
         return dataset
 
