@@ -5,6 +5,8 @@ data:
   root_path: ./datasets
   data_path: ETTh1.csv
 
+multivariate: True
+
 model:
   model_type: DLinear_NN
   model_params:
@@ -15,7 +17,7 @@ model:
 scheduler: 
   scheduler_type: LambdaLR
   scheduler_params:
-    lr_lambda: "lambda epoch: 0.5 ** ((epoch - 1) // 1)"
+    lr_lambda: "lambda epoch: 0.5 ** (epoch // 1)"
 
 trainer_params:
   n_epochs: 10
@@ -26,5 +28,7 @@ trainer_params:
   early_stopping_patience: 3
   best_by_metric: True
   save_to_dir: False
-  drop_last: True
+  drop_last: False # As in original code!!!
   device: cuda:0
+
+seed: [2025, 2026, 2027]

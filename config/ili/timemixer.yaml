@@ -5,8 +5,10 @@ data:
   root_path: ./datasets
   data_path: ILI.csv
 
+multivariate: True
+
 model:
-  model_type: TimesNet_NN
+  model_type: TimeMixer_NN
   model_params:
     e_layers: 2 
     down_sampling_layers: 3
@@ -14,7 +16,7 @@ model:
     d_model: 16
     d_ff: 32
     down_sampling_method: avg 
-    channel_independent: True
+    channel_independence: True
 
 scheduler: 
   scheduler_type: LambdaLR
@@ -23,12 +25,14 @@ scheduler:
 
 trainer_params:
   n_epochs: 10
-  batch_size: 128
+  batch_size: 16
   optimizer_params:
     lr: 0.01
   num_workers: 15
   early_stopping_patience: 10
   best_by_metric: True
   save_to_dir: False
-  drop_last: True
+  drop_last: False
   device: cuda:0
+
+seed: [2025, 2026, 2027]

@@ -1,5 +1,5 @@
 horizon: 96
-history: 336
+history: 96
 
 data:
   root_path: ./datasets
@@ -8,34 +8,31 @@ data:
 multivariate: True
 
 model:
-  model_type: PatchTST_NN
+  model_type: TimeMixer_NN
   model_params:
-    e_layers: 3
-    n_heads: 4
+    e_layers: 2 
+    down_sampling_layers: 3
+    down_sampling_window: 2
     d_model: 16
-    d_ff: 128
-    dropout: 0.3
-    fc_dropout: 0.3
-    head_dropout: 0
-    patch_len: 16
-    stride: 8
-    channel_independent: True
+    d_ff: 32
+    down_sampling_method: avg 
+    channel_independence: True
 
 scheduler: 
   scheduler_type: LambdaLR
   scheduler_params:
-    lr_lambda: "lambda epoch: 1.0 if epoch < 10 else 0.1"
+    lr_lambda: "lambda epoch: 1.0"
 
 trainer_params:
-  n_epochs: 100
+  n_epochs: 10
   batch_size: 128
   optimizer_params:
-    lr: 0.0001
+    lr: 0.01
   num_workers: 15
-  early_stopping_patience: 100
+  early_stopping_patience: 10
   best_by_metric: True
   save_to_dir: False
-  drop_last: True
+  drop_last: False
   device: cuda:0
 
 seed: [2025, 2026, 2027]

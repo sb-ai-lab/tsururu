@@ -5,7 +5,7 @@ data:
   root_path: ./datasets
   data_path: ETTh1.csv
 
-multivaraiate: True
+multivariate: True
 
 model:
   model_type: CycleNet_NN
@@ -30,3 +30,5 @@ trainer_params:
   save_to_dir: False
   drop_last: True
   device: cuda:0
+
+seed: [2025, 2026, 2027]

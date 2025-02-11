@@ -5,6 +5,8 @@ data:
   root_path: ./datasets
   data_path: ILI.csv
 
+multivariate: True
+
 model:
   model_type: PatchTST_NN
   model_params:
@@ -35,3 +37,5 @@ trainer_params:
   save_to_dir: False
   drop_last: True
   device: cuda:0
+
+seed: [2025, 2026, 2027] 
