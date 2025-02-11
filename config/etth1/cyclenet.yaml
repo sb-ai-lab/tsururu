@@ -17,18 +17,18 @@ model:
 scheduler: 
   scheduler_type: LambdaLR
   scheduler_params:
-    lr_lambda: "lambda epoch: 1.0"
+    lr_lambda: "lambda epoch: 1.0 if epoch < 10 else 0.1"
 
 trainer_params:
   n_epochs: 30
   batch_size: 256
   optimizer_params:
-    lr: 0.01
+    lr: 0.005
   num_workers: 15
   early_stopping_patience: 5
   best_by_metric: True
   save_to_dir: False
-  drop_last: True
+  drop_last: False
   device: cuda:0
 
 seed: [2025, 2026, 2027]

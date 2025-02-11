@@ -144,7 +144,7 @@ def run_experiment(config):
     if config["scheduler"]["scheduler_type"] == "LambdaLR":
         scheduler_params = {"lr_lambda": eval(config["scheduler"]["scheduler_params"]["lr_lambda"])}
     else:
-        scheduler_params = config["scheduler"]
+        scheduler_params = config["scheduler"]["scheduler_params"]
 
     trainer_params = config["trainer_params"]
     trainer = DLTrainer(
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     results = []
     for i, seed in enumerate(config["seed"]):
-        print(f"Iteration: {i+1}, seed: {seed}")
+        print(f"\nIteration: {i+1}, seed: {seed}")
 
         seed_everything(seed)
 
@@ -225,6 +225,7 @@ if __name__ == "__main__":
     results_df = pd.DataFrame(results)
 
     print("\n------------------------------------")
+    print(f"model: {config['model']['model_type']}, dataset: {Path(config['data']['data_path']).stem}")
     print(f"MAE: {results_df['mae'].mean():.4f} ± {results_df['mae'].std():.4f}")
     print(f"MSE: {results_df['mse'].mean():.4f} ± {results_df['mse'].std():.4f}")
 
