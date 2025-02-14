@@ -12,9 +12,6 @@ formatter_debug = logging.Formatter(
 )
 formatter_default = logging.Formatter("[%(asctime)s] %(message)s", "%H:%M:%S")
 
-INFO2 = 17
-INFO3 = 13
-
 
 def add_logging_level(levelName, levelNum, methodName=None):
     """Comprehensively adds a new logging level to the `logging` module and the currently configured logging class.
@@ -67,10 +64,6 @@ def add_logging_level(levelName, levelNum, methodName=None):
     setattr(logging, levelName, levelNum)
     setattr(logging.getLoggerClass(), methodName, logForLevel)
     setattr(logging, methodName, logToRoot)
-
-
-add_logging_level("INFO2", INFO2)
-add_logging_level("INFO3", INFO3)
 
 
 class LoggerStream(io.IOBase):
