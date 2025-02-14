@@ -260,7 +260,7 @@ class Pipeline:
                     },
                 )
                 exog_lag = transormers_factory.create_transformer(
-                    "LagTransformer", {pipeline_params["exog_lags"]}
+                    "LagTransformer", {"lags": pipeline_params["exog_lags"]}
                 )
                 current_sequential_transformers_list.append(exog_scaler)
                 current_sequential_transformers_list.append(exog_lag)
@@ -379,12 +379,12 @@ class Pipeline:
 
         else:
             fh_features_names = []
-            id_features_names = np.array(
+            id_features_names = input_features[
                 [
                     bool(re.match(f"{data['id_column_name']}__", feature))
                     for feature in input_features
                 ]
-            )
+            ]
 
         other_features_names = np.array(
             [
