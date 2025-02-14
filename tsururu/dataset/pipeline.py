@@ -404,7 +404,9 @@ class Pipeline:
 
         return np.hstack([fh_features_names, date_features_names, other_features_names])
 
-    def group_pipeline_output_features(self, data: dict) -> Tuple[np.ndarray, Dict[str, int]]:
+    def group_pipeline_output_features(
+        self, data: dict, input_features: list
+    ) -> Tuple[np.ndarray, dict]:
         """Sorts the features names in the following order:
             1) Initial time series lags features,
             2) Id column features,
@@ -418,49 +420,44 @@ class Pipeline:
             data: dictionary with current states of "elongated series",
                 arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
+            input_features: the list of input features.
 
         Returns
-            an array of indices that can be used to sort features in the required order.
-            a dict with number of features of each type.
+            the sorted indices of the features and the counts of the features
 
         """
         # target -> "{target_column_name}__" in the beginning of the string
         target_mask = np.array(
             [
                 bool(re.match(f"{data['target_column_name']}__", feature))
-                for feature in self.output_features
+                for feature in input_features
             ]
         )
 
         # id -> "{id_column_name}__" in the beginning of the string
         id_mask = np.array(
-            [
-                bool(re.match(f"{data['id_column_name']}__", feature))
-                for feature in self.output_features
-            ]
+            [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
         )
 
         if self.strategy_name == "FlatWideMIMOStrategy":
-            fh_mask = np.array([element == "FH" for element in self.output_features])
+            fh_mask = np.array([element == "FH" for element in input_features])
         else:
-            fh_mask = np.array([False for element in self.output_features])
+            fh_mask = np.array([False for element in input_features])
 
         # date -> "{date_column_name}__" in the beginning of the string
         date_mask = np.array(
             [
                 bool(re.match(f"{data['date_column_name']}__", feature))
-                for feature in self.output_features
+                for feature in input_features
             ]
         )
 
-        cycle_mask = np.array(
-            [bool(re.match(f"cycle_", feature)) for feature in self.output_features]
-        )
+        cycle_mask = np.array([bool(re.match(f"cycle_", feature)) for feature in input_features])
 
         # features per series -> "__{int}" in the end of the string shows the series except target features
         # we want to sort features by series (all for first, all for second, etc.)
         series_mask = np.array(
-            [bool(re.search(r"(?:__)(\d+)$", feature)) for feature in self.output_features]
+            [bool(re.search(r"(?:__)(\d+)$", feature)) for feature in input_features]
         )
 
         series_mask = np.logical_and(series_mask, ~(target_mask | cycle_mask))
@@ -490,7 +487,7 @@ class Pipeline:
         }
 
         assert len(new_order_idx) == len(
-            self.output_features
+            input_features
         ), "Number of features should not change after sorting"
 
         return new_order_idx, counts
@@ -521,9 +518,11 @@ class Pipeline:
             )
         if self.multivariate:
             current_features = self._get_multivariate_X_columns_names(data, current_features)
-        self.output_features = current_features
 
-        self.features_sort_idx, self.features_groups = self.group_pipeline_output_features(data)
+        self.features_sort_idx, self.features_groups = self.group_pipeline_output_features(
+            data, current_features
+        )
+        self.output_features = current_features[self.features_sort_idx]
 
         return data
 
@@ -809,7 +808,7 @@ class Pipeline:
                 data, current_features = self._make_multivariate_X_y(data, current_features)
 
         assert np.all(
-            self.output_features == current_features
+            self.output_features == current_features[self.features_sort_idx]
         ), "Output features should not change after generation"
         data["X"] = data["X"][:, self.features_sort_idx]
 
