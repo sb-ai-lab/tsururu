@@ -57,7 +57,15 @@ class GPT4TS_NN(DLEstimator):
         self.stride = stride
 
         num_channels = sum(self.features_groups_corrected.values())
-        patch_num = ((seq_len - patch_len) // stride + 2) * num_channels
+
+        if channel_independent:
+            patch_num = (
+                    seq_len * (sum(self.features_groups_corrected.values()) - self.num_series + 1)
+                    - patch_len
+                ) // stride + 2
+        else:
+            patch_num = (self.seq_len - self.patch_size) // self.stride + 2
+
         self.padding_patch_layer = nn.ReplicationPad1d((0, stride))
 
         self.channel_independent = channel_independent
@@ -73,7 +81,11 @@ class GPT4TS_NN(DLEstimator):
         self.gpt2.h = self.gpt2.h[:gpt_layers]
         print("gpt2 = {}".format(self.gpt2))
 
-        self.in_layer = nn.Linear(patch_len, d_model)
+        if self.channel_independent:
+            self.in_layer = nn.Linear(patch_len, d_model)
+        else:
+            self.in_layer = nn.Linear(num_channels * patch_len, d_model)
+        
         self.out_layer = nn.Linear(d_model * patch_num, pred_len)
 
         if freeze and pretrain:
@@ -141,9 +153,7 @@ class GPT4TS_NN(DLEstimator):
             outputs = rearrange(
                 outputs, "bc pn d -> bc (pn d)"
             )  # (batch_size * num_series, patch_num * d_model)
-            outputs = self.out_layer(
-                outputs
-            )  # (batch_size * num_series, pred_len)
+            outputs = self.out_layer(outputs)  # (batch_size * num_series, pred_len)
             outputs = rearrange(
                 outputs, "(b c) s -> b s c", s=self.pred_len, c=self.num_series
             )  # (batch_size, pred_len, num_series)
@@ -162,7 +172,7 @@ class GPT4TS_NN(DLEstimator):
             x = torch.concat(
                 [series, exog_features], dim=-1
             )  # (batch_size, seq_len, num_series + num_exog_features)
-            
+
             x = rearrange(
                 x, "b s c -> b c s"
             )  # (batch_size, num_series + num_exog_features, seq_len)
@@ -182,12 +192,8 @@ class GPT4TS_NN(DLEstimator):
             outputs = self.gpt2(
                 inputs_embeds=outputs
             ).last_hidden_state  # (batch_size, patch_num, d_model)
-            outputs = rearrange(
-                outputs, "b pn d -> b (pn d)"
-            )  # (batch_size, patch_num * d_model)
-            outputs = self.out_layer(
-                outputs
-            )  # (batch_size, pred_len)
+            outputs = rearrange(outputs, "b pn d -> b (pn d)")  # (batch_size, patch_num * d_model)
+            outputs = self.out_layer(outputs)  # (batch_size, pred_len)
             outputs = outputs.unsqueeze(-1)  # (batch_size, pred_len, num_series)
 
             outputs = outputs * series_stdev

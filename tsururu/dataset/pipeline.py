@@ -330,24 +330,28 @@ class Pipeline:
         id_features_mask = np.array(
             [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
         )
+        other_features_mask = ~(id_features_mask | date_features_mask)
 
-        date_features_names = list(
-            set(
-                [
-                    feature.replace("__lag_\d+$", "")
-                    for feature in input_features[date_features_mask]
-                ]
-            )
+        date_features_names_in_order = []
+        seen = set()
+
+        for feature in input_features[date_features_mask]:
+            x = re.sub("__lag_\\d+$", "", feature)
+            if x not in seen:
+                date_features_names_in_order.append(x)
+                seen.add(x)
+
+        date_features_names = np.array(date_features_names_in_order)
+
+        id_features_names = (
+            np.array(["ID"]) if self.multivariate else input_features[id_features_mask]
         )
-        id_features_names = ["ID"] if self.multivariate else input_features[id_features_mask]
-        fh_feature_name = ["FH"]
-        other_features_names = [
-            feature
-            for feature in input_features
-            if feature not in np.hstack([id_features_names, date_features_names, fh_feature_name])
-        ]
+        fh_feature_name = np.array(["FH"])
+        other_features_names = input_features[other_features_mask]
 
-        return id_features_names + fh_feature_name + date_features_names + other_features_names
+        return np.hstack(
+            [id_features_names, fh_feature_name, date_features_names, other_features_names]
+        )
 
     def _get_multivariate_X_columns_names(self, data: dict, input_features: list) -> list:
         """
@@ -363,33 +367,42 @@ class Pipeline:
             the list of column names for the multivariate regime.
 
         """
-        date_features_names = list(
-            input_features[
-                [
-                    bool(re.match(f"{data['date_column_name']}__", feature))
-                    for feature in input_features
-                ]
+        date_features_names = input_features[
+            [
+                bool(re.match(f"{data['date_column_name']}__", feature))
+                for feature in input_features
             ]
-        )
+        ]
         if self.strategy_name == "FlatWideMIMOStrategy":
-            fh_features_names = ["FH"]
+            fh_features_names = np.array(["FH"])
+            id_features_names = np.array(["ID"])
+
         else:
             fh_features_names = []
+            id_features_names = np.array(
+                [
+                    bool(re.match(f"{data['id_column_name']}__", feature))
+                    for feature in input_features
+                ]
+            )
 
-        id_features_names = [
-            bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features
-        ]
-        other_features_names = [
-            feature
-            for feature in input_features
-            if feature not in np.hstack([id_features_names, date_features_names])
-        ]
+        other_features_names = np.array(
+            [
+                feature
+                for feature in input_features
+                if feature
+                not in np.hstack([id_features_names, date_features_names, fh_features_names])
+            ]
+        )
 
-        other_features_names = [
-            f"{feat}__{i}" for i, feat in product(range(data["num_series"]), other_features_names)
-        ]
+        other_features_names = np.array(
+            [
+                f"{feat}__{i}"
+                for i, feat in product(range(data["num_series"]), other_features_names)
+            ]
+        )
 
-        return date_features_names + fh_features_names + other_features_names
+        return np.hstack([fh_features_names, date_features_names, other_features_names])
 
     def group_pipeline_output_features(self, data: dict) -> Tuple[np.ndarray, Dict[str, int]]:
         """Sorts the features names in the following order:
@@ -453,7 +466,6 @@ class Pipeline:
         series_mask = np.logical_and(series_mask, ~(target_mask | cycle_mask))
 
         other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask)
-
 
         new_order_idx = np.concatenate(
             [
@@ -796,8 +808,8 @@ class Pipeline:
             else:
                 data, current_features = self._make_multivariate_X_y(data, current_features)
 
-        assert (
-            np.all(self.output_features == current_features)
+        assert np.all(
+            self.output_features == current_features
         ), "Output features should not change after generation"
         data["X"] = data["X"][:, self.features_sort_idx]
 

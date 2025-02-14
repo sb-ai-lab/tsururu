@@ -2,7 +2,7 @@
 
 from .base import SequentialTransformer, UnionTransformer, Transformer
 from .categorical import LabelEncodingTransformer, OneHotEncodingTransformer
-from .datetime import DateSeasonsGenerator, TimeToNumGenerator
+from .datetime import DateSeasonsGenerator, TimeToNumGenerator, CycleGenerator
 from .numeric import (
     DifferenceNormalizer,
     LastKnownNormalizer,
@@ -29,6 +29,7 @@ class TransformersFactory:
             "LagTransformer": LagTransformer,
             "TargetGenerator": TargetGenerator,
             "MissingValuesImputer": MissingValuesImputer,
+            "CycleGenerator": CycleGenerator,
         }
 
     def get_allowed(self):
