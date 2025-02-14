@@ -6,7 +6,7 @@ from pathlib import Path
 
 from copy import deepcopy
 from torch.optim import lr_scheduler
-from validation import get_train_val_test_datasets
+from tsururu.examples.utils.validation import get_train_val_test_datasets
 
 import os
 
@@ -17,7 +17,7 @@ from typing import List, Optional, Union
 import numpy as np
 import pandas as pd
 import torch
-from validation import get_train_val_test_datasets, path_to_tsururu_format, get_fitted_scaler_on_train
+from tsururu.examples.utils.validation import get_train_val_test_datasets, path_to_tsururu_format, get_fitted_scaler_on_train
 
 from tsururu.dataset import Pipeline
 from tsururu.model_training.trainer import DLTrainer
