@@ -195,11 +195,11 @@ class Dataset_NN(Dataset):
         if self.pipeline.strategy_name == "FlatWideMIMOStrategy":
             # Breed datetime features N = self.num_lags times
             datetime_features_start = (
-                self.pipeline.features_groups["target"]
+                self.pipeline.features_groups["series"]
                 + self.pipeline.features_groups["id"]
                 + self.pipeline.features_groups["fh"]
             )
-            datetime_features_end = datetime_features_start + self.pipeline.features_groups["date"]
+            datetime_features_end = datetime_features_start + self.pipeline.features_groups["datetime_features"]
 
             X = np.concatenate(
                 (

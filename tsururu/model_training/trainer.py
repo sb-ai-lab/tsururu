@@ -639,7 +639,7 @@ class DLTrainer:
         y_pred = torch.tensor(y_pred)
 
         if pipeline.strategy_name == "FlatWideMIMOStrategy":
-            full_horizon = pipeline.y_original_shape[1]
+            full_horizon = data["idx_y"].shape[1]
             num_series = y_pred.shape[0] // full_horizon
             if pipeline.multivariate:
                 y_pred = y_pred.reshape(num_series, full_horizon, -1)
