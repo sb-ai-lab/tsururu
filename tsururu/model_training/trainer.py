@@ -154,8 +154,25 @@ class DLTrainer:
         optimizer: optimizer for training the model.
         optimizer_params: parameters for the optimizer.
         scheduler: learning rate scheduler.
-        scheduler_params: parameters for the scheduler.
         scheduler_after_epoch: whether to step the scheduler after each epoch.
+        scheduler_params: parameters for the scheduler.
+            Note: There are two fixed non-standard parameters `relative_steps_per_epoch` and `relative_steps`,
+            which are used for automatic computation of certain scheduler parameters based on the dataset length.
+                - `relative_steps_per_epoch` (float): Defines the fraction of iterations per epoch.
+                    Used for parameters such as `steps_per_epoch` in `OneCycleLR`.
+                    absolute_steps_per_epoch = int(relative_steps_per_epoch * (len(train_dataset) // batch_size + 1))
+                - `relative_steps` (float): Defines the fraction or multiplier of the total number of iterations
+                across all epochs.
+                    Used for parameters, such as `T_max` in `CosineAnnealingLR`.
+                    absolute_steps = int(relative_steps * n_epochs * (len(train_dataset) // batch_size + 1))
+
+            Example usage:
+            scheduler = CosineAnnealingLR
+            scheduler_after_epoch = False
+            scheduler_params = {
+                "relative_steps": ["T_max"],  # The parameter to be auto-computed
+                "T_max": 1.0,
+            }
         pretrained_path: path to the pretrained checkpoints.
         best_by_metric: whether to select the best model by metric instead of loss.
         early_stopping_patience: number of epochs to wait for improvement before early stopping.
@@ -263,6 +280,23 @@ class DLTrainer:
         self.schedulers = []
         self.scores = []
 
+    def _convert_relative_steps_to_absolute(self, dataset_length: int):
+        # Handle relative_steps_per_epoch and relative_steps
+        if "relative_steps_per_epoch" in self.scheduler_params:
+            for param_name in self.scheduler_params["relative_steps_per_epoch"]:
+                self.scheduler_params[param_name] = int(
+                    self.scheduler_params[param_name] * (dataset_length // self.batch_size + 1)
+                )
+            self.scheduler_params.pop("relative_steps_per_epoch")
+
+        if "relative_steps" in self.scheduler_params:
+            for param_name in self.scheduler_params["relative_steps"]:
+                self.scheduler_params[param_name] = int(
+                    self.n_epochs
+                    * (self.scheduler_params[param_name] * (dataset_length // self.batch_size + 1))
+                )
+            self.scheduler_params.pop("relative_steps")
+
     def init_trainer_one_fold(
         self, features_groups: dict
     ) -> Tuple[
@@ -278,9 +312,7 @@ class DLTrainer:
 
         """
         model = self.model_base(features_groups, self.horizon, self.history, **self.model_params)
-        
-        
-        
+
         if len(self.device_ids) > 1:
             model = torch.nn.DataParallel(model, device_ids=self.device_ids)
         else:
@@ -550,6 +582,9 @@ class DLTrainer:
             logger.info(f"length of val dataset: {len(val_subset)}")
 
             # load or initialize model, optimizer, scheduler
+            dataset_length = len(train_subset)
+            self._convert_relative_steps_to_absolute(dataset_length)
+
             model, optimizer, scheduler = self.init_trainer_one_fold(pipeline.features_groups)
             if self.pretrained_path:
                 model, optimizer, scheduler = self.load_trainer_one_fold(
