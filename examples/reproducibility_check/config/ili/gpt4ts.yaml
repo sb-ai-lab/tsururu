@@ -1,0 +1,36 @@
+horizon: 24
+history: 104
+
+data:
+  root_path: ./datasets
+  data_path: ILI.csv
+
+multivariate: False
+
+model:
+  model_type: GPT4TS_NN
+  model_params:
+    d_model: 768
+    patch_len: 24 
+    stride: 2
+    gpt_layers: 6
+    freeze: True
+
+scheduler: 
+  scheduler_type: LambdaLR
+  scheduler_params:
+    lr_lambda: "lambda epoch: 1.0 if epoch < 3 else 0.9 ** ((epoch - 3) // 1)"
+
+trainer_params:
+  n_epochs: 10
+  batch_size: 16
+  optimizer_params:
+    lr: 0.0001
+  num_workers: 15
+  early_stopping_patience: 3
+  best_by_metric: True
+  save_to_dir: False
+  drop_last: True
+  device: cuda:0
+
+seed: [2025, 2026, 2027] 

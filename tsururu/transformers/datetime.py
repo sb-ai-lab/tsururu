@@ -207,3 +207,67 @@ class DateSeasonsGenerator(FeaturesGenerator):
         data["raw_ts_X"][self.output_features] = np.hstack(result_data)
 
         return data
+
+
+class CycleGenerator(FeaturesGenerator):
+    """A transformer that generates cyclic features.
+
+    Args:
+        cycle: the length of the cycle.
+        delta: frequency of the time series.
+
+    """
+    def __init__(
+        self,
+        cycle: int = 24,
+        delta: Optional[pd.DateOffset] = None,
+    ):
+        super().__init__()
+
+        self.cycle = cycle
+        self.delta = delta
+        self.basic_date = None
+
+    def fit(
+        self, data: dict, input_features: Optional[Sequence[str]] = None
+    ) -> "CycleGenerator":
+        """Fit transformer on "elongated series" and return it's instance.
+        
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+
+        Returns:
+            self.
+
+        """
+        super().fit(data, input_features)
+
+        time_col = data["raw_ts_X"][input_features[0]]
+
+        self.min_date = time_col.min()
+        self.output_features = [f"cycle_{self.cycle}"]
+
+        _, self.delta = index_slicer.timedelta(time_col, delta=self.delta)
+
+        return self
+
+    def transform(self, data: dict) -> dict:
+        """Generate features in `raw_ts_X`.
+
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+
+        Returns:
+            current states of `data` dictionary.
+
+        """
+        time_col = data["raw_ts_X"][self.input_features[0]]
+        result_data = np.array((time_col - self.min_date) // self.delta % self.cycle).reshape(-1, 1)
+
+        data["raw_ts_X"][self.output_features] = result_data
+
+        return data

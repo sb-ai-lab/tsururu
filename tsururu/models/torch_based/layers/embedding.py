@@ -175,16 +175,12 @@ class TimeFeatureEmbedding(nn.Module):
 
     Args:
         d_model: dimension of the model.
-        embed_type: type of embedding (default is 'timeF').
-        freq: frequency of the time features ('h', 't', etc.).
+        d_inp: dimension of the input
 
     """
 
-    def __init__(self, d_model: int, embed_type: str = "timeF", freq: str = "h"):
+    def __init__(self, d_model: int, d_inp: int = 1):
         super(TimeFeatureEmbedding, self).__init__()
-
-        freq_map = {"h": 4, "t": 5, "s": 6, "m": 1, "a": 1, "w": 2, "d": 3, "b": 3}
-        d_inp = freq_map[freq]
         self.embed = nn.Linear(d_inp, d_model, bias=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -200,12 +196,15 @@ class TimeFeatureEmbedding(nn.Module):
         return self.embed(x)
 
 
-class DataEmbedding(nn.Module):
+class Embedding(nn.Module):
     """Data embedding layer combining token, positional, and temporal embeddings.
 
     Args:
         c_in: number of input channels.
         d_model: dimension of the model.
+        use_pos: whether to use positional encoding.
+        use_time: whether to use temporal encoding.
+        num_datetime_features: number of datetime features.
         embed_type: type of temporal embedding ('fixed', 'learned', or 'timeF').
         freq: frequency of the time features ('h', 't', etc.).
         dropout: dropout rate.
@@ -216,19 +215,33 @@ class DataEmbedding(nn.Module):
         self,
         c_in: int,
         d_model: int,
+        use_pos: bool = True,
+        use_time: bool = True,
+        num_datetime_features: Optional[int] = None,
         embed_type: str = "fixed",
         freq: str = "h",
         dropout: float = 0.1,
     ):
-        super(DataEmbedding, self).__init__()
+        super(Embedding, self).__init__()
 
         self.value_embedding = TokenEmbedding(c_in=c_in, d_model=d_model)
-        self.position_embedding = PositionalEmbedding(d_model=d_model)
-        self.temporal_embedding = (
-            TemporalEmbedding(d_model=d_model, embed_type=embed_type, freq=freq)
-            if embed_type != "timeF"
-            else TimeFeatureEmbedding(d_model=d_model, embed_type=embed_type, freq=freq)
-        )
+
+        self.use_pos = use_pos
+        if self.use_pos:
+            self.position_embedding = PositionalEmbedding(d_model=d_model)
+        else:
+            self.position_embedding = None
+
+        self.use_time = use_time
+        if self.use_time:
+            self.temporal_embedding = (
+                TemporalEmbedding(d_model=d_model, embed_type=embed_type, freq=freq)
+                if embed_type != "timeF"
+                else TimeFeatureEmbedding(d_model=d_model, d_inp=num_datetime_features)
+            )
+        else:
+            self.temporal_embedding = None
+
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, x: torch.Tensor, x_mark: Optional[torch.Tensor] = None) -> torch.Tensor:
@@ -242,13 +255,12 @@ class DataEmbedding(nn.Module):
             embedding tensor of shape (batch_size, seq_len, d_model).
 
         """
-        if x_mark is None:
-            x = self.value_embedding(x) + self.position_embedding(x)
-        else:
-            x = (
-                self.value_embedding(x)
-                + self.temporal_embedding(x_mark)
-                + self.position_embedding(x)
-            )
+        embedding = self.value_embedding(x)
 
-        return self.dropout(x)
+        if self.use_time and x_mark is not None:
+            embedding = embedding + self.temporal_embedding(x_mark)
+
+        if self.use_pos:
+            embedding = embedding + self.position_embedding(x)
+
+        return self.dropout(embedding)

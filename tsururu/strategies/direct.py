@@ -247,7 +247,9 @@ class DirectStrategy(RecursiveStrategy):
 
         return self
 
-    def make_step(self, step, dataset):
+    def make_step(
+        self, step: int, dataset: TSDataset, inverse_transform: bool = True
+    ) -> TSDataset:
         """Make a step in the direct strategy.
 
         Args:
@@ -279,7 +281,8 @@ class DirectStrategy(RecursiveStrategy):
         data = self.pipeline.transform(data)
 
         pred = self.trainers[step].predict(data, self.pipeline)
-        pred = self.pipeline.inverse_transform_y(pred)
+        if inverse_transform:
+            pred = self.pipeline.inverse_transform_y(pred)
 
         dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
 

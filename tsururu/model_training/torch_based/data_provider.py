@@ -10,8 +10,12 @@ try:
     from torch.utils.data import Dataset
 except ImportError:
     from abc import ABC
+
     torch = None
     Dataset = ABC
+
+import re
+from typing import Dict, List, Tuple, Union
 
 
 class Dataset_NN(Dataset):
@@ -32,6 +36,8 @@ class Dataset_NN(Dataset):
         self.idx_y = self.data["idx_y"]
 
         self.indices = self._create_indices()
+
+        self.num_lags = None
 
     def _create_date_indices(self):
         """Creates indices for each unique date for multivariate data."""
@@ -134,59 +140,13 @@ class Dataset_NN(Dataset):
             "raw_ts_y": raw_ts_y_adjusted,
             "X": np.array([]),
             "y": np.array([]),
+            "id_column_name": self.data["id_column_name"],
+            "date_column_name": self.data["date_column_name"],
+            "target_column_name": self.data["target_column_name"],
+            "num_series": self.data["num_series"],
             "idx_X": idx_X_adjusted,
             "idx_y": idx_y_adjusted,
-            "target_column_name": self.data["target_column_name"],
-            "date_column_name": self.data["date_column_name"],
-            "id_column_name": self.data["id_column_name"],
         }
-
-    def _reshape_tensors(
-        self, X_tensor: "torch.Tensor", y_tensor: "torch.Tensor", index_of_sample: int
-    ) -> tuple:
-        """Reshapes and transposes tensors to fit the neural network input.
-
-        Args:
-            X_tensor: feature tensor.
-            y_tensor: target tensor.
-            index_of_sample: index of the sample in the horizon.
-
-        Returns:
-            reshaped feature and target tensors.
-        """
-        if self.pipeline.strategy_name == "FlatWideMIMOStrategy":
-            X_tensor = X_tensor[index_of_sample, :].reshape(-1, X_tensor.shape[1])
-            y_tensor = y_tensor[index_of_sample, :].reshape(-1, y_tensor.shape[1])
-
-        if self.pipeline.multivariate:
-            other_columns_idx_list = []
-            target_column_idx_list = []
-            for i, feature in enumerate(self.pipeline.output_features):
-                if feature.split("__")[0] != self.data["target_column_name"]:
-                    other_columns_idx_list.append(i)
-                else:
-                    target_column_idx_list.append(i)
-
-            num_series = self.data["num_series"]
-
-            X_tensor_target_column = X_tensor[:, target_column_idx_list]
-            X_tensor_other_column = X_tensor[:, other_columns_idx_list]
-
-            X_tensor_target_column = X_tensor_target_column.view(num_series, -1).T
-            X_tensor_other_column = torch.repeat_interleave(
-                X_tensor_other_column,
-                X_tensor_target_column.size(0) // X_tensor_other_column.size(0),
-                dim=0,
-            )
-            X_tensor = torch.cat([X_tensor_target_column, X_tensor_other_column], dim=1)
-
-            y_tensor = y_tensor.view(num_series, -1).T
-
-        else:
-            X_tensor = X_tensor.reshape(-1, 1)
-            y_tensor = y_tensor.reshape(-1, 1)
-
-        return X_tensor, y_tensor
 
     def __getitem__(self, index: int) -> tuple:
         """Gets a data sample for the given index.
@@ -213,11 +173,61 @@ class Dataset_NN(Dataset):
 
         X, y = self.pipeline.generate(data)
 
+        if self.num_lags is None:
+            self.num_lags = self.find_lags(self.pipeline.output_features)
+
+        if self.pipeline.strategy_name == "FlatWideMIMOStrategy":
+            X = X[index_of_sample, :]
+            y = y[index_of_sample, :].reshape(1, -1)
+
+            # Find "FH" feature idx
+            FH_idx_start = np.where(self.pipeline.output_features == "FH")[0][0]
+            FH_idx_end = np.where(self.pipeline.output_features == "FH")[0][-1]
+
+            # Breed "FH" feature N = self.num_lags times
+            X = np.concatenate(
+                (X[:FH_idx_start], np.tile(X[FH_idx_start], self.num_lags), X[FH_idx_end + 1 :]),
+                axis=0,
+            )
+
+            X = X.reshape(1, -1)
+
+        if self.pipeline.strategy_name == "FlatWideMIMOStrategy":
+            # Breed datetime features N = self.num_lags times
+            datetime_features_start = (
+                self.pipeline.features_groups["series"]
+                + self.pipeline.features_groups["id"]
+                + self.pipeline.features_groups["fh"]
+            )
+            datetime_features_end = datetime_features_start + self.pipeline.features_groups["datetime_features"]
+
+            X = np.concatenate(
+                (
+                    X[:, :datetime_features_start],
+                    np.repeat(
+                        X[:, datetime_features_start:datetime_features_end], self.num_lags
+                    ).reshape(1, -1),
+                    X[:, datetime_features_end:],
+                ),
+                axis=1,
+            )
+
+        try:
+            X = X.reshape(self.num_lags, -1, order="F")
+        except:
+            raise ValueError(
+                "Failed to reshape data. Check feature lags and data shape compatibility."
+            )
+            
         X_tensor = torch.from_numpy(X).float()
         y_tensor = torch.from_numpy(y).float()
 
-        # Reshape and transpose tensors to fit the neaural network input
-        return self._reshape_tensors(X_tensor, y_tensor, index_of_sample)
+        if self.pipeline.multivariate:
+            y_tensor = y_tensor.reshape(self.data["num_series"], -1)
+
+        y_tensor = y_tensor.T  # (horizon, num_series)
+
+        return X_tensor, y_tensor
 
     def __len__(self) -> int:
         """Returns the number of samples in the dataset.
@@ -227,3 +237,17 @@ class Dataset_NN(Dataset):
 
         """
         return len(self.indices)
+
+    @staticmethod
+    def find_lags(output_features):
+        max_lag = 0
+        pattern = re.compile(r"^(.*?)__lag_(\d+)(.*)$")
+        for feature in output_features:
+            match = pattern.match(feature)
+            if match:
+                feature_name, lag, series_id = match.groups()
+                if int(lag) > max_lag:
+                    max_lag = int(lag)
+
+        num_lags = max_lag + 1
+        return num_lags

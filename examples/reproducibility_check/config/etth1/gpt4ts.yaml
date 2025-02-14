@@ -1,0 +1,38 @@
+horizon: 96
+history: 336
+
+data:
+  root_path: ./datasets
+  data_path: ETTh1.csv
+
+multivariate: True
+
+model:
+  model_type: GPT4TS_NN
+  model_params:
+    d_model: 768
+    patch_len: 16
+    stride: 8
+    gpt_layers: 6
+    freeze: 1
+    channel_independent: True
+
+scheduler: 
+  scheduler_type: CosineAnnealingLR
+  scheduler_params:
+    T_max: 20
+    eta_min: 0.00000001 
+
+trainer_params:
+  n_epochs: 10
+  batch_size: 256
+  optimizer_params:
+    lr: 0.0001
+  num_workers: 15
+  early_stopping_patience: 3
+  best_by_metric: True
+  save_to_dir: False
+  drop_last: True
+  device: cuda:0
+
+seed: [2025, 2026, 2027]
