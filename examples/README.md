@@ -31,7 +31,7 @@ all_configurations_benchmark
 ```
 
 ### Extended results of paper, accepted to Demo-Track IJCAI 2025 
-Paper on Tsururu was accepted to the Demo-Track of IJCAI 2025. In the paper we provide results on ILI dataset. Here we provide extended results on other datasets, including NN5, FredMD, WTH, Demand Forecasting Kernels.
+Paper on Tsururu was accepted to the Demo-Track of IJCAI 2025. In the paper we provide results on ILI dataset. Here we provide extended results on other datasets, including [NN5](https://zenodo.org/records/3889740), [FRED-MD](https://zenodo.org/records/4654833), [WTH](https://github.com/juyongjiang/TimeSeriesDatasets), [Demand Forecasting Kernels](https://www.kaggle.com/c/demand-forecasting-kernels-only/overview).
 
 You can find aggregated results in `notebooks/aggregated_results.ipynb` notebook in the same format, as in the paper on ILI dataset.
 
