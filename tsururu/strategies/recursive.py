@@ -185,13 +185,12 @@ class RecursiveStrategy(Strategy):
 
         num_series = data["num_series"] if self.pipeline.multivariate else 1
 
-        target_idx = target_idx.reshape(num_series, -1, self.horizon) # .shape)
-        pred = pred.reshape(num_series, -1, self.horizon)
+        target_idx = target_idx.reshape(num_series, -1, self.model_horizon)
+        pred = pred.reshape(num_series, -1, self.model_horizon)
 
         target_idx = target_idx[:, :pred.shape[1]]
 
         dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
-        dataset.data.dropna(inplace=True)
 
         return dataset
 
