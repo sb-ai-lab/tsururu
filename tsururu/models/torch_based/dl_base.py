@@ -1,12 +1,14 @@
 try:
-    import torch.nn as nn
+    from torch.nn import Module
 except ImportError:
-    nn = None
+    from abc import ABC
+
+    Module = ABC
 
 from .utils import adjust_features_groups
 
 
-class DLEstimator(nn.Module):
+class DLEstimator(Module):
     """Base class for all DL models."""
 
     def __init__(

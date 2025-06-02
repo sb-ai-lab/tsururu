@@ -1,12 +1,21 @@
-import torch
-import torch.nn as nn
-
-from .layers.rev_in import RevIN
 from .dl_base import DLEstimator
+from .layers.rev_in import RevIN
+
+try:
+    import torch
+    import torch.nn as nn
+    from torch.nn import Module
+except ImportError:
+    from abc import ABC
+
+    torch = None
+    nn = None
+    Module = ABC
+
 from .utils import slice_features, slice_features_4d
 
 
-class RecurrentCycle(torch.nn.Module):
+class RecurrentCycle(Module):
     # Thanks for the contribution of wayhoww.
     # The new implementation uses index arithmetic with modulo to directly gather cyclic data in a single operation,
     # while the original implementation manually rolls and repeats the data through looping.
