@@ -251,6 +251,10 @@ class CycleGenerator(FeaturesGenerator):
 
         _, self.delta = index_slicer.timedelta(time_col, delta=self.delta)
 
+        if isinstance(self.delta, pd.DateOffset):            
+            if not hasattr(self.delta, "months"):
+                raise ValueError(f"Unsupported DateOffset: {self.delta}")
+
         return self
 
     def transform(self, data: dict) -> dict:
@@ -265,9 +269,26 @@ class CycleGenerator(FeaturesGenerator):
             current states of `data` dictionary.
 
         """
+        if self.min_date is None or self.delta is None:
+            raise ValueError("`fit()` must be called before `transform()`.")
+
         time_col = data["raw_ts_X"][self.input_features[0]]
-        result_data = np.array((time_col - self.min_date) // self.delta % self.cycle).reshape(-1, 1)
+
+        if isinstance(self.delta, pd.Timedelta):
+            num_periods = (time_col - self.min_date) // self.delta
+
+        elif isinstance(self.delta, pd.DateOffset):
+            num_months = self._count_month_offsets(time_col)
+            num_periods = num_months // self.delta.months
+
+        result_data = (num_periods % self.cycle).to_numpy().reshape(-1, 1)
 
         data["raw_ts_X"][self.output_features] = result_data
 
         return data
+
+    def _count_month_offsets(self, target_dates: pd.Series):
+        """Compute month offsets as a vectorized operation."""
+        years_diff = target_dates.dt.year - self.min_date.year
+        months_diff = target_dates.dt.month - self.min_date.month
+        return years_diff * 12 + months_diff
