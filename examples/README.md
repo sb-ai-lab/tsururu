@@ -25,17 +25,17 @@ In the paper accepted to the Demo-Track of IJCAI 2025, we benchmarked Tsururu on
 
 | Hyperparam      | Value               | (NN, Rank) | (NN, Median MAE) | (Boosting, Rank) | (Boosting, Median MAE) | (Overall, Rank) | (Overall, Median MAE) |
 |-----------------|---------------------|------------|------------------|------------------|------------------------|-----------------|-----------------------|
-| datetime        | False               | 1.3819     | 1.0087           | 1.3333           | 1.6050                 | 1.3743          | 1.0448                |
-| datetime        | True                | 1.6181     | 1.1323           | 1.6667           | 1.6174                 | 1.6257          | 1.1785                |
-| id              | False               | 1.7262     | 1.0780           | 1.5714           | 1.6174                 | 1.6952          | 1.1319                |
-| id              | True                | 1.2738     | 1.0024           | 1.4286           | 1.5898                 | 1.3048          | 1.0611                |
-| mode            | global              | 1.5476     | 1.0056           | 1.0952           | 1.5648                 | 1.5476          | 1.0735                |
-| mode            | multivariate CI     | 2.2619     | 1.1217           | NaN              | NaN                    | 2.2619          | 1.1217                |
-| mode            | multivariate CM     | 2.1905     | 1.1319           | 1.9048           | 1.6248                 | 2.1905          | 1.2129                |
-| strategy_time   | FlatWideMIMO        | 3.9375     | 1.3080           | 2.8889           | 1.6208                 | 3.7719          | 1.3543                |
-| strategy_time   | MIMO                | 1.7500     | 1.0280           | 2.4444           | 1.6072                 | 1.8596          | 1.0621                |
-| strategy_time   | Recursive (MH = 1)  | 2.4167     | 1.0314           | 2.7778           | 1.6066                 | 2.4737          | 1.0763                |
-| strategy_time   | Recursive (MH = 6)  | 1.8958     | 1.0228           | 1.8889           | 1.5816                 | 1.8947          | 1.0541                |
+| Datetime Features        | False               | 1.3819     | 1.0087           | 1.3333           | 1.6050                 | 1.3743          | 1.0448                |
+| Datetime Features        | True                | 1.6181     | 1.1323           | 1.6667           | 1.6174                 | 1.6257          | 1.1785                |
+| ID Features              | False               | 1.7262     | 1.0780           | 1.5714           | 1.6174                 | 1.6952          | 1.1319                |
+| ID Features              | True                | 1.2738     | 1.0024           | 1.4286           | 1.5898                 | 1.3048          | 1.0611                |
+| Mode            | global              | 1.5476     | 1.0056           | 1.0952           | 1.5648                 | 1.5476          | 1.0735                |
+| Mode            | multivariate CI     | 2.2619     | 1.1217           | NaN              | NaN                    | 2.2619          | 1.1217                |
+| Mode            | multivariate CM     | 2.1905     | 1.1319           | 1.9048           | 1.6248                 | 2.1905          | 1.2129                |
+| Prediction Strategy   | FlatWideMIMO        | 3.9375     | 1.3080           | 2.8889           | 1.6208                 | 3.7719          | 1.3543                |
+| Prediction Strategy   | MIMO                | 1.7500     | 1.0280           | 2.4444           | 1.6072                 | 1.8596          | 1.0621                |
+| Prediction Strategy   | Recursive (MH = 1)  | 2.4167     | 1.0314           | 2.7778           | 1.6066                 | 2.4737          | 1.0763                |
+| Prediction Strategy   | Recursive (MH = 6)  | 1.8958     | 1.0228           | 1.8889           | 1.5816                 | 1.8947          | 1.0541                |
 
    **Key findings:**
    - The id features improved model accuracy for both neural networks and GBDT.

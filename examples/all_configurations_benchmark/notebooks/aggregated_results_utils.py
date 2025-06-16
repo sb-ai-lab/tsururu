@@ -167,11 +167,17 @@ def get_hparams_comparison_table_for_dataset(
     df["model_type"] = df["model"].apply(get_model_type)
     df = df[~((df["model_type"] == "Boosting") & (df["mode"] == "multivariate CI"))]
 
-    param_groups = ["mode", "strategy_time", "datetime", "id"]
+    # param_groups = ["mode", "strategy_time", "datetime", "id"]
+    param_groups = {
+        "mode": "Mode",
+        "strategy_time": "Prediction Strategy",
+        "datetime": "Datetime Features",
+        "id": "ID Features",
+    }
 
     big_results = []
 
-    for param_group in param_groups:
+    for param_group in param_groups.keys():
         df_nn = df[df["model_type"] == "NN"]
         nn_res = calc_avg_rank_median_mae_for_param(df_nn, param_group, metric_col="mae_test")
 
@@ -196,7 +202,7 @@ def get_hparams_comparison_table_for_dataset(
         for row in merged.itertuples(index=False):
             rows.append(
                 {
-                    ("Hyperparam"): param_group,
+                    ("Hyperparam"): param_groups[param_group],
                     ("Value"): row.param_value,
                     ("NN", "Rank"): row.avg_rank_nn,
                     ("NN", "Median MAE"): row.median_mae_nn,
