@@ -1,7 +1,8 @@
 """Module for Pipeline class, which is a wrapper for the transformers."""
 
+import re
 from itertools import product
-from typing import Tuple
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -38,6 +39,9 @@ class Pipeline:
         self.strategy_name = None
         self.output_features = None
         self.y_original_shape = None
+
+        self.features_sort_idx = None
+        self.features_groups = None
 
     @classmethod
     def from_dict(cls, columns_params: dict, multivariate: bool) -> "Pipeline":
@@ -301,6 +305,193 @@ class Pipeline:
 
         return data
 
+    def get_from_mimo_to_flatwidemimo_columns_names(
+        self, data: dict, input_features: list
+    ) -> list:
+        """
+        Get the column names for the FlatWideMIMO strategy from MIMO format.
+
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+            input_features: the list of input features.
+
+        Returns:
+            the list of column names for the FlatWideMIMO strategy.
+
+        """
+        date_features_mask = np.array(
+            [
+                bool(re.match(f"{data['date_column_name']}__", feature))
+                for feature in input_features
+            ]
+        )
+        id_features_mask = np.array(
+            [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
+        )
+        other_features_mask = ~(id_features_mask | date_features_mask)
+
+        date_features_names_in_order = []
+        seen = set()
+
+        for feature in input_features[date_features_mask]:
+            x = re.sub("__lag_\\d+$", "", feature)
+            if x not in seen:
+                date_features_names_in_order.append(x)
+                seen.add(x)
+
+        date_features_names = np.array(date_features_names_in_order)
+
+        id_features_names = (
+            np.array(["ID"]) if self.multivariate else input_features[id_features_mask]
+        )
+        fh_feature_name = np.array(["FH"])
+        other_features_names = input_features[other_features_mask]
+
+        return np.hstack(
+            [id_features_names, fh_feature_name, date_features_names, other_features_names]
+        )
+
+    def _get_multivariate_X_columns_names(self, data: dict, input_features: list) -> list:
+        """
+        Get the column names for the FlatWideMIMO strategy from MIMO format.
+
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+            input_features: the list of input features.
+
+        Returns:
+            the list of column names for the multivariate regime.
+
+        """
+        date_features_names = input_features[
+            [
+                bool(re.match(f"{data['date_column_name']}__", feature))
+                for feature in input_features
+            ]
+        ]
+        if self.strategy_name == "FlatWideMIMOStrategy":
+            fh_features_names = np.array(["FH"])
+            id_features_names = np.array(["ID"])
+
+        else:
+            fh_features_names = []
+            id_features_names = input_features[
+                [
+                    bool(re.match(f"{data['id_column_name']}__", feature))
+                    for feature in input_features
+                ]
+            ]
+
+        other_features_names = np.array(
+            [
+                feature
+                for feature in input_features
+                if feature
+                not in np.hstack([id_features_names, date_features_names, fh_features_names])
+            ]
+        )
+
+        other_features_names = np.array(
+            [
+                f"{feat}__{i}"
+                for i, feat in product(range(data["num_series"]), other_features_names)
+            ]
+        )
+
+        return np.hstack([fh_features_names, date_features_names, other_features_names])
+
+    def group_pipeline_output_features(
+        self, data: dict, input_features: list
+    ) -> Tuple[np.ndarray, dict]:
+        """Sorts the features names in the following order:
+            1) Initial time series lags features,
+            2) Id column features,
+            3) FWM feature (if self.strategy_name == "FlatWideMIMOStrategy"),
+            4) Date column features,
+            5) Series-specific features,
+            6) Cyclic features.
+            7) Common features.
+
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+            input_features: the list of input features.
+
+        Returns
+            the sorted indices of the features and the counts of the features
+
+        """
+        # target -> "{target_column_name}__" in the beginning of the string
+        target_mask = np.array(
+            [
+                bool(re.match(f"{data['target_column_name']}__", feature))
+                for feature in input_features
+            ]
+        )
+
+        # id -> "{id_column_name}__" in the beginning of the string
+        id_mask = np.array(
+            [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
+        )
+
+        if self.strategy_name == "FlatWideMIMOStrategy":
+            fh_mask = np.array([element == "FH" for element in input_features])
+        else:
+            fh_mask = np.array([False for element in input_features])
+
+        # date -> "{date_column_name}__" in the beginning of the string
+        date_mask = np.array(
+            [
+                bool(re.match(f"{data['date_column_name']}__", feature))
+                for feature in input_features
+            ]
+        )
+
+        cycle_mask = np.array([bool(re.match(f"cycle_", feature)) for feature in input_features])
+
+        # features per series -> "__{int}" in the end of the string shows the series except target features
+        # we want to sort features by series (all for first, all for second, etc.)
+        series_mask = np.array(
+            [bool(re.search(r"(?:__)(\d+)$", feature)) for feature in input_features]
+        )
+
+        series_mask = np.logical_and(series_mask, ~(target_mask | cycle_mask))
+
+        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask)
+
+        new_order_idx = np.concatenate(
+            [
+                np.where(target_mask)[0],
+                np.where(id_mask)[0],
+                np.where(fh_mask)[0],
+                np.where(date_mask)[0],
+                np.where(series_mask)[0],
+                np.where(cycle_mask)[0],
+                np.where(other_mask)[0],
+            ]
+        )
+
+        counts = {
+            "series": np.sum(target_mask),
+            "id": np.sum(id_mask),
+            "fh": np.sum(fh_mask),
+            "datetime_features": np.sum(date_mask),
+            "series_features": np.sum(series_mask),
+            "cycle_features": np.sum(cycle_mask),
+            "other_features": np.sum(other_mask),
+        }
+
+        assert len(new_order_idx) == len(
+            input_features
+        ), "Number of features should not change after sorting"
+
+        return new_order_idx, counts
+
     def fit_transform(self, data: dict, strategy_name: str) -> dict:
         """Fit the transformers to the data and transform
 
@@ -318,6 +509,20 @@ class Pipeline:
 
         data = self.transformers.fit_transform(data)
         self.is_fitted = True
+
+        # Get the output features
+        current_features = self.transformers.output_features
+        if self.strategy_name == "FlatWideMIMOStrategy":
+            current_features = self.get_from_mimo_to_flatwidemimo_columns_names(
+                data, current_features
+            )
+        if self.multivariate:
+            current_features = self._get_multivariate_X_columns_names(data, current_features)
+
+        self.features_sort_idx, self.features_groups = self.group_pipeline_output_features(
+            data, current_features
+        )
+        self.output_features = current_features[self.features_sort_idx]
 
         return data
 
@@ -337,7 +542,7 @@ class Pipeline:
 
         return data
 
-    def from_mimo_to_flatwidemimo(self, data: dict) -> dict:
+    def from_mimo_to_flatwidemimo(self, data: dict, current_features: list) -> Tuple[dict, list]:
         """
         Converts the input data from MIMO to FlatWideMIMO format.
 
@@ -345,13 +550,14 @@ class Pipeline:
             data: dictionary with current states of "elongated series",
                 arrays with features and targets, name of id, date and target
                 columns and indices for features and targets.
+            current_features: the list of input features.
 
         Returns:
             the dictionary containing the converted data and the
             column names of the converted data.
 
         """
-        X = pd.DataFrame(data["X"], columns=self.transformers.output_features)
+        X = pd.DataFrame(data["X"], columns=current_features)
 
         date_features_mask = X.columns.str.contains(data["date_column_name"])
         id_features_mask = X.columns.str.contains(data["id_column_name"])
@@ -431,7 +637,7 @@ class Pipeline:
 
         return data, X.columns
 
-    def _make_multivariate_X_y(self, data: dict) -> dict:
+    def _make_multivariate_X_y(self, data: dict, current_features: list) -> Tuple[dict, list]:
         """Converts the input data dictionary into a multivariate
             X and y arrays.
 
@@ -444,7 +650,7 @@ class Pipeline:
             the updated data dictionary and the columns of the X.
 
         """
-        X = pd.DataFrame(data["X"], columns=self.output_features)
+        X = pd.DataFrame(data["X"], columns=current_features)
 
         date_features_colname = X.columns[X.columns.str.contains(data["date_column_name"])].values
         id_features_colname = X.columns[X.columns.str.contains(data["id_column_name"])].values
@@ -501,7 +707,9 @@ class Pipeline:
 
         return data, new_columns
 
-    def _make_multivariate_X_y_flatwidemimo(self, data: dict) -> dict:
+    def _make_multivariate_X_y_flatwidemimo(
+        self, data: dict, current_features: list
+    ) -> Tuple[dict, list]:
         """Converts the input data dictionary into a multivariate
             X and y arrays for FlatWideMIMO strategy.
 
@@ -514,7 +722,7 @@ class Pipeline:
             the updated data dictionary and the columns of the X.
 
         """
-        X = pd.DataFrame(data["X"], columns=self.output_features)
+        X = pd.DataFrame(data["X"], columns=current_features)
 
         id_feature_colname = np.array(["ID"])
         fh_feature_colname = np.array(["FH"])
@@ -588,18 +796,21 @@ class Pipeline:
         data = self.transformers.generate(data)
         self.y_original_shape = data["y"].shape
 
+        current_features = self.transformers.output_features
         if self.strategy_name == "FlatWideMIMOStrategy":
-            data, new_output_features = self.from_mimo_to_flatwidemimo(data)
-            self.output_features = new_output_features
-        else:
-            self.output_features = self.transformers.output_features
-
+            data, current_features = self.from_mimo_to_flatwidemimo(data, current_features)
         if self.multivariate:
             if self.strategy_name == "FlatWideMIMOStrategy":
-                data, new_output_features = self._make_multivariate_X_y_flatwidemimo(data)
+                data, current_features = self._make_multivariate_X_y_flatwidemimo(
+                    data, current_features
+                )
             else:
-                data, new_output_features = self._make_multivariate_X_y(data)
-            self.output_features = new_output_features
+                data, current_features = self._make_multivariate_X_y(data, current_features)
+
+        assert np.all(
+            self.output_features == current_features[self.features_sort_idx]
+        ), "Output features should not change after generation"
+        data["X"] = data["X"][:, self.features_sort_idx]
 
         return data["X"], data["y"]
 

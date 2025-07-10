@@ -142,12 +142,12 @@ class RecursiveStrategy(Strategy):
             current_trainer.pretrained_path = pretrained_path
 
         self.trainers.append(current_trainer)
-        
+
         self.is_fitted = True
-        
+
         return self
 
-    def make_step(self, step: int, dataset: TSDataset) -> TSDataset:
+    def make_step(self, step: int, dataset: TSDataset, inverse_transform: bool) -> TSDataset:
         """Make a step in the recursive strategy.
 
         Args:
@@ -180,14 +180,24 @@ class RecursiveStrategy(Strategy):
         data = self.pipeline.transform(data)
 
         pred = self.trainers[0].predict(data, self.pipeline)
-        pred = self.pipeline.inverse_transform_y(pred)
+        if inverse_transform:
+            pred = self.pipeline.inverse_transform_y(pred)
+
+        num_series = data["num_series"] if self.pipeline.multivariate else 1
+
+        target_idx = target_idx.reshape(num_series, -1, self.model_horizon)
+        pred = pred.reshape(num_series, -1, self.model_horizon)
+
+        target_idx = target_idx[:, :pred.shape[1]]
 
         dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
 
         return dataset
 
     @timing_decorator
-    def predict(self, dataset: TSDataset, test_all: bool = False) -> pd.DataFrame:
+    def predict(
+        self, dataset: TSDataset, test_all: bool = False, inverse_transform: bool = True
+    ) -> pd.DataFrame:
         """Predicts the target values for the given dataset.
 
         Args:
@@ -199,7 +209,7 @@ class RecursiveStrategy(Strategy):
         """
         if not self.is_fitted:
             raise ValueError("The strategy is not fitted yet.")
-        
+
         new_data = dataset.make_padded_test(
             self.horizon, self.history, test_all=test_all, step=self.step
         )
@@ -235,13 +245,14 @@ class RecursiveStrategy(Strategy):
             data = self.pipeline.transform(data)
 
             pred = self.trainers[0].predict(data, self.pipeline)
-            pred = self.pipeline.inverse_transform_y(pred)
+            if inverse_transform:
+                pred = self.pipeline.inverse_transform_y(pred)
 
             new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = pred.reshape(-1)
 
         else:
             for step in range(self.horizon // self.model_horizon):
-                new_dataset = self.make_step(step, new_dataset)
+                new_dataset = self.make_step(step, new_dataset, inverse_transform)
 
         # Get dataframe with predictions only
         pred_df = self._make_preds_df(new_dataset, self.horizon, self.history)
