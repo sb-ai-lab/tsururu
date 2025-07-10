@@ -8,6 +8,8 @@ While much attention is currently focused on selecting models for time series fo
 
 Also tsururu provides various preprocessing techniques.
 
+🎉 `Accepted to the Demo-Track of IJCAI 2025` — Results and code can be found in `examples`.
+
 <a name="quicktour"></a>
 ## Quick tour
 

@@ -1,45 +1,43 @@
-import yaml
 import argparse
-import torch
-
-from pathlib import Path
-
-from copy import deepcopy
-from torch.optim import lr_scheduler
-from tsururu.examples.utils.validation import get_train_val_test_datasets
-
-import os
-
+import random
 from copy import deepcopy
 from pathlib import Path
-from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
 import torch
-from tsururu.examples.utils.validation import get_train_val_test_datasets, path_to_tsururu_format, get_fitted_scaler_on_train
+import yaml
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+from torch.optim import lr_scheduler
+from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR
 
 from tsururu.dataset import Pipeline
+from tsururu.examples.all_configurations_benchmark.scripts.validation import (
+    get_fitted_scaler_on_train,
+    get_train_val_test_datasets,
+    path_to_tsururu_format,
+)
 from tsururu.model_training.trainer import DLTrainer
 from tsururu.model_training.validator import HoldOutValidator
-from tsururu.models import DLinear_NN, PatchTST_NN, TimesNet_NN, TimeMixer_NN, GPT4TS_NN, CycleNet_NN
-from tsururu.strategies import DirectStrategy, MIMOStrategy, RecursiveStrategy
+from tsururu.models import (
+    GPT4TS_NN,
+    CycleNet_NN,
+    DLinear_NN,
+    PatchTST_NN,
+    TimeMixer_NN,
+    TimesNet_NN,
+)
+from tsururu.strategies import MIMOStrategy
 from tsururu.transformers import (
+    CycleGenerator,
+    DateSeasonsGenerator,
     LagTransformer,
+    MissingValuesImputer,
     SequentialTransformer,
     StandardScalerTransformer,
     TargetGenerator,
     UnionTransformer,
-    DateSeasonsGenerator,
-    MissingValuesImputer,
-    CycleGenerator,
 )
-import random
-from torch.optim import lr_scheduler
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-
-from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR
-
 
 MODELS = {
     "DLinear_NN": DLinear_NN,
@@ -67,7 +65,7 @@ DATASET_PARAMS = {
     "id": {
         "columns": ["id"],
         "type": "categorical",
-    }
+    },
 }
 
 
@@ -83,15 +81,16 @@ def seed_everything(seed=42):
 
 
 def run_experiment(config):
-
     horizon = config["horizon"]
     history = config["history"]
 
-    dataset_tsururu_path = path_to_tsururu_format(config["data"]["root_path"], config["data"]["data_path"])
+    dataset_tsururu_path = path_to_tsururu_format(
+        config["data"]["root_path"], config["data"]["data_path"]
+    )
 
     train_dataset, val_dataset, test_dataset = get_train_val_test_datasets(
         dataset_path=dataset_tsururu_path,
-        columns_params=DATASET_PARAMS,  
+        columns_params=DATASET_PARAMS,
         train_size=0.7,
         test_size=0.2,
         history=history,
@@ -101,13 +100,14 @@ def run_experiment(config):
 
     lag = LagTransformer(lags=history)
     target_generator = TargetGenerator()
-    
     union_1 = UnionTransformer(transformers_list=[lag, target_generator])
     seq_1 = SequentialTransformer(transformers_list=[ss, union_1], input_features=["value"])
     transformers = [seq_1]
 
     if config["model"]["model_type"] == "TimeMixer_NN":
-        datetime = DateSeasonsGenerator(seasonalities=["hour", "wd", "d", "doy"], from_target_date=True)
+        datetime = DateSeasonsGenerator(
+            seasonalities=["hour", "wd", "d", "doy"], from_target_date=True
+        )
         datetime_lag = LagTransformer(lags=history)
         datetime_ss = StandardScalerTransformer(
             transform_features=True, transform_target=False, agg_by_id=False
@@ -116,7 +116,8 @@ def run_experiment(config):
             regime="constant", constant_value=0, transform_features=True, transform_target=False
         )
         seq_2 = SequentialTransformer(
-            transformers_list=[datetime, datetime_ss, datetime_imp, datetime_lag], input_features=["date"]
+            transformers_list=[datetime, datetime_ss, datetime_imp, datetime_lag],
+            input_features=["date"],
         )
 
         transformers.append(seq_2)
@@ -142,19 +143,21 @@ def run_experiment(config):
 
     scheduler = SCHEDULERS[config["scheduler"]["scheduler_type"]]
     if config["scheduler"]["scheduler_type"] == "LambdaLR":
-        scheduler_params = {"lr_lambda": eval(config["scheduler"]["scheduler_params"]["lr_lambda"])}
+        scheduler_params = {
+            "lr_lambda": eval(config["scheduler"]["scheduler_params"]["lr_lambda"])
+        }
     else:
         scheduler_params = config["scheduler"]["scheduler_params"]
 
     trainer_params = config["trainer_params"]
     trainer = DLTrainer(
-        model_class, 
-        model_params, 
-        validation, 
+        model_class,
+        model_params,
+        validation,
         validation_params,
         scheduler=scheduler,
         scheduler_params=scheduler_params,
-        **trainer_params
+        **trainer_params,
     )
 
     strategy = MIMOStrategy(
@@ -171,29 +174,34 @@ def run_experiment(config):
     stat_df = get_fitted_scaler_on_train(dataset_tsururu_path)
 
     scaled_test_dataset = deepcopy(test_dataset.data)
-    scaled_test_dataset = scaled_test_dataset.merge(stat_df, left_on='id', right_index=True)
-    scaled_test_dataset['value'] = (scaled_test_dataset['value'] - scaled_test_dataset['mean']) / scaled_test_dataset['std']
+    scaled_test_dataset = scaled_test_dataset.merge(stat_df, left_on="id", right_index=True)
+    scaled_test_dataset["value"] = (
+        scaled_test_dataset["value"] - scaled_test_dataset["mean"]
+    ) / scaled_test_dataset["std"]
 
-    current_pred = current_pred.rename(columns={'value': 'pred'})
-    scaled_test_dataset = scaled_test_dataset.rename(columns={'value': 'true'})
+    current_pred = current_pred.rename(columns={"value": "pred"})
+    scaled_test_dataset = scaled_test_dataset.rename(columns={"value": "true"})
 
-    merged = scaled_test_dataset.merge(current_pred, on=['date', 'id'])
+    merged = scaled_test_dataset.merge(current_pred, on=["date", "id"])
 
-    mae = mean_absolute_error(merged['true'], merged['pred'])
-    mse = mean_squared_error(merged['true'], merged['pred'])
+    mae = mean_absolute_error(merged["true"], merged["pred"])
+    mse = mean_squared_error(merged["true"], merged["pred"])
 
-    print(f'MAE: {mae}')
-    print(f'MSE: {mse}')
+    print(f"MAE: {mae}")
+    print(f"MSE: {mse}")
 
     return mae, mse
-
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run time series forecasting experiment.")
     parser.add_argument("--config", type=str, required=True, help="Path to the YAML config file.")
-    parser.add_argument("--output_dir", type=str, default="results", 
-                      help="Directory to store results CSV (default: results/)")
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="results",
+        help="Directory to store results CSV (default: results/)",
+    )
     args = parser.parse_args()
 
     # Create output directory if it doesn't exist
@@ -213,19 +221,25 @@ if __name__ == "__main__":
         mae, mse = run_experiment(config)
 
         # Collect experiment metadata
-        results.append({
-            "model": config["model"]["model_type"],
-            "seed": seed,
-            "dataset": Path(config["data"]["data_path"]).stem,  # Get filename without extension
-            "mae": mae,
-            "mse": mse
-        })
+        results.append(
+            {
+                "model": config["model"]["model_type"],
+                "seed": seed,
+                "dataset": Path(
+                    config["data"]["data_path"]
+                ).stem,  # Get filename without extension
+                "mae": mae,
+                "mse": mse,
+            }
+        )
 
     # Save results to CSV
     results_df = pd.DataFrame(results)
 
     print("\n------------------------------------")
-    print(f"model: {config['model']['model_type']}, dataset: {Path(config['data']['data_path']).stem}")
+    print(
+        f"model: {config['model']['model_type']}, dataset: {Path(config['data']['data_path']).stem}"
+    )
     print(f"MAE: {results_df['mae'].mean():.4f} ± {results_df['mae'].std():.4f}")
     print(f"MSE: {results_df['mse'].mean():.4f} ± {results_df['mse'].std():.4f}")
 
