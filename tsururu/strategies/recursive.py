@@ -147,20 +147,23 @@ class RecursiveStrategy(Strategy):
 
         return self
 
-    def make_step(self, step: int, dataset: TSDataset, inverse_transform: bool) -> TSDataset:
+    def make_step(self, step: int, horizon: int, dataset: TSDataset, inverse_transform: bool) -> TSDataset:
         """Make a step in the recursive strategy.
 
         Args:
             step: the step number.
+            horizon: the horizon length.
             dataset: the dataset to make the step on.
 
         Returns:
             the updated dataset.
 
         """
+        assert horizon % self.model_horizon == 0
+
         test_idx = index_slicer.create_idx_test(
             dataset.data,
-            self.horizon - step * self.model_horizon,
+            horizon - step * self.model_horizon,
             self.history,
             self.step,
             date_column=dataset.date_column,
@@ -169,7 +172,7 @@ class RecursiveStrategy(Strategy):
 
         target_idx = index_slicer.create_idx_target(
             dataset.data,
-            self.horizon,
+            horizon,
             self.history,
             self.step,
             date_column=dataset.date_column,
@@ -196,12 +199,17 @@ class RecursiveStrategy(Strategy):
 
     @timing_decorator
     def predict(
-        self, dataset: TSDataset, test_all: bool = False, inverse_transform: bool = True
+        self, dataset: TSDataset, horizon: int | None = None, test_all: bool = False, inverse_transform: bool = True
     ) -> pd.DataFrame:
         """Predicts the target values for the given dataset.
 
         Args:
-            dataset: the dataset to make predictions on.
+            dataset (TSDataset): the dataset to make predictions on.
+            horizon (int, optional): number of steps ahead to predict. If None, defaults to the model's training horizon.
+            test_all (bool, default=False): if True, performs rolling window prediction over the entire dataset.
+                Otherwise, predicts only the last window.
+            inverse_transform (bool, default=True): if True, applies inverse transformations to the predictions
+                (e.g., reversing normalization/scaling).
 
         Returns:
             a pandas DataFrame containing the predicted target values.
@@ -210,9 +218,16 @@ class RecursiveStrategy(Strategy):
         if not self.is_fitted:
             raise ValueError("The strategy is not fitted yet.")
 
+        if horizon is None:
+            horizon = self.horizon
+        
+        # intrinsic_horizon is a multiple of model_horizon
+        intrinsic_horizon = self.model_horizon * ((horizon + self.model_horizon - 1) // self.model_horizon)
+
         new_data = dataset.make_padded_test(
-            self.horizon, self.history, test_all=test_all, step=self.step
+            intrinsic_horizon, self.history, test_all=test_all, step=self.step
         )
+
         new_dataset = TSDataset(new_data, dataset.columns_params, dataset.delta)
 
         if test_all:
@@ -232,7 +247,7 @@ class RecursiveStrategy(Strategy):
 
             target_ids = index_slicer.create_idx_target(
                 new_dataset.data,
-                self.horizon,
+                intrinsic_horizon,
                 self.history,
                 step=self.model_horizon,
                 date_column=dataset.date_column,
@@ -251,9 +266,10 @@ class RecursiveStrategy(Strategy):
             new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = pred.reshape(-1)
 
         else:
-            for step in range(self.horizon // self.model_horizon):
-                new_dataset = self.make_step(step, new_dataset, inverse_transform)
+            for step in range(intrinsic_horizon // self.model_horizon):
+                new_dataset = self.make_step(step, intrinsic_horizon, new_dataset, inverse_transform)
 
         # Get dataframe with predictions only
-        pred_df = self._make_preds_df(new_dataset, self.horizon, self.history)
+        pred_df = self._make_preds_df(new_dataset, intrinsic_horizon, self.history)
+        pred_df = pred_df.groupby('id').apply(lambda x: x.iloc[:horizon]).reset_index(drop=True)
         return pred_df
