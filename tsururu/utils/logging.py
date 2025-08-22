@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 
-from .. import _logger
+from tsururu import _logger
 
 formatter_debug = logging.Formatter(
     "%(asctime)s\t[%(levelname)s]\t%(pathname)s.%(funcName)s:%(lineno)d\t%(message)s"
