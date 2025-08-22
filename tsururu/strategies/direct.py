@@ -1,12 +1,12 @@
 from copy import deepcopy
 from typing import Union
 
-from ..dataset.dataset import TSDataset
-from ..dataset.pipeline import Pipeline
-from ..dataset.slice import IndexSlicer
-from ..model_training.trainer import DLTrainer, MLTrainer
-from .recursive import RecursiveStrategy
-from .utils import timing_decorator
+from tsururu.dataset.dataset import TSDataset
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.model_training.trainer import DLTrainer, MLTrainer
+from tsururu.strategies.recursive import RecursiveStrategy
+from tsururu.strategies.utils import timing_decorator
 
 index_slicer = IndexSlicer()
 
@@ -69,7 +69,9 @@ class DirectStrategy(RecursiveStrategy):
         self.trainers = []
 
         # intrinsic_horizon is a multiple of model_horizon
-        intrinsic_horizon = self.model_horizon * ((self.horizon + self.model_horizon - 1) // self.model_horizon)
+        intrinsic_horizon = self.model_horizon * (
+            (self.horizon + self.model_horizon - 1) // self.model_horizon
+        )
 
         if self.equal_train_size:
             features_idx = index_slicer.create_idx_data(
@@ -121,7 +123,9 @@ class DirectStrategy(RecursiveStrategy):
             else:
                 val_data = None
 
-            for model_i, horizon in enumerate(range(1, intrinsic_horizon // self.model_horizon + 1)):
+            for model_i, horizon in enumerate(
+                range(1, intrinsic_horizon // self.model_horizon + 1)
+            ):
                 target_idx = index_slicer.create_idx_target(
                     dataset.data,
                     intrinsic_horizon,
@@ -169,7 +173,9 @@ class DirectStrategy(RecursiveStrategy):
                 self.trainers.append(current_trainer)
 
         else:
-            for model_i, horizon in enumerate(range(1, intrinsic_horizon // self.model_horizon + 1)):
+            for model_i, horizon in enumerate(
+                range(1, intrinsic_horizon // self.model_horizon + 1)
+            ):
                 features_idx = index_slicer.create_idx_data(
                     dataset.data,
                     self.model_horizon * horizon,
@@ -265,7 +271,7 @@ class DirectStrategy(RecursiveStrategy):
 
         """
         assert horizon % self.model_horizon == 0
-    
+
         test_idx = index_slicer.create_idx_test(
             dataset.data,
             horizon,

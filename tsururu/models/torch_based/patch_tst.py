@@ -2,18 +2,15 @@
 
 from typing import Optional, Union
 
-from .dl_base import DLEstimator
-from .layers.decomposition import series_decomp
-from .layers.patch_tst import PatchTST_backbone
-from .utils import slice_features
+from tsururu.models.torch_based.dl_base import DLEstimator
+from tsururu.models.torch_based.layers.decomposition import series_decomp
+from tsururu.models.torch_based.layers.patch_tst import PatchTST_backbone
+from tsururu.models.torch_based.utils import slice_features
+from tsururu.utils.optional_imports import OptionalImport
 
-try:
-    import torch
-except ImportError:
-    from abc import ABC
-    torch = None
-    nn = None
-    Module = ABC
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+PatchTST_backbone = OptionalImport("tsururu.models.layers.patch_tst.PatchTST_backbone")
 
 
 class PatchTST_NN(DLEstimator):
@@ -99,7 +96,7 @@ class PatchTST_NN(DLEstimator):
         head_type: str = "flatten",
         verbose: bool = False,
         channel_independent: float = False,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(features_groups, pred_len, seq_len)
         self.decomposition = decomposition
@@ -146,7 +143,7 @@ class PatchTST_NN(DLEstimator):
                 affine=affine,
                 subtract_last=subtract_last,
                 verbose=verbose,
-                **kwargs
+                **kwargs,
             )
             self.model_res = PatchTST_backbone(
                 n_vars=self.num_series,
@@ -185,7 +182,7 @@ class PatchTST_NN(DLEstimator):
                 affine=affine,
                 subtract_last=subtract_last,
                 verbose=verbose,
-                **kwargs
+                **kwargs,
             )
         else:
             self.model = PatchTST_backbone(
@@ -225,7 +222,7 @@ class PatchTST_NN(DLEstimator):
                 affine=affine,
                 subtract_last=subtract_last,
                 verbose=verbose,
-                **kwargs
+                **kwargs,
             )
 
     def forward(self, x: "torch.Tensor") -> "torch.Tensor":
@@ -240,9 +237,9 @@ class PatchTST_NN(DLEstimator):
         """
         series = slice_features(x, ["series"], self.features_groups_corrected)
         exog_features = slice_features(
-            x, 
-            ["id", "fh", "datetime_features", "series_features", "other_features"], 
-            self.features_groups_corrected
+            x,
+            ["id", "fh", "datetime_features", "series_features", "other_features"],
+            self.features_groups_corrected,
         )
 
         if self.decomposition:

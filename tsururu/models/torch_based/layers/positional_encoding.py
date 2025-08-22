@@ -3,12 +3,10 @@
 import math
 from typing import Optional
 
-try:
-    import torch
-    import torch.nn as nn
-except ImportError:
-    torch = None
-    nn = None
+from tsururu.utils.optional_imports import OptionalImport
+
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
 
 
 def PositionalEncoding(q_len: int, d_model: int, normalize: bool = True) -> "torch.Tensor":

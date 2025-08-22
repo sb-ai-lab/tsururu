@@ -6,8 +6,11 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-from ..dataset.slice import IndexSlicer
-from .base import FeaturesToFeaturesTransformer, SeriesToSeriesTransformer
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.transformers.base import (
+    FeaturesToFeaturesTransformer,
+    SeriesToSeriesTransformer,
+)
 
 index_slicer = IndexSlicer()
 

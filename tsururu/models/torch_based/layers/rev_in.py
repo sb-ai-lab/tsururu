@@ -1,18 +1,16 @@
 """Reversible Instance Normalization (RevIN) module."""
 
-try:
-    import torch
-    import torch.nn as nn
-    from torch.nn import Module
-except ImportError:
-    from abc import ABC
-    torch = None
-    nn = None
-    Module = ABC
+from tsururu.utils.optional_imports import OptionalImport
+
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+Module = OptionalImport("torch.nn.Module")
 
 
 class RevIN(Module):
-    def __init__(self, num_features: int, eps=1e-5, affine=True, subtract_last=False, non_norm=False):
+    def __init__(
+        self, num_features: int, eps=1e-5, affine=True, subtract_last=False, non_norm=False
+    ):
         """Reversible Instance Normalization (RevIN) module.
 
         Args:

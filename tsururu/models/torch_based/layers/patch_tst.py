@@ -4,23 +4,16 @@ from typing import Optional, Tuple, Union
 
 import numpy as np
 
-from .positional_encoding import positional_encoding
-from .rev_in import RevIN
-from .utils import Transpose, get_activation_fn
+from tsururu.models.torch_based.layers.positional_encoding import positional_encoding
+from tsururu.models.torch_based.layers.rev_in import RevIN
+from tsururu.models.torch_based.layers.utils import Transpose, get_activation_fn
+from tsururu.utils.optional_imports import OptionalImport
 
-try:
-    import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
-    from torch import Tensor
-    from torch.nn import Module
-except ImportError:
-    from abc import ABC
-    torch = None
-    nn = None
-    Tensor = None
-    F = None
-    Module = ABC
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+F = OptionalImport("torch.nn.functional")
+Tensor = OptionalImport("torch.Tensor")
+Module = OptionalImport("torch.nn.Module")
 
 
 # Cell
@@ -35,7 +28,7 @@ class PatchTST_backbone(Module):
         patch_len: length of each patch.
         stride: stride between patches.
         max_seq_len: maximum sequence length.
-        channel_independent: 
+        channel_independent: whether to use channel independent processing.
         n_layers: number of layers in the encoder.
         d_model: dimension of the model.
         n_heads: number of attention heads.
@@ -187,8 +180,8 @@ class PatchTST_backbone(Module):
         if self.revin:
             z = z.permute(0, 2, 1)
 
-            z_series = self.revin_layer(z[:, :, :self.n_vars], "norm")
-            z = torch.cat([z_series, z[:, :, self.n_vars:]], dim=2)
+            z_series = self.revin_layer(z[:, :, : self.n_vars], "norm")
+            z = torch.cat([z_series, z[:, :, self.n_vars :]], dim=2)
 
             z = z.permute(0, 2, 1)
 
@@ -292,7 +285,7 @@ class TSTiEncoder(Module):
         patch_num: number of patches.
         patch_len: length of each patch.
         max_seq_len: maximum sequence length. Default is 1024.
-        channel_independent: 
+        channel_independent: whether to use channel independent processing.
         n_layers: number of layers in the encoder. Default is 3.
         d_model: dimension of the model. Default is 128.
         n_heads: number of attention heads. Default is 16.
@@ -357,7 +350,9 @@ class TSTiEncoder(Module):
         q_len = patch_num
 
         # TODO: precompute input shape
-        self.W_P = nn.LazyLinear(d_model) # Eq 1: projection of feature vectors onto a d-dim vector space
+        self.W_P = nn.LazyLinear(
+            d_model
+        )  # Eq 1: projection of feature vectors onto a d-dim vector space
         self.seq_len = q_len
 
         # Positional encoding
@@ -399,7 +394,9 @@ class TSTiEncoder(Module):
 
         """
         if self.channel_independent:
-            x = self._reorganize_tensor(x, self.n_vars)  # x: [bs * n_vars x сhannels x patch_len x patch_num]
+            x = self._reorganize_tensor(
+                x, self.n_vars
+            )  # x: [bs * n_vars x сhannels x patch_len x patch_num]
 
         # Input encoding
         x = x.reshape(x.shape[0], -1, x.shape[-1])  # x: [... x сhannels * patch_len x patch_num]
@@ -409,7 +406,7 @@ class TSTiEncoder(Module):
         x = self.dropout(x + self.W_pos)  # u: [... x patch_num x d_model]
 
         # Encoder
-        x = self.encoder(x)       # x: [... x patch_num x d_model]
+        x = self.encoder(x)  # x: [... x patch_num x d_model]
 
         if self.channel_independent:
             x = torch.reshape(
@@ -417,24 +414,24 @@ class TSTiEncoder(Module):
             )  # x: [n_vars x bs x patch_num x d_model]
             x = x.permute(1, 0, 3, 2)  # x: [bs x n_vars x d_model x patch_num]
         else:
-            x = self.projection(x)    # x: [bs x patch_num x d_model * n_vars]
+            x = self.projection(x)  # x: [bs x patch_num x d_model * n_vars]
             x = x.reshape(
                 x.shape[0], x.shape[1], -1, self.n_vars
-            )                         # x: [bs x patch_num x d_model x n_vars]
-            x = x.permute(0, 3, 2, 1) # x: [bs x n_vars x d_model x patch_num]
+            )  # x: [bs x patch_num x d_model x n_vars]
+            x = x.permute(0, 3, 2, 1)  # x: [bs x n_vars x d_model x patch_num]
 
         return x
 
     @staticmethod
     def _reorganize_tensor(x: Tensor, n_vars: int) -> Tensor:
         """Reorganizes input tensor to pair time series channels with exogenous features.
-        
+
         Args:
             x: input tensor of shape (batch_size, c_in, patch_len, patch_num)
             n_vars: number of time series channels (first N channels)
-            
+
         Returns:
-            reorganized tensor of shape 
+            reorganized tensor of shape
             (batch_size * n_vars, 1 + exog_channels, patch_len, patch_num)
 
         """

@@ -2,20 +2,20 @@
 
 import re
 from itertools import product
-from typing import Dict, List, Tuple, Union
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
 
-from ..transformers import (
+from tsururu.dataset import TSDataset
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.transformers import (
     SequentialTransformer,
     TargetGenerator,
     Transformer,
     TransformersFactory,
     UnionTransformer,
 )
-from .dataset import TSDataset
-from .slice import IndexSlicer
 
 transormers_factory = TransformersFactory()
 index_slicer = IndexSlicer()

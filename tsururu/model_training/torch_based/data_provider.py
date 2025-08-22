@@ -1,21 +1,15 @@
 """Module for creating a custom dataset for neural networks."""
 
+import re
+
 import numpy as np
 from pandas import to_datetime
 
-from ...dataset import Pipeline
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.utils.optional_imports import OptionalImport
 
-try:
-    import torch
-    from torch.utils.data import Dataset
-except ImportError:
-    from abc import ABC
-
-    torch = None
-    Dataset = ABC
-
-import re
-from typing import Dict, List, Tuple, Union
+torch = OptionalImport("torch")
+Dataset = OptionalImport("torch.utils.data.Dataset")
 
 
 class Dataset_NN(Dataset):
@@ -199,7 +193,9 @@ class Dataset_NN(Dataset):
                 + self.pipeline.features_groups["id"]
                 + self.pipeline.features_groups["fh"]
             )
-            datetime_features_end = datetime_features_start + self.pipeline.features_groups["datetime_features"]
+            datetime_features_end = (
+                datetime_features_start + self.pipeline.features_groups["datetime_features"]
+            )
 
             X = np.concatenate(
                 (
@@ -218,7 +214,7 @@ class Dataset_NN(Dataset):
             raise ValueError(
                 "Failed to reshape data. Check feature lags and data shape compatibility."
             )
-            
+
         X_tensor = torch.from_numpy(X).float()
         y_tensor = torch.from_numpy(y).float()
 

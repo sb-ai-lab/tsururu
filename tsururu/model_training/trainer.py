@@ -1,28 +1,24 @@
 """Module for training and predicting using models and validation strategies."""
 
+import logging
 import time
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from ..dataset.pipeline import Pipeline
-from ..models.ml_base import Estimator
-from .torch_based.callbacks import ES_Checkpoints_Manager
-from .torch_based.data_provider import Dataset_NN
-from .torch_based.metrics import NegativeMSEMetric
-from .validator import Validator
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.model_training.torch_based.callbacks import ES_Checkpoints_Manager
+from tsururu.model_training.torch_based.data_provider import Dataset_NN
+from tsururu.model_training.torch_based.metrics import NegativeMSEMetric
+from tsururu.model_training.validator import Validator
+from tsururu.models.ml_base import Estimator
+from tsururu.utils.optional_imports import OptionalImport
 
-try:
-    import torch
-    import torch.nn as nn
-    from torch.utils.data import Subset
-except ImportError:
-    torch = None
-    Subset = None
-    nn = None
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+Subset = OptionalImport("torch.utils.data.Subset")
 
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +195,7 @@ class DLTrainer:
         device: Optional["torch.device"] = None,
         device_ids: List[int] = [0],
         num_workers: int = 4,
-        metric: Callable = NegativeMSEMetric(),
+        metric: "torch.nn.Module" = NegativeMSEMetric,
         criterion: Optional["torch.nn.Module"] = None,
         optimizer: Optional["torch.optim.Optimizer"] = None,
         optimizer_params: Dict = {},
@@ -311,13 +307,14 @@ class DLTrainer:
             Initialized model, optimizer, and scheduler.
 
         """
+        self.metric = self.metric() if isinstance(self.metric, type) else self.metric
+
         model = self.model_base(features_groups, self.horizon, self.history, **self.model_params)
 
         if len(self.device_ids) > 1:
             model = torch.nn.DataParallel(model, device_ids=self.device_ids)
         else:
             model.to(self.device)
-
         optimizer = self.optimizer_base(model.parameters(), **self.optimizer_params)
         if self.scheduler_base is not None:
             scheduler = self.scheduler_base(optimizer, **self.scheduler_params)
@@ -345,7 +342,9 @@ class DLTrainer:
             model, optimizer, and scheduler with loaded states.
 
         """
-        self.es = torch.load(self.pretrained_path / "es_checkpoint_manager.pth")
+        self.es = torch.load(
+            self.pretrained_path / "es_checkpoint_manager.pth", weights_only=False
+        )
         pretrained_weights = self.es.get_last_snapshot(full_state=True)
 
         model.load_state_dict(pretrained_weights["model"])

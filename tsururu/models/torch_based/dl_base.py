@@ -1,11 +1,7 @@
-try:
-    from torch.nn import Module
-except ImportError:
-    from abc import ABC
+from tsururu.models.torch_based.utils import adjust_features_groups
+from tsururu.utils.optional_imports import OptionalImport
 
-    Module = ABC
-
-from .utils import adjust_features_groups
+Module = OptionalImport("torch.nn.Module")
 
 
 class DLEstimator(Module):

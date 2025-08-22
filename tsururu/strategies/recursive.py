@@ -3,10 +3,12 @@ from typing import Union
 
 import pandas as pd
 
-from ..dataset import IndexSlicer, Pipeline, TSDataset
-from ..model_training.trainer import DLTrainer, MLTrainer
-from .base import Strategy
-from .utils import timing_decorator
+from tsururu.dataset.dataset import TSDataset
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.model_training.trainer import DLTrainer, MLTrainer
+from tsururu.strategies.base import Strategy
+from tsururu.strategies.utils import timing_decorator
 
 index_slicer = IndexSlicer()
 
@@ -147,7 +149,9 @@ class RecursiveStrategy(Strategy):
 
         return self
 
-    def make_step(self, step: int, horizon: int, dataset: TSDataset, inverse_transform: bool) -> TSDataset:
+    def make_step(
+        self, step: int, horizon: int, dataset: TSDataset, inverse_transform: bool
+    ) -> TSDataset:
         """Make a step in the recursive strategy.
 
         Args:
@@ -191,7 +195,7 @@ class RecursiveStrategy(Strategy):
         target_idx = target_idx.reshape(num_series, -1, self.model_horizon)
         pred = pred.reshape(num_series, -1, self.model_horizon)
 
-        target_idx = target_idx[:, :pred.shape[1]]
+        target_idx = target_idx[:, : pred.shape[1]]
 
         dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
 
@@ -199,7 +203,11 @@ class RecursiveStrategy(Strategy):
 
     @timing_decorator
     def predict(
-        self, dataset: TSDataset, horizon: int | None = None, test_all: bool = False, inverse_transform: bool = True
+        self,
+        dataset: TSDataset,
+        horizon: int | None = None,
+        test_all: bool = False,
+        inverse_transform: bool = True,
     ) -> pd.DataFrame:
         """Predicts the target values for the given dataset.
 
@@ -220,9 +228,11 @@ class RecursiveStrategy(Strategy):
 
         if horizon is None:
             horizon = self.horizon
-        
+
         # intrinsic_horizon is a multiple of model_horizon
-        intrinsic_horizon = self.model_horizon * ((horizon + self.model_horizon - 1) // self.model_horizon)
+        intrinsic_horizon = self.model_horizon * (
+            (horizon + self.model_horizon - 1) // self.model_horizon
+        )
 
         new_data = dataset.make_padded_test(
             intrinsic_horizon, self.history, test_all=test_all, step=self.step
@@ -267,9 +277,11 @@ class RecursiveStrategy(Strategy):
 
         else:
             for step in range(intrinsic_horizon // self.model_horizon):
-                new_dataset = self.make_step(step, intrinsic_horizon, new_dataset, inverse_transform)
+                new_dataset = self.make_step(
+                    step, intrinsic_horizon, new_dataset, inverse_transform
+                )
 
         # Get dataframe with predictions only
         pred_df = self._make_preds_df(new_dataset, intrinsic_horizon, self.history)
-        pred_df = pred_df.groupby('id').apply(lambda x: x.iloc[:horizon]).reset_index(drop=True)
+        pred_df = pred_df.groupby("id").apply(lambda x: x.iloc[:horizon]).reset_index(drop=True)
         return pred_df

@@ -1,8 +1,8 @@
 from typing import Union
 
-from ..dataset.pipeline import Pipeline
-from ..model_training.trainer import DLTrainer, MLTrainer
-from .recursive import RecursiveStrategy
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.model_training.trainer import DLTrainer, MLTrainer
+from tsururu.strategies.recursive import RecursiveStrategy
 
 
 class MIMOStrategy(RecursiveStrategy):

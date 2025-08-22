@@ -4,24 +4,16 @@ from typing import Tuple
 
 import numpy as np
 
-from .dl_base import DLEstimator
-from .layers.convolution import Inception_Block_V1
-from .layers.embedding import Embedding
+from tsururu.models.torch_based.dl_base import DLEstimator
+from tsururu.models.torch_based.layers.convolution import Inception_Block_V1
+from tsururu.models.torch_based.layers.embedding import Embedding
+from tsururu.models.torch_based.utils import slice_features, slice_features_4d
+from tsururu.utils.optional_imports import OptionalImport
 
-try:
-    import torch
-    import torch.fft
-    import torch.nn as nn
-    import torch.nn.functional as F
-except ImportError:
-    torch = None
-    nn = None
-    torch.fft = None
-    F = None
-
-from einops import rearrange
-
-from .utils import slice_features, slice_features_4d
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+F = OptionalImport("torch.nn.functional")
+rearrange = OptionalImport("einops.rearrange")
 
 
 def FFT_for_Period(x: torch.Tensor, k: int = 2) -> Tuple[np.ndarray, torch.Tensor]:
@@ -269,16 +261,14 @@ class TimesNet_NN(DLEstimator):
                 enc_out = self.layer_norm(
                     self.model[i](enc_out)
                 )  # (batch_size * num_series, seq_len + pred_len, d_model)
-                
+
             # project back
-            dec_out = self.projection(
-                enc_out
-            )  # (batch_size * num_series, seq_len + pred_len, 1)
-            
+            dec_out = self.projection(enc_out)  # (batch_size * num_series, seq_len + pred_len, 1)
+
             dec_out = rearrange(
                 dec_out, "(b c) s d -> b s c d", c=self.num_series
             )  # (batch_size, seq_len + pred_len, num_series, 1)
-            
+
             dec_out = dec_out.squeeze(-1)  # (batch_size, seq_len + pred_len, num_series)
 
         else:

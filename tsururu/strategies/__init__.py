@@ -1,9 +1,9 @@
 """Time series forecasting strategies."""
 
-from .direct import DirectStrategy
-from .flat_wide_mimo import FlatWideMIMOStrategy
-from .mimo import MIMOStrategy
-from .recursive import RecursiveStrategy
+from tsururu.strategies.direct import DirectStrategy
+from tsururu.strategies.flat_wide_mimo import FlatWideMIMOStrategy
+from tsururu.strategies.mimo import MIMOStrategy
+from tsururu.strategies.recursive import RecursiveStrategy
 
 
 # Factory Object

@@ -1,12 +1,12 @@
 """Algorithms for time series forecasting."""
 
-from .ml_base import Estimator
-from .boost import CatBoost, PyBoost
-from .torch_based.dlinear import DLinear_NN
-from .torch_based.patch_tst import PatchTST_NN
-from .torch_based.gpt import GPT4TS_NN
-from .torch_based.times_net import TimesNet_NN
-from .torch_based.cycle_net import CycleNet_NN
+from tsururu.models.boost import CatBoost, PyBoost
+from tsururu.models.ml_base import Estimator
+from tsururu.models.torch_based.cycle_net import CycleNet_NN
+from tsururu.models.torch_based.dlinear import DLinear_NN
+from tsururu.models.torch_based.gpt import GPT4TS_NN
+from tsururu.models.torch_based.patch_tst import PatchTST_NN
+from tsururu.models.torch_based.times_net import TimesNet_NN
 
 
 # Factory Object

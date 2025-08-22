@@ -2,24 +2,14 @@ from typing import Dict, Optional, Union
 
 import numpy as np
 
-try:
-    from catboost import CatBoostRegressor, Pool
-except ImportError:
-    Pool = None
-    CatBoostRegressor = None
+from tsururu.models.ml_base import Estimator
+from tsururu.utils.optional_imports import OptionalImport
 
-try:
-    from py_boost import GradientBoosting
-    from py_boost.multioutput.sketching import (
-        RandomProjectionSketch,
-        RandomSamplingSketch,
-    )
-except:
-    GradientBoosting = None
-    RandomSamplingSketch = None
-    RandomProjectionSketch = None
-
-from .ml_base import Estimator
+Pool = OptionalImport("catboost.Pool")
+CatBoostRegressor = OptionalImport("catboost.CatBoostRegressor")
+GradientBoosting = OptionalImport("py_boost.GradientBoosting")
+RandomSamplingSketch = OptionalImport("py_boost.multioutput.sketching.RandomSamplingSketch")
+RandomProjectionSketch = OptionalImport("py_boost.multioutput.sketching.RandomProjectionSketch")
 
 
 class CatBoost(Estimator):

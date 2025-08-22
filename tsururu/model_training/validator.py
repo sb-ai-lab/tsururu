@@ -5,7 +5,7 @@ from typing import Dict, Iterator, Optional, Tuple, Union
 import numpy as np
 from sklearn.model_selection import KFold, TimeSeriesSplit
 
-from ..dataset import TSDataset
+from tsururu.dataset import TSDataset
 
 
 class Validator:

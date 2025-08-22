@@ -4,12 +4,12 @@ from typing import List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from ..dataset.dataset import TSDataset
-from ..dataset.pipeline import Pipeline
-from ..dataset.slice import IndexSlicer
-from ..model_training.trainer import DLTrainer, MLTrainer
-from ..utils.logging import set_stdout_level, verbosity_to_loglevel
-from .utils import timing_decorator
+from tsururu.dataset.dataset import TSDataset
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.model_training.trainer import DLTrainer, MLTrainer
+from tsururu.strategies.utils import timing_decorator
+from tsururu.utils.logging import set_stdout_level, verbosity_to_loglevel
 
 logger = logging.getLogger(__name__)
 

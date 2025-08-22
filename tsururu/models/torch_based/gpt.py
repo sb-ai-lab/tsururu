@@ -1,24 +1,14 @@
 """GPT4TS neural network for time series forecasting."""
 
-try:
-    import torch
-    import torch.fft
-    import torch.nn as nn
-except ImportError:
-    torch = None
-    nn = None
-    torch.fft = None
-    F = None
+from tsururu.models.torch_based.dl_base import DLEstimator
+from tsururu.models.torch_based.utils import slice_features, slice_features_4d
+from tsururu.utils.optional_imports import OptionalImport
 
-import torch
-import torch.nn as nn
-from einops import rearrange
-from transformers.models.gpt2.configuration_gpt2 import GPT2Config
-from transformers.models.gpt2.modeling_gpt2 import GPT2Model
-
-from .dl_base import DLEstimator
-
-from .utils import slice_features, slice_features_4d
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+GPT2Model = OptionalImport("transformers.models.gpt2.modeling_gpt2.GPT2Model")
+GPT2Config = OptionalImport("transformers.models.gpt2.configuration_gpt2.GPT2Config")
+rearrange = OptionalImport("einops.rearrange")
 
 
 class GPT4TS_NN(DLEstimator):
@@ -60,9 +50,9 @@ class GPT4TS_NN(DLEstimator):
 
         if channel_independent:
             patch_num = (
-                    seq_len * (sum(self.features_groups_corrected.values()) - self.num_series + 1)
-                    - patch_len
-                ) // stride + 2
+                seq_len * (sum(self.features_groups_corrected.values()) - self.num_series + 1)
+                - patch_len
+            ) // stride + 2
         else:
             patch_num = (self.seq_len - self.patch_size) // self.stride + 2
 
@@ -85,7 +75,7 @@ class GPT4TS_NN(DLEstimator):
             self.in_layer = nn.Linear(patch_len, d_model)
         else:
             self.in_layer = nn.Linear(num_channels * patch_len, d_model)
-        
+
         self.out_layer = nn.Linear(d_model * patch_num, pred_len)
 
         if freeze and pretrain:

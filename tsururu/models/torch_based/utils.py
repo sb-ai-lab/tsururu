@@ -1,14 +1,11 @@
 from copy import deepcopy
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List
 
-import numpy as np
+from tsururu.utils.optional_imports import OptionalImport
 
-try:
-    import torch
-    import torch.nn as nn
-except ImportError:
-    torch = None
-    nn = None
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+
 
 def adjust_features_groups(features_groups: Dict[str, int], num_lags: int) -> Dict[str, int]:
     """Adjust the feature group counts based on normalization rules.
@@ -33,6 +30,7 @@ def adjust_features_groups(features_groups: Dict[str, int], num_lags: int) -> Di
     }
 
     return result_features_groups
+
 
 def slice_features(
     X: torch.Tensor,
@@ -88,14 +86,14 @@ def slice_features(
     result = torch.cat(slices, dim=2)
     return result
 
+
 def slice_features_4d(
     X: torch.Tensor,
     features_list: List[str],
     features_groups_corrected,
     num_series,
 ) -> torch.Tensor:
-    """Slice the input tensor X based on the corrected feature groups and reshape it to 4D.
-    """
+    """Slice the input tensor X based on the corrected feature groups and reshape it to 4D."""
     groups_order: List[str] = [
         "series",
         "id",
@@ -145,7 +143,7 @@ def slice_features_4d(
     batch_size, seq_len, _ = X.shape
 
     # Reshape unique groups by splitting features into series:
-    # Transform from [batch_size, seq_len, total_features] 
+    # Transform from [batch_size, seq_len, total_features]
     # to [batch_size, seq_len, num_series, per_series_features]
     reshaped_uniques = []
     for tensor, group in zip(unique_tensors, unique_groups):
@@ -155,7 +153,7 @@ def slice_features_4d(
         reshaped_uniques.append(tensor_reshaped)
 
     # Expand common features to repeat across all series:
-    # Original shape [batch_size, seq_len, common_features] 
+    # Original shape [batch_size, seq_len, common_features]
     # -> unsqueeze -> [batch_size, seq_len, 1, common_features]
     # -> expand to [batch_size, seq_len, num_series, common_features]
     expanded_commons = []

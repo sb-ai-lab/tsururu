@@ -6,9 +6,9 @@ import holidays
 import numpy as np
 import pandas as pd
 
-from ..dataset.slice import IndexSlicer
-from .base import FeaturesGenerator
-from .utils import date_attrs
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.transformers.base import FeaturesGenerator
+from tsururu.transformers.utils import date_attrs
 
 index_slicer = IndexSlicer()
 
@@ -217,6 +217,7 @@ class CycleGenerator(FeaturesGenerator):
         delta: frequency of the time series.
 
     """
+
     def __init__(
         self,
         cycle: int = 24,
@@ -228,11 +229,9 @@ class CycleGenerator(FeaturesGenerator):
         self.delta = delta
         self.basic_date = None
 
-    def fit(
-        self, data: dict, input_features: Optional[Sequence[str]] = None
-    ) -> "CycleGenerator":
+    def fit(self, data: dict, input_features: Optional[Sequence[str]] = None) -> "CycleGenerator":
         """Fit transformer on "elongated series" and return it's instance.
-        
+
         Args:
             data: dictionary with current states of "elongated series",
                 arrays with features and targets, name of id, date and target
@@ -251,7 +250,7 @@ class CycleGenerator(FeaturesGenerator):
 
         _, self.delta = index_slicer.timedelta(time_col, delta=self.delta)
 
-        if isinstance(self.delta, pd.DateOffset):            
+        if isinstance(self.delta, pd.DateOffset):
             if not hasattr(self.delta, "months"):
                 raise ValueError(f"Unsupported DateOffset: {self.delta}")
 

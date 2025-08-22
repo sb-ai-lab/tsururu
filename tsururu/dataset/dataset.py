@@ -1,17 +1,15 @@
 """Module for initializing and manipulating time series data."""
 
+import logging
 from typing import Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
 
-from .slice import IndexSlicer
-
-slicer = IndexSlicer()
-
-import logging
+from tsururu.dataset.slice import IndexSlicer
 
 logger = logging.getLogger(__name__)
+slicer = IndexSlicer()
 
 
 class TSDataset:

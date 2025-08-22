@@ -1,8 +1,8 @@
 from typing import Union
 
-from ..dataset.pipeline import Pipeline
-from ..model_training.trainer import DLTrainer, MLTrainer
-from .mimo import MIMOStrategy
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.model_training.trainer import DLTrainer, MLTrainer
+from tsururu.strategies.mimo import MIMOStrategy
 
 
 class FlatWideMIMOStrategy(MIMOStrategy):

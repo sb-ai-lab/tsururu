@@ -1,21 +1,14 @@
 """DLinear model for time series forecasting."""
 
-from .dl_base import DLEstimator
-from .layers.decomposition import series_decomp
+from tsururu.models.torch_based.dl_base import DLEstimator
+from tsururu.models.torch_based.layers.decomposition import series_decomp
+from tsururu.models.torch_based.utils import slice_features, slice_features_4d
+from tsururu.utils.optional_imports import OptionalImport
 
-try:
-    import torch
-    import torch.nn as nn
-except ImportError:
-    from abc import ABC
-
-    torch = None
-    nn = None
-    Module = ABC
-
-import einops
-
-from .utils import slice_features, slice_features_4d
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+Module = OptionalImport("torch.nn.Module")
+einops = OptionalImport("einops")
 
 
 class DLinear_NN(DLEstimator):
