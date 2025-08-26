@@ -10,7 +10,7 @@ from tsururu.utils.optional_imports import OptionalImport
 
 torch = OptionalImport("torch")
 nn = OptionalImport("torch.nn")
-PatchTST_backbone = OptionalImport("tsururu.models.layers.patch_tst.PatchTST_backbone")
+PatchTST_backbone = OptionalImport("tsururu.models.torch_based.layers.patch_tst.PatchTST_backbone")
 
 
 class PatchTST_NN(DLEstimator):
