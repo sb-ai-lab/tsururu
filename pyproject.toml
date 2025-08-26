@@ -41,7 +41,7 @@ Homepage = "https://github.com/sb-ai-lab/tsururu"
 Issues = "https://github.com/sb-ai-lab/tsururu/issues"
 
 [build-system]
-requires = ["poetry-core>=1.9.0"]
+requires = ["poetry-core>=2.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
