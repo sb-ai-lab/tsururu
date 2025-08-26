@@ -19,11 +19,9 @@ from sklearn.metrics import (
     root_mean_squared_error,
 )
 from tqdm import tqdm
+from validation import get_train_val_test_datasets
 
 from tsururu.dataset import Pipeline
-from tsururu.examples.all_configurations_benchmark.scripts.validation import (
-    get_train_val_test_datasets,
-)
 from tsururu.model_training.trainer import DLTrainer, MLTrainer
 from tsururu.model_training.validator import HoldOutValidator
 from tsururu.models.boost import PyBoost
@@ -208,7 +206,11 @@ def main():
         "lr": LEARNING_RATE,
     }
 
-    sch, sch_params = lr_scheduler.CosineAnnealingLR, {"eta_min": 1e-8}
+    sch, sch_params = lr_scheduler.CosineAnnealingLR, {
+        "eta_min": 1e-8,
+        "relative_steps": ["T_max"],
+        "T_max": 1.0,
+    }
 
     dl_trainer_params = {
         "device": device,

@@ -8,8 +8,7 @@ import pandas as pd
 from joblib import Memory
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error
 from tqdm import tqdm
-
-from tsururu.examples.all_configurations_benchmark.scripts.validation import (
+from validation import (
     get_train_val_test_datasets,
 )
 
