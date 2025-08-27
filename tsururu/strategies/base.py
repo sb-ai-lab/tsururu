@@ -113,6 +113,9 @@ class Strategy:
 
         columns_list = [id_column_name, dataset.date_column, dataset.target_column]
 
+        if "segment_col" in dataset.data.columns:
+            columns_list += ["segment_col"]
+
         index_slicer = IndexSlicer()
         # Get dataframe with predictions only
         target_ids = index_slicer.create_idx_target(
@@ -127,6 +130,20 @@ class Strategy:
         columns_ids = index_slicer.get_cols_idx(dataset.data, columns_list)
         data = index_slicer.get_slice(dataset.data, (target_ids, columns_ids))
         pred_df = pd.DataFrame(np.vstack(data), columns=columns_list)
+
+        if "segment_col" in columns_list:
+            pred_df = (
+                pred_df.groupby("segment_col")
+                .apply(lambda x: x.iloc[:horizon])
+                .reset_index(drop=True)
+            )
+            pred_df = pred_df[[id_column_name, dataset.date_column, dataset.target_column]]
+        else:
+            pred_df = (
+                pred_df.groupby(id_column_name)
+                .apply(lambda x: x.iloc[:horizon])
+                .reset_index(drop=True)
+            )
 
         return pred_df
 

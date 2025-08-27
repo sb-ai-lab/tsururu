@@ -283,5 +283,4 @@ class RecursiveStrategy(Strategy):
 
         # Get dataframe with predictions only
         pred_df = self._make_preds_df(new_dataset, intrinsic_horizon, self.history)
-        pred_df = pred_df.groupby("id").apply(lambda x: x.iloc[:horizon]).reset_index(drop=True)
         return pred_df
