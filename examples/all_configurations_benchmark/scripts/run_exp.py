@@ -58,7 +58,7 @@ HORIZON = 24
 STEP = 1
 
 # Optimization
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 LEARNING_RATE = 0.0001
 
 # Model, Strategy, Preprocessing
