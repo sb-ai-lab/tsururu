@@ -1,15 +1,26 @@
 """Algorithms for time series forecasting."""
 
-from .base import SequentialTransformer, UnionTransformer, Transformer
-from .categorical import LabelEncodingTransformer, OneHotEncodingTransformer
-from .datetime import DateSeasonsGenerator, TimeToNumGenerator
-from .numeric import (
+from tsururu.transformers.base import (
+    SequentialTransformer,
+    Transformer,
+    UnionTransformer,
+)
+from tsururu.transformers.categorical import (
+    LabelEncodingTransformer,
+    OneHotEncodingTransformer,
+)
+from tsururu.transformers.datetime import (
+    CycleGenerator,
+    DateSeasonsGenerator,
+    TimeToNumGenerator,
+)
+from tsururu.transformers.impute import MissingValuesImputer
+from tsururu.transformers.numeric import (
     DifferenceNormalizer,
     LastKnownNormalizer,
     StandardScalerTransformer,
 )
-from .seq import LagTransformer, TargetGenerator
-from .impute import MissingValuesImputer
+from tsururu.transformers.seq import LagTransformer, TargetGenerator
 
 
 # Factory Object
@@ -26,6 +37,7 @@ class TransformersFactory:
             "OneHotEncodingTransformer": OneHotEncodingTransformer,
             "TimeToNumGenerator": TimeToNumGenerator,
             "DateSeasonsGenerator": DateSeasonsGenerator,
+            "CycleGenerator": CycleGenerator,
             "LagTransformer": LagTransformer,
             "TargetGenerator": TargetGenerator,
             "MissingValuesImputer": MissingValuesImputer,
@@ -35,16 +47,14 @@ class TransformersFactory:
         return sorted(list(self.transformers.keys()))
 
     def __getitem__(self, params):
-        return self.transformers[params["transformer_name"]](
-            **params["transformer_params"]
-        )
+        return self.transformers[params["transformer_name"]](**params["transformer_params"])
 
     def create_transformer(self, transformer_name, transformer_params):
         return self.transformers[transformer_name](**transformer_params)
 
 
 __all__ = [
-    "Transformer"
+    "Transformer",
     "UnionTransformer",
     "SequentialTransformer",
     "StandardScalerTransformer",
@@ -54,6 +64,7 @@ __all__ = [
     "OneHotEncodingTransformer",
     "TimeToNumGenerator",
     "DateSeasonsGenerator",
+    "CycleGenerator",
     "LagTransformer",
     "TargetGenerator",
     "TransformersFactory",

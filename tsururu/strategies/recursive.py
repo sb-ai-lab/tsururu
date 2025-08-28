@@ -3,10 +3,12 @@ from typing import Union
 
 import pandas as pd
 
-from ..dataset import IndexSlicer, Pipeline, TSDataset
-from ..model_training.trainer import DLTrainer, MLTrainer
-from .base import Strategy
-from .utils import timing_decorator
+from tsururu.dataset.dataset import TSDataset
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.model_training.trainer import DLTrainer, MLTrainer
+from tsururu.strategies.base import Strategy
+from tsururu.strategies.utils import timing_decorator
 
 index_slicer = IndexSlicer()
 
@@ -142,25 +144,30 @@ class RecursiveStrategy(Strategy):
             current_trainer.pretrained_path = pretrained_path
 
         self.trainers.append(current_trainer)
-        
+
         self.is_fitted = True
-        
+
         return self
 
-    def make_step(self, step: int, dataset: TSDataset) -> TSDataset:
+    def make_step(
+        self, step: int, horizon: int, dataset: TSDataset, inverse_transform: bool
+    ) -> TSDataset:
         """Make a step in the recursive strategy.
 
         Args:
             step: the step number.
+            horizon: the horizon length.
             dataset: the dataset to make the step on.
 
         Returns:
             the updated dataset.
 
         """
+        assert horizon % self.model_horizon == 0
+
         test_idx = index_slicer.create_idx_test(
             dataset.data,
-            self.horizon - step * self.model_horizon,
+            horizon - step * self.model_horizon,
             self.history,
             self.step,
             date_column=dataset.date_column,
@@ -169,7 +176,7 @@ class RecursiveStrategy(Strategy):
 
         target_idx = index_slicer.create_idx_target(
             dataset.data,
-            self.horizon,
+            horizon,
             self.history,
             self.step,
             date_column=dataset.date_column,
@@ -180,18 +187,37 @@ class RecursiveStrategy(Strategy):
         data = self.pipeline.transform(data)
 
         pred = self.trainers[0].predict(data, self.pipeline)
-        pred = self.pipeline.inverse_transform_y(pred)
+        if inverse_transform:
+            pred = self.pipeline.inverse_transform_y(pred)
+
+        num_series = data["num_series"] if self.pipeline.multivariate else 1
+
+        target_idx = target_idx.reshape(num_series, -1, self.model_horizon)
+        pred = pred.reshape(num_series, -1, self.model_horizon)
+
+        target_idx = target_idx[:, : pred.shape[1]]
 
         dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
 
         return dataset
 
     @timing_decorator
-    def predict(self, dataset: TSDataset, test_all: bool = False) -> pd.DataFrame:
+    def predict(
+        self,
+        dataset: TSDataset,
+        horizon: int | None = None,
+        test_all: bool = False,
+        inverse_transform: bool = True,
+    ) -> pd.DataFrame:
         """Predicts the target values for the given dataset.
 
         Args:
-            dataset: the dataset to make predictions on.
+            dataset (TSDataset): the dataset to make predictions on.
+            horizon (int, optional): number of steps ahead to predict. If None, defaults to the model's training horizon.
+            test_all (bool, default=False): if True, performs rolling window prediction over the entire dataset.
+                Otherwise, predicts only the last window.
+            inverse_transform (bool, default=True): if True, applies inverse transformations to the predictions
+                (e.g., reversing normalization/scaling).
 
         Returns:
             a pandas DataFrame containing the predicted target values.
@@ -199,10 +225,19 @@ class RecursiveStrategy(Strategy):
         """
         if not self.is_fitted:
             raise ValueError("The strategy is not fitted yet.")
-        
-        new_data = dataset.make_padded_test(
-            self.horizon, self.history, test_all=test_all, step=self.step
+
+        if horizon is None:
+            horizon = self.horizon
+
+        # intrinsic_horizon is a multiple of model_horizon
+        intrinsic_horizon = self.model_horizon * (
+            (horizon + self.model_horizon - 1) // self.model_horizon
         )
+
+        new_data = dataset.make_padded_test(
+            intrinsic_horizon, self.history, test_all=test_all, step=self.step
+        )
+
         new_dataset = TSDataset(new_data, dataset.columns_params, dataset.delta)
 
         if test_all:
@@ -222,7 +257,7 @@ class RecursiveStrategy(Strategy):
 
             target_ids = index_slicer.create_idx_target(
                 new_dataset.data,
-                self.horizon,
+                intrinsic_horizon,
                 self.history,
                 step=self.model_horizon,
                 date_column=dataset.date_column,
@@ -235,14 +270,17 @@ class RecursiveStrategy(Strategy):
             data = self.pipeline.transform(data)
 
             pred = self.trainers[0].predict(data, self.pipeline)
-            pred = self.pipeline.inverse_transform_y(pred)
+            if inverse_transform:
+                pred = self.pipeline.inverse_transform_y(pred)
 
             new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = pred.reshape(-1)
 
         else:
-            for step in range(self.horizon // self.model_horizon):
-                new_dataset = self.make_step(step, new_dataset)
+            for step in range(intrinsic_horizon // self.model_horizon):
+                new_dataset = self.make_step(
+                    step, intrinsic_horizon, new_dataset, inverse_transform
+                )
 
         # Get dataframe with predictions only
-        pred_df = self._make_preds_df(new_dataset, self.horizon, self.history)
+        pred_df = self._make_preds_df(new_dataset, intrinsic_horizon, self.history)
         return pred_df

@@ -1,0 +1,36 @@
+horizon: 96
+history: 96
+
+data:
+  root_path: ./datasets
+  data_path: ETTh1.csv
+
+multivariate: True
+
+model:
+  model_type: TimesNet_NN
+  model_params:
+    e_layers: 2 
+    d_model: 16 
+    d_ff: 32 
+    top_k: 5 
+    channel_independent: True
+
+scheduler: 
+  scheduler_type: LambdaLR
+  scheduler_params:
+    lr_lambda: "lambda epoch: 0.5 ** (epoch // 1)"
+
+trainer_params:
+  n_epochs: 10
+  batch_size: 32
+  optimizer_params:
+    lr: 0.0001
+  num_workers: 15
+  early_stopping_patience: 3
+  best_by_metric: True
+  save_to_dir: False
+  drop_last: True
+  device: cuda:0
+
+seed: [2025, 2026, 2027]

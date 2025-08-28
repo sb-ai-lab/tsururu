@@ -6,9 +6,9 @@ import holidays
 import numpy as np
 import pandas as pd
 
-from ..dataset.slice import IndexSlicer
-from .base import FeaturesGenerator
-from .utils import date_attrs
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.transformers.base import FeaturesGenerator
+from tsururu.transformers.utils import date_attrs
 
 index_slicer = IndexSlicer()
 
@@ -207,3 +207,87 @@ class DateSeasonsGenerator(FeaturesGenerator):
         data["raw_ts_X"][self.output_features] = np.hstack(result_data)
 
         return data
+
+
+class CycleGenerator(FeaturesGenerator):
+    """A transformer that generates cyclic features.
+
+    Args:
+        cycle: the length of the cycle.
+        delta: frequency of the time series.
+
+    """
+
+    def __init__(
+        self,
+        cycle: int = 24,
+        delta: Optional[pd.DateOffset] = None,
+    ):
+        super().__init__()
+
+        self.cycle = cycle
+        self.delta = delta
+        self.basic_date = None
+
+    def fit(self, data: dict, input_features: Optional[Sequence[str]] = None) -> "CycleGenerator":
+        """Fit transformer on "elongated series" and return it's instance.
+
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+
+        Returns:
+            self.
+
+        """
+        super().fit(data, input_features)
+
+        time_col = data["raw_ts_X"][input_features[0]]
+
+        self.min_date = time_col.min()
+        self.output_features = [f"cycle_{self.cycle}"]
+
+        _, self.delta = index_slicer.timedelta(time_col, delta=self.delta)
+
+        if isinstance(self.delta, pd.DateOffset):
+            if not hasattr(self.delta, "months"):
+                raise ValueError(f"Unsupported DateOffset: {self.delta}")
+
+        return self
+
+    def transform(self, data: dict) -> dict:
+        """Generate features in `raw_ts_X`.
+
+        Args:
+            data: dictionary with current states of "elongated series",
+                arrays with features and targets, name of id, date and target
+                columns and indices for features and targets.
+
+        Returns:
+            current states of `data` dictionary.
+
+        """
+        if self.min_date is None or self.delta is None:
+            raise ValueError("`fit()` must be called before `transform()`.")
+
+        time_col = data["raw_ts_X"][self.input_features[0]]
+
+        if isinstance(self.delta, pd.Timedelta):
+            num_periods = (time_col - self.min_date) // self.delta
+
+        elif isinstance(self.delta, pd.DateOffset):
+            num_months = self._count_month_offsets(time_col)
+            num_periods = num_months // self.delta.months
+
+        result_data = (num_periods % self.cycle).to_numpy().reshape(-1, 1)
+
+        data["raw_ts_X"][self.output_features] = result_data
+
+        return data
+
+    def _count_month_offsets(self, target_dates: pd.Series):
+        """Compute month offsets as a vectorized operation."""
+        years_diff = target_dates.dt.year - self.min_date.year
+        months_diff = target_dates.dt.month - self.min_date.month
+        return years_diff * 12 + months_diff

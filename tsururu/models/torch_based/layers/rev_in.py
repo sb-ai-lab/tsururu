@@ -1,18 +1,16 @@
 """Reversible Instance Normalization (RevIN) module."""
 
-try:
-    import torch
-    import torch.nn as nn
-    from torch.nn import Module
-except ImportError:
-    from abc import ABC
-    torch = None
-    nn = None
-    Module = ABC
+from tsururu.utils.optional_imports import OptionalImport
+
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+Module = OptionalImport("torch.nn.Module")
 
 
 class RevIN(Module):
-    def __init__(self, num_features: int, eps=1e-5, affine=True, subtract_last=False):
+    def __init__(
+        self, num_features: int, eps=1e-5, affine=True, subtract_last=False, non_norm=False
+    ):
         """Reversible Instance Normalization (RevIN) module.
 
         Args:
@@ -30,6 +28,7 @@ class RevIN(Module):
         self.eps = eps
         self.affine = affine
         self.subtract_last = subtract_last
+        self.non_norm = non_norm
         if self.affine:
             self._init_params()
 
@@ -85,6 +84,8 @@ class RevIN(Module):
             normalized tensor.
 
         """
+        if self.non_norm:
+            return x
         if self.subtract_last:
             x = x - self.last
         else:
@@ -106,6 +107,8 @@ class RevIN(Module):
             denormalized tensor.
 
         """
+        if self.non_norm:
+            return x
         if self.affine:
             x = x - self.affine_bias
             x = x / (self.affine_weight + self.eps * self.eps)

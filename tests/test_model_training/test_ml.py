@@ -55,7 +55,7 @@ PIPELINE_PARAMS = {
 
 
 def test_assert_for_nans_in_nn_X(caplog):
-    df = pd.read_csv("./datasets/global/simulated_data_to_check.csv")
+    df = pd.read_csv("tsururu/datasets/global/simulated_data_to_check.csv")
 
     dataset = TSDataset(
         data=df,

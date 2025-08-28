@@ -1,28 +1,24 @@
 """Module for training and predicting using models and validation strategies."""
 
+import logging
 import time
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from ..dataset.pipeline import Pipeline
-from ..models.base import Estimator
-from .torch_based.callbacks import ES_Checkpoints_Manager
-from .torch_based.data_provider import Dataset_NN
-from .torch_based.metrics import NegativeMSEMetric
-from .validator import Validator
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.model_training.torch_based.callbacks import ES_Checkpoints_Manager
+from tsururu.model_training.torch_based.data_provider import Dataset_NN
+from tsururu.model_training.torch_based.metrics import NegativeMSEMetric
+from tsururu.model_training.validator import Validator
+from tsururu.models.ml_base import Estimator
+from tsururu.utils.optional_imports import OptionalImport
 
-try:
-    import torch
-    import torch.nn as nn
-    from torch.utils.data import Subset
-except ImportError:
-    torch = None
-    Subset = None
-    nn = None
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+Subset = OptionalImport("torch.utils.data.Subset")
 
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -154,8 +150,25 @@ class DLTrainer:
         optimizer: optimizer for training the model.
         optimizer_params: parameters for the optimizer.
         scheduler: learning rate scheduler.
-        scheduler_params: parameters for the scheduler.
         scheduler_after_epoch: whether to step the scheduler after each epoch.
+        scheduler_params: parameters for the scheduler.
+            Note: There are two fixed non-standard parameters `relative_steps_per_epoch` and `relative_steps`,
+            which are used for automatic computation of certain scheduler parameters based on the dataset length.
+                - `relative_steps_per_epoch` (float): Defines the fraction of iterations per epoch.
+                    Used for parameters such as `steps_per_epoch` in `OneCycleLR`.
+                    absolute_steps_per_epoch = int(relative_steps_per_epoch * (len(train_dataset) // batch_size + 1))
+                - `relative_steps` (float): Defines the fraction or multiplier of the total number of iterations
+                across all epochs.
+                    Used for parameters, such as `T_max` in `CosineAnnealingLR`.
+                    absolute_steps = int(relative_steps * n_epochs * (len(train_dataset) // batch_size + 1))
+
+            Example usage:
+            scheduler = CosineAnnealingLR
+            scheduler_after_epoch = False
+            scheduler_params = {
+                "relative_steps": ["T_max"],  # The parameter to be auto-computed
+                "T_max": 1.0,
+            }
         pretrained_path: path to the pretrained checkpoints.
         best_by_metric: whether to select the best model by metric instead of loss.
         early_stopping_patience: number of epochs to wait for improvement before early stopping.
@@ -182,7 +195,7 @@ class DLTrainer:
         device: Optional["torch.device"] = None,
         device_ids: List[int] = [0],
         num_workers: int = 4,
-        metric: Callable = NegativeMSEMetric(),
+        metric: "torch.nn.Module" = NegativeMSEMetric,
         criterion: Optional["torch.nn.Module"] = None,
         optimizer: Optional["torch.optim.Optimizer"] = None,
         optimizer_params: Dict = {},
@@ -263,25 +276,45 @@ class DLTrainer:
         self.schedulers = []
         self.scores = []
 
-    def init_trainer_one_fold(self, num_features: int):
+    def _convert_relative_steps_to_absolute(self, dataset_length: int):
+        # Handle relative_steps_per_epoch and relative_steps
+        if "relative_steps_per_epoch" in self.scheduler_params:
+            for param_name in self.scheduler_params["relative_steps_per_epoch"]:
+                self.scheduler_params[param_name] = int(
+                    self.scheduler_params[param_name] * (dataset_length // self.batch_size + 1)
+                )
+            self.scheduler_params.pop("relative_steps_per_epoch")
+
+        if "relative_steps" in self.scheduler_params:
+            for param_name in self.scheduler_params["relative_steps"]:
+                self.scheduler_params[param_name] = int(
+                    self.n_epochs
+                    * (self.scheduler_params[param_name] * (dataset_length // self.batch_size + 1))
+                )
+            self.scheduler_params.pop("relative_steps")
+
+    def init_trainer_one_fold(
+        self, features_groups: dict
+    ) -> Tuple[
+        "nn.Module", "torch.optim.Optimizer", Optional["torch.optim.lr_scheduler._LRScheduler"]
+    ]:
         """Initializes the model, optimizer, and scheduler for one fold.
 
         Args:
-            num_features: Number of features in the input data.
+            features_groups: dictionary with features groups from pipeline.
 
         Returns:
             Initialized model, optimizer, and scheduler.
 
         """
-        self.model_params["seq_len"] = num_features
-        self.model_params["pred_len"] = self.horizon
+        self.metric = self.metric() if isinstance(self.metric, type) else self.metric
 
-        model = self.model_base(**self.model_params)
+        model = self.model_base(features_groups, self.horizon, self.history, **self.model_params)
+
         if len(self.device_ids) > 1:
             model = torch.nn.DataParallel(model, device_ids=self.device_ids)
         else:
             model.to(self.device)
-
         optimizer = self.optimizer_base(model.parameters(), **self.optimizer_params)
         if self.scheduler_base is not None:
             scheduler = self.scheduler_base(optimizer, **self.scheduler_params)
@@ -309,7 +342,9 @@ class DLTrainer:
             model, optimizer, and scheduler with loaded states.
 
         """
-        self.es = torch.load(self.pretrained_path / "es_checkpoint_manager.pth")
+        self.es = torch.load(
+            self.pretrained_path / "es_checkpoint_manager.pth", weights_only=False
+        )
         pretrained_weights = self.es.get_last_snapshot(full_state=True)
 
         model.load_state_dict(pretrained_weights["model"])
@@ -327,7 +362,10 @@ class DLTrainer:
         optimizer: "torch.optim.Optimizer",
         scheduler: Optional["torch.optim.lr_scheduler._LRScheduler"],
     ) -> Tuple[
-        "nn.Module", "torch.optim.Optimizer", Optional["torch.optim.lr_scheduler._LRScheduler"], float
+        "nn.Module",
+        "torch.optim.Optimizer",
+        Optional["torch.optim.lr_scheduler._LRScheduler"],
+        float,
     ]:
         """Trains the model for all epochs.
 
@@ -542,10 +580,11 @@ class DLTrainer:
             logger.info(f"length of train dataset: {len(train_subset)}")
             logger.info(f"length of val dataset: {len(val_subset)}")
 
-            num_features = train_dataset[0][0].shape[0]
-
             # load or initialize model, optimizer, scheduler
-            model, optimizer, scheduler = self.init_trainer_one_fold(num_features)
+            dataset_length = len(train_subset)
+            self._convert_relative_steps_to_absolute(dataset_length)
+
+            model, optimizer, scheduler = self.init_trainer_one_fold(pipeline.features_groups)
             if self.pretrained_path:
                 model, optimizer, scheduler = self.load_trainer_one_fold(
                     fold_i, model, optimizer, scheduler
@@ -599,7 +638,7 @@ class DLTrainer:
         y_pred = torch.tensor(y_pred)
 
         if pipeline.strategy_name == "FlatWideMIMOStrategy":
-            full_horizon = pipeline.y_original_shape[1]
+            full_horizon = data["idx_y"].shape[1]
             num_series = y_pred.shape[0] // full_horizon
             if pipeline.multivariate:
                 y_pred = y_pred.reshape(num_series, full_horizon, -1)

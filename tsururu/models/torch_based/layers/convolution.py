@@ -1,11 +1,9 @@
 """Module for convolution layers."""
 
-try:
-    import torch
-    import torch.nn as nn
-except ImportError:
-    torch = None
-    nn = None
+from tsururu.utils.optional_imports import OptionalImport
+
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
 
 
 class Inception_Block_V1(nn.Module):

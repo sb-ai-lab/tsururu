@@ -8,6 +8,8 @@ While much attention is currently focused on selecting models for time series fo
 
 Also tsururu provides various preprocessing techniques.
 
+🎉 `Accepted to the Demo-Track of IJCAI 2025` — Results and code can be found in `examples`.
+
 <a name="quicktour"></a>
 ## Quick tour
 
@@ -43,11 +45,11 @@ forecast_time, current_pred = strategy.predict(dataset)
 ## Installation
 To install Tsururu on your machine from PyPI:
 ```bash
-# Base functionality:
+# Base functionality (it's recommended to install at least one addition dependency with models):
 pip install -U tsururu
 
 # For partial installation use corresponding option
-# Extra dependencies: [catboost, torch] or use 'all' to install all dependencies
+# Extra dependencies: [catboost, torch, pyboost] or use 'all' to install all dependencies
 pip install -U tsururu[catboost]
 ```
 
@@ -90,6 +92,9 @@ pip install -U tsururu[catboost]
 	- A hybrid of Direct and MIMO. One model is trained, but Direct’s features are deployed across the forecast horizon.
 	- Note 1: To use FlatWideMIMO with date-related features, h lags of them must be included (with help of LagTransformer).
 
+## Models:
+- _Boosting models_: CatBoost, PyBoost.
+- _Neural networks_: [DLinear](https://arxiv.org/abs/2205.13504), [CycleNet](https://arxiv.org/abs/2409.18479), [PatchTST](https://arxiv.org/abs/2211.14730), [TimesNet](https://arxiv.org/abs/2210.02186), [GPT2](https://arxiv.org/abs/2302.11939).
 
 ## Preprocessing
 - _StandardScalerTransformer_: scales features to have zero mean and unit variance.

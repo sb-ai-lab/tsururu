@@ -47,7 +47,7 @@ PIPELINE_PARAMS = {
     },
 }
 
-BASE_PATH = "./tests/test_dataset/different_freqs_datasets/"
+BASE_PATH = "tsururu/tests/test_dataset/different_freqs_datasets/"
 
 DF_PATH_YS = f"{BASE_PATH}simulated_data_to_check_YS.csv"
 DF_PATH_Y = f"{BASE_PATH}simulated_data_to_check_Y.csv"

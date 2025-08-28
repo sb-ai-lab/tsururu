@@ -2,15 +2,11 @@
 
 from typing import Callable, Union
 
-try:
-    import torch
-    import torch.nn as nn
-    from torch.nn import Module
-except ImportError:
-    from abc import ABC
-    torch = None
-    nn = None
-    Module = ABC
+from tsururu.utils.optional_imports import OptionalImport
+
+torch = OptionalImport("torch")
+nn = OptionalImport("torch.nn")
+Module = OptionalImport("torch.nn.Module")
 
 
 def get_activation_fn(activation: Union[str, Callable[[], Module]]) -> Module:

@@ -49,14 +49,14 @@ PIPELINE_PARAMS = {
                 "seasonalities": ["doy", "m", "wd"],
                 "from_target_date": True,
             },
-            "LagTransformer": {"lags": 1},
+            "LagTransformer": {"lags": 7},
         },
     },
 }
 
 
 def test_assert_for_nans_in_nn_X(caplog):
-    df = pd.read_csv("./datasets/global/simulated_data_to_check.csv")
+    df = pd.read_csv("tsururu/datasets/global/simulated_data_to_check.csv")
 
     dataset = TSDataset(
         data=df,
@@ -67,7 +67,7 @@ def test_assert_for_nans_in_nn_X(caplog):
 
     # Configure the model parameters
     model = DLinear_NN
-    model_params = {"moving_avg": 7, "individual": False, "enc_in": None}
+    model_params = {"moving_avg": 7, "individual": False}
 
     # Configure the validation parameters
     validation = KFoldCrossValidator

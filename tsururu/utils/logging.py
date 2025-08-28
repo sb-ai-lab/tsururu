@@ -5,15 +5,12 @@ import logging
 import os
 import sys
 
-from .. import _logger
+from tsururu import _logger
 
 formatter_debug = logging.Formatter(
     "%(asctime)s\t[%(levelname)s]\t%(pathname)s.%(funcName)s:%(lineno)d\t%(message)s"
 )
 formatter_default = logging.Formatter("[%(asctime)s] %(message)s", "%H:%M:%S")
-
-INFO2 = 17
-INFO3 = 13
 
 
 def add_logging_level(levelName, levelNum, methodName=None):
@@ -67,10 +64,6 @@ def add_logging_level(levelName, levelNum, methodName=None):
     setattr(logging, levelName, levelNum)
     setattr(logging.getLoggerClass(), methodName, logForLevel)
     setattr(logging, methodName, logToRoot)
-
-
-add_logging_level("INFO2", INFO2)
-add_logging_level("INFO3", INFO3)
 
 
 class LoggerStream(io.IOBase):

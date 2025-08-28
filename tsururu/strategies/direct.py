@@ -1,12 +1,12 @@
 from copy import deepcopy
 from typing import Union
 
-from ..dataset.dataset import TSDataset
-from ..dataset.pipeline import Pipeline
-from ..dataset.slice import IndexSlicer
-from ..model_training.trainer import DLTrainer, MLTrainer
-from .recursive import RecursiveStrategy
-from .utils import timing_decorator
+from tsururu.dataset.dataset import TSDataset
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.model_training.trainer import DLTrainer, MLTrainer
+from tsururu.strategies.recursive import RecursiveStrategy
+from tsururu.strategies.utils import timing_decorator
 
 index_slicer = IndexSlicer()
 
@@ -68,6 +68,11 @@ class DirectStrategy(RecursiveStrategy):
         """
         self.trainers = []
 
+        # intrinsic_horizon is a multiple of model_horizon
+        intrinsic_horizon = self.model_horizon * (
+            (self.horizon + self.model_horizon - 1) // self.model_horizon
+        )
+
         if self.equal_train_size:
             features_idx = index_slicer.create_idx_data(
                 dataset.data,
@@ -118,10 +123,12 @@ class DirectStrategy(RecursiveStrategy):
             else:
                 val_data = None
 
-            for model_i, horizon in enumerate(range(1, self.horizon // self.model_horizon + 1)):
+            for model_i, horizon in enumerate(
+                range(1, intrinsic_horizon // self.model_horizon + 1)
+            ):
                 target_idx = index_slicer.create_idx_target(
                     dataset.data,
-                    self.horizon,
+                    intrinsic_horizon,
                     self.history,
                     self.step,
                     date_column=dataset.date_column,
@@ -133,7 +140,7 @@ class DirectStrategy(RecursiveStrategy):
                 if val_dataset:
                     val_target_idx = index_slicer.create_idx_target(
                         val_dataset.data,
-                        self.horizon,
+                        intrinsic_horizon,
                         self.history,
                         self.step,
                         date_column=val_dataset.date_column,
@@ -166,7 +173,9 @@ class DirectStrategy(RecursiveStrategy):
                 self.trainers.append(current_trainer)
 
         else:
-            for model_i, horizon in enumerate(range(1, self.horizon // self.model_horizon + 1)):
+            for model_i, horizon in enumerate(
+                range(1, intrinsic_horizon // self.model_horizon + 1)
+            ):
                 features_idx = index_slicer.create_idx_data(
                     dataset.data,
                     self.model_horizon * horizon,
@@ -247,20 +256,25 @@ class DirectStrategy(RecursiveStrategy):
 
         return self
 
-    def make_step(self, step, dataset):
+    def make_step(
+        self, step: int, horizon: int, dataset: TSDataset, inverse_transform: bool = True
+    ) -> TSDataset:
         """Make a step in the direct strategy.
 
         Args:
             step: the step number.
+            horizon: the horizon length.
             dataset: the dataset to make the step on.
 
         Returns:
             the updated dataset.
 
         """
+        assert horizon % self.model_horizon == 0
+
         test_idx = index_slicer.create_idx_test(
             dataset.data,
-            self.horizon,
+            horizon,
             self.history,
             self.step,
             date_column=dataset.date_column,
@@ -268,7 +282,7 @@ class DirectStrategy(RecursiveStrategy):
         )
         target_idx = index_slicer.create_idx_target(
             dataset.data,
-            self.horizon,
+            horizon,
             self.history,
             self.step,
             date_column=dataset.date_column,
@@ -278,8 +292,9 @@ class DirectStrategy(RecursiveStrategy):
         data = self.pipeline.create_data_dict_for_pipeline(dataset, test_idx, target_idx)
         data = self.pipeline.transform(data)
 
-        pred = self.trainers[step].predict(data, self.pipeline)
-        pred = self.pipeline.inverse_transform_y(pred)
+        pred = self.trainers[step % len(self.trainers)].predict(data, self.pipeline)
+        if inverse_transform:
+            pred = self.pipeline.inverse_transform_y(pred)
 
         dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
 

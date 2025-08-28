@@ -5,7 +5,7 @@ from typing import Optional, Sequence
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
-from .base import FeaturesGenerator
+from tsururu.transformers.base import FeaturesGenerator
 
 
 class LabelEncodingTransformer(FeaturesGenerator):

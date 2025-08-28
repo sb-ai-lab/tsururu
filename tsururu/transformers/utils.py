@@ -1,6 +1,6 @@
 import numpy as np
 
-from ..dataset.slice import IndexSlicer
+from tsururu.dataset.slice import IndexSlicer
 
 transformers_masks = {
     "raw": r"^",

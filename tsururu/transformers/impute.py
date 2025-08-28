@@ -3,7 +3,7 @@ from typing import Optional, Sequence
 import numpy as np
 import pandas as pd
 
-from .base import SeriesToSeriesTransformer
+from tsururu.transformers.base import SeriesToSeriesTransformer
 
 
 class MissingValuesImputer(SeriesToSeriesTransformer):

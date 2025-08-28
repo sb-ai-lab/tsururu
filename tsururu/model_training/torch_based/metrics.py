@@ -1,13 +1,10 @@
 """Module for creating custom metrics for neural networks."""
 
-try:
-    import torch
-    from torch.nn import Module, MSELoss
-except ImportError:
-    from abc import ABC
-    torch = None
-    Module = ABC
-    MSELoss = ABC
+from tsururu.utils.optional_imports import OptionalImport
+
+torch = OptionalImport("torch")
+Module = OptionalImport("torch.nn.Module")
+MSELoss = OptionalImport("torch.nn.MSELoss")
 
 
 class NegativeMSEMetric(Module):

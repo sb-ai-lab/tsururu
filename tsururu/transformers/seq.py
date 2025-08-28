@@ -6,9 +6,9 @@ from typing import Sequence, Union
 import numpy as np
 import pandas as pd
 
-from ..dataset.slice import IndexSlicer
-from .base import SeriesToFeaturesTransformer
-from .utils import _seq_mult_ts
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.transformers.base import SeriesToFeaturesTransformer
+from tsururu.transformers.utils import _seq_mult_ts
 
 index_slicer = IndexSlicer()
 

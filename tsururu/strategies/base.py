@@ -4,12 +4,12 @@ from typing import List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from ..dataset.dataset import TSDataset
-from ..dataset.pipeline import Pipeline
-from ..dataset.slice import IndexSlicer
-from ..model_training.trainer import DLTrainer, MLTrainer
-from ..utils.logging import set_stdout_level, verbosity_to_loglevel
-from .utils import timing_decorator
+from tsururu.dataset.dataset import TSDataset
+from tsururu.dataset.pipeline import Pipeline
+from tsururu.dataset.slice import IndexSlicer
+from tsururu.model_training.trainer import DLTrainer, MLTrainer
+from tsururu.strategies.utils import timing_decorator
+from tsururu.utils.logging import set_stdout_level, verbosity_to_loglevel
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +113,9 @@ class Strategy:
 
         columns_list = [id_column_name, dataset.date_column, dataset.target_column]
 
+        if "segment_col" in dataset.data.columns:
+            columns_list += ["segment_col"]
+
         index_slicer = IndexSlicer()
         # Get dataframe with predictions only
         target_ids = index_slicer.create_idx_target(
@@ -127,6 +130,20 @@ class Strategy:
         columns_ids = index_slicer.get_cols_idx(dataset.data, columns_list)
         data = index_slicer.get_slice(dataset.data, (target_ids, columns_ids))
         pred_df = pd.DataFrame(np.vstack(data), columns=columns_list)
+
+        if "segment_col" in columns_list:
+            pred_df = (
+                pred_df.groupby("segment_col")
+                .apply(lambda x: x.iloc[:horizon])
+                .reset_index(drop=True)
+            )
+            pred_df = pred_df[[id_column_name, dataset.date_column, dataset.target_column]]
+        else:
+            pred_df = (
+                pred_df.groupby(id_column_name)
+                .apply(lambda x: x.iloc[:horizon])
+                .reset_index(drop=True)
+            )
 
         return pred_df
 
@@ -184,7 +201,7 @@ class Strategy:
 
             yield (full_train, full_test)
 
-    def make_step(self, dataset: TSDataset):
+    def make_step(self, step: int, dataset: TSDataset, inverse_transform: bool) -> TSDataset:
         """Make a step in the strategy.
 
         Args:
@@ -255,7 +272,9 @@ class Strategy:
         return (ids_list, test_list, preds_list, fit_time_list, forecast_time_list)
 
     @timing_decorator
-    def predict(self, dataset: TSDataset, test_all: bool = False) -> np.ndarray:
+    def predict(
+        self, dataset: TSDataset, test_all: bool = False, inverse_transform: bool = True
+    ) -> np.ndarray:
         """Predicts the target values for the given dataset.
 
         Args:

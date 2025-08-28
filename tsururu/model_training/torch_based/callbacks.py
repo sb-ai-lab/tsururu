@@ -6,10 +6,9 @@ import os
 from pathlib import Path
 from typing import Optional
 
-try:
-    import torch
-except ImportError:
-    torch = None
+from tsururu.utils.optional_imports import OptionalImport
+
+torch = OptionalImport("torch")
 
 
 logger = logging.getLogger(__name__)
@@ -255,7 +254,7 @@ class ES_Checkpoints_Manager(Callback):
             if self.verbose:
                 logger.info(f"Last epoch model saved to {model_path}")
                 logger.info(f"Last epoch optimizer saved to {opt_path}")
-                
+
                 if scheduler_state:
                     logger.info(f"Last epoch scheduler saved to {sch_path}")
 
