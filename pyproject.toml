@@ -35,6 +35,13 @@ dependencies = [
 catboost = ["catboost>=1.2.0"]
 pyboost = ["py-boost"]
 torch = ["torch>=1.9.0", "einops", "transformers"]
+all = [
+  "catboost>=1.2.0",
+  "py-boost",
+  "torch>=1.9.0",
+  "einops",
+  "transformers"
+]
 
 [project.urls]
 Homepage = "https://github.com/sb-ai-lab/tsururu"
