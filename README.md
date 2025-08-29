@@ -61,6 +61,7 @@ pip install -U tsururu[catboost]
 * [Tutorial_3_Transformers_and_Pipeline](https://github.com/sb-ai-lab/tsururu/blob/main/examples/Tutorial_3_Transformers_and_Pipeline.ipynb) provides a description of available data preprocessing techniques.
 * [Tutorial_4_Neural_Networks](https://github.com/sb-ai-lab/tsururu/blob/main/examples/Tutorial_4_Neural_Networks.ipynb) demonstrates working with neural networks.
 * [Example_1_All_configurations](https://github.com/sb-ai-lab/tsururu/blob/main/examples/Example_1_All_configurations.py) script for benchmarking multiple configurations from available strategies, models and preprocessing methods on a dataset.
+* [Demo_1_Tourism_Monthly_Dataset](https://www.kaggle.com/code/elineii/tsururu-demo).
 
 <a name="description"></a>
 ## Multi-series prediction strategies:
