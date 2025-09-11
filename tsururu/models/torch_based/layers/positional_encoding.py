@@ -78,9 +78,7 @@ def Coord2dPosEncoding(
     return cpe
 
 
-def Coord1dPosEncoding(
-    q_len: int, exponential: bool = False, normalize: bool = True
-) -> "torch.Tensor":
+def Coord1dPosEncoding(q_len: int, exponential: bool = False, normalize: bool = True) -> "torch.Tensor":
     """Generate 1D coordinate positional encoding.
 
     Args:
