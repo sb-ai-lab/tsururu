@@ -1,6 +1,8 @@
 from copy import deepcopy
 from typing import Union
 
+import numpy as np
+
 from tsururu.dataset.dataset import TSDataset
 from tsururu.dataset.pipeline import Pipeline
 from tsururu.dataset.slice import IndexSlicer
@@ -56,6 +58,8 @@ class DirectStrategy(RecursiveStrategy):
     def fit(
         self,
         dataset: TSDataset,
+        subsampling_rate: float = 1.0,
+        subsampling_seed: int = 42,
     ) -> "DirectStrategy":
         """Fits the direct strategy to the given dataset.
 
@@ -91,6 +95,15 @@ class DirectStrategy(RecursiveStrategy):
                 date_column=dataset.date_column,
                 delta=dataset.delta,
             )
+
+            if subsampling_rate < 1.0:
+                all_idx = np.arange(features_idx.shape[0])
+                np.random.seed(subsampling_seed)
+                sampled_idx = np.random.choice(
+                    all_idx, size=int(subsampling_rate * len(all_idx)), replace=False
+                )
+                features_idx = features_idx[sampled_idx]
+                target_idx = target_idx[sampled_idx]
 
             data = self.pipeline.create_data_dict_for_pipeline(dataset, features_idx, target_idx)
             data = self.pipeline.fit_transform(data, self.strategy_name)
