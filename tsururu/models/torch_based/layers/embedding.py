@@ -7,9 +7,10 @@ from tsururu.utils.optional_imports import OptionalImport
 
 torch = OptionalImport("torch")
 nn = OptionalImport("torch.nn")
+Module = OptionalImport("torch.nn.Module")
 
 
-class TokenEmbedding(nn.Module):
+class TokenEmbedding(Module):
     """Token embedding layer using 1D convolution.
 
     Args:
@@ -33,7 +34,7 @@ class TokenEmbedding(nn.Module):
             if isinstance(m, nn.Conv1d):
                 nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="leaky_relu")
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass of the token embedding.
 
         Args:
@@ -47,7 +48,7 @@ class TokenEmbedding(nn.Module):
         return x
 
 
-class PositionalEmbedding(nn.Module):
+class PositionalEmbedding(Module):
     """Positional encoding using sine and cosine functions.
 
     Args:
@@ -71,7 +72,7 @@ class PositionalEmbedding(nn.Module):
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass of the positional embedding.
 
         Args:
@@ -84,7 +85,7 @@ class PositionalEmbedding(nn.Module):
         return self.pe[:, : x.size(1)]
 
 
-class FixedEmbedding(nn.Module):
+class FixedEmbedding(Module):
     """Fixed embedding layer using precomputed sine and cosine values.
 
     Args:
@@ -108,7 +109,7 @@ class FixedEmbedding(nn.Module):
         self.emb = nn.Embedding(c_in, d_model)
         self.emb.weight = nn.Parameter(w, requires_grad=False)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass of the fixed embedding.
 
         Args:
@@ -121,7 +122,7 @@ class FixedEmbedding(nn.Module):
         return self.emb(x).detach()
 
 
-class TemporalEmbedding(nn.Module):
+class TemporalEmbedding(Module):
     """Temporal embedding layer for time-related features.
 
     Args:
@@ -148,7 +149,7 @@ class TemporalEmbedding(nn.Module):
         self.day_embed = Embed(day_size, d_model)
         self.month_embed = Embed(month_size, d_model)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass of the temporal embedding.
 
         Args:
@@ -168,7 +169,7 @@ class TemporalEmbedding(nn.Module):
         return hour_x + weekday_x + day_x + month_x + minute_x
 
 
-class TimeFeatureEmbedding(nn.Module):
+class TimeFeatureEmbedding(Module):
     """Time feature embedding layer using linear transformation.
 
     Args:
@@ -181,7 +182,7 @@ class TimeFeatureEmbedding(nn.Module):
         super(TimeFeatureEmbedding, self).__init__()
         self.embed = nn.Linear(d_inp, d_model, bias=False)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass of the time feature embedding.
 
         Args:
@@ -194,7 +195,7 @@ class TimeFeatureEmbedding(nn.Module):
         return self.embed(x)
 
 
-class Embedding(nn.Module):
+class Embedding(Module):
     """Data embedding layer combining token, positional, and temporal embeddings.
 
     Args:
@@ -242,7 +243,7 @@ class Embedding(nn.Module):
 
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, x: torch.Tensor, x_mark: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor", x_mark: Optional["torch.Tensor"] = None) -> "torch.Tensor":
         """Forward pass of the data embedding.
 
         Args:

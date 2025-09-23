@@ -12,7 +12,6 @@ from tsururu.utils.optional_imports import OptionalImport
 torch = OptionalImport("torch")
 nn = OptionalImport("torch.nn")
 F = OptionalImport("torch.nn.functional")
-Tensor = OptionalImport("torch.Tensor")
 Module = OptionalImport("torch.nn.Module")
 
 
@@ -82,7 +81,7 @@ class PatchTST_backbone(Module):
         act: str = "gelu",
         key_padding_mask: Union[bool, str] = "auto",
         padding_var: Optional[int] = None,
-        attn_mask: Optional[Tensor] = None,
+        attn_mask: Optional["torch.Tensor"] = None,
         res_attention: bool = True,
         pre_norm: bool = False,
         store_attn: bool = False,
@@ -166,7 +165,7 @@ class PatchTST_backbone(Module):
                 head_dropout=head_dropout,
             )
 
-    def forward(self, z: Tensor) -> Tensor:
+    def forward(self, z: "torch.Tensor") -> "torch.Tensor":
         """Forward pass of the PatchTST backbone.
 
         Args:
@@ -330,7 +329,7 @@ class TSTiEncoder(Module):
         store_attn: bool = False,
         key_padding_mask: Union[bool, str] = "auto",
         padding_var: Optional[int] = None,
-        attn_mask: Optional[Tensor] = None,
+        attn_mask: Optional["torch.Tensor"] = None,
         res_attention: bool = True,
         pre_norm: bool = False,
         pe: str = "zeros",
@@ -383,7 +382,7 @@ class TSTiEncoder(Module):
             store_attn=store_attn,
         )
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass of the TSTi encoder.
 
         Args:
@@ -423,7 +422,7 @@ class TSTiEncoder(Module):
         return x
 
     @staticmethod
-    def _reorganize_tensor(x: Tensor, n_vars: int) -> Tensor:
+    def _reorganize_tensor(x: "torch.Tensor", n_vars: int) -> "torch.Tensor":
         """Reorganizes input tensor to pair time series channels with exogenous features.
 
         Args:
@@ -520,10 +519,10 @@ class TSTEncoder(Module):
 
     def forward(
         self,
-        src: Tensor,
-        key_padding_mask: Optional[Tensor] = None,
-        attn_mask: Optional[Tensor] = None,
-    ) -> Tensor:
+        src: "torch.Tensor",
+        key_padding_mask: Optional["torch.Tensor"] = None,
+        attn_mask: Optional["torch.Tensor"] = None,
+    ) -> "torch.Tensor":
         """Forward pass of the TST encoder.
 
         Args:
@@ -639,11 +638,11 @@ class TSTEncoderLayer(Module):
 
     def forward(
         self,
-        src: Tensor,
-        prev: Optional[Tensor] = None,
-        key_padding_mask: Optional[Tensor] = None,
-        attn_mask: Optional[Tensor] = None,
-    ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+        src: "torch.Tensor",
+        prev: Optional["torch.Tensor"] = None,
+        key_padding_mask: Optional["torch.Tensor"] = None,
+        attn_mask: Optional["torch.Tensor"] = None,
+    ) -> Union["torch.Tensor", Tuple["torch.Tensor", "torch.Tensor"]]:
         """Forward pass of the TST encoder layer.
 
         Args:
@@ -747,13 +746,13 @@ class _MultiheadAttention(Module):
 
     def forward(
         self,
-        Q: Tensor,
-        K: Optional[Tensor] = None,
-        V: Optional[Tensor] = None,
-        prev: Optional[Tensor] = None,
-        key_padding_mask: Optional[Tensor] = None,
-        attn_mask: Optional[Tensor] = None,
-    ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+        Q: "torch.Tensor",
+        K: Optional["torch.Tensor"] = None,
+        V: Optional["torch.Tensor"] = None,
+        prev: Optional["torch.Tensor"] = None,
+        key_padding_mask: Optional["torch.Tensor"] = None,
+        attn_mask: Optional["torch.Tensor"] = None,
+    ) -> Union["torch.Tensor", Tuple["torch.Tensor", "torch.Tensor"]]:
         """Forward pass of the multi-head attention layer.
 
         Args:
@@ -845,13 +844,13 @@ class _ScaledDotProductAttention(Module):
 
     def forward(
         self,
-        q: Tensor,
-        k: Tensor,
-        v: Tensor,
-        prev: Optional[Tensor] = None,
-        key_padding_mask: Optional[Tensor] = None,
-        attn_mask: Optional[Tensor] = None,
-    ) -> Union[Tensor, Tuple[Tensor, Tensor, Tensor]]:
+        q: "torch.Tensor",
+        k: "torch.Tensor",
+        v: "torch.Tensor",
+        prev: Optional["torch.Tensor"] = None,
+        key_padding_mask: Optional["torch.Tensor"] = None,
+        attn_mask: Optional["torch.Tensor"] = None,
+    ) -> Union["torch.Tensor", Tuple["torch.Tensor", "torch.Tensor", "torch.Tensor"]]:
         """Forward pass of the scaled dot-product attention.
 
         Args:
