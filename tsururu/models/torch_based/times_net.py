@@ -14,6 +14,7 @@ torch = OptionalImport("torch")
 nn = OptionalImport("torch.nn")
 F = OptionalImport("torch.nn.functional")
 rearrange = OptionalImport("einops.rearrange")
+Module = OptionalImport("torch.nn.Module")
 
 
 def FFT_for_Period(x: "torch.Tensor", k: int = 2) -> Tuple[np.ndarray, "torch.Tensor"]:
@@ -69,7 +70,7 @@ class TimesBlock(Module):
             Inception_Block_V1(d_ff, d_model, num_kernels=num_kernels),
         )
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass for the TimesBlock module.
 
         Args:
