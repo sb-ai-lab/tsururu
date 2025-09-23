@@ -258,6 +258,10 @@ class Strategy:
             current_test = dataset.data.iloc[test_idx.reshape(-1)]
             current_dataset = TSDataset(current_train, dataset.columns_params, dataset.delta)
 
+            if self.is_fitted:
+                self.is_fitted = False
+                self.trainers = []
+
             fit_time, _ = self.fit(current_dataset)
             forecast_time, current_pred = self.predict(current_dataset)
 
