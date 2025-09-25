@@ -33,10 +33,10 @@ def adjust_features_groups(features_groups: Dict[str, int], num_lags: int) -> Di
 
 
 def slice_features(
-    X: torch.Tensor,
+    X: "torch.Tensor",
     feature_list: List[str],
     features_groups_corrected,
-) -> torch.Tensor:
+) -> "torch.Tensor":
     """Slice the input tensor X based on the corrected feature groups.
 
     Args:
@@ -88,11 +88,11 @@ def slice_features(
 
 
 def slice_features_4d(
-    X: torch.Tensor,
+    X: "torch.Tensor",
     features_list: List[str],
     features_groups_corrected,
     num_series,
-) -> torch.Tensor:
+) -> "torch.Tensor":
     """Slice the input tensor X based on the corrected feature groups and reshape it to 4D."""
     groups_order: List[str] = [
         "series",

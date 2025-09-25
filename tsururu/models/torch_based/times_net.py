@@ -14,9 +14,10 @@ torch = OptionalImport("torch")
 nn = OptionalImport("torch.nn")
 F = OptionalImport("torch.nn.functional")
 rearrange = OptionalImport("einops.rearrange")
+Module = OptionalImport("torch.nn.Module")
 
 
-def FFT_for_Period(x: torch.Tensor, k: int = 2) -> Tuple[np.ndarray, torch.Tensor]:
+def FFT_for_Period(x: "torch.Tensor", k: int = 2) -> Tuple[np.ndarray, "torch.Tensor"]:
     """Compute the FFT for the input tensor and find the top-k periods.
 
     Args:
@@ -41,7 +42,7 @@ def FFT_for_Period(x: torch.Tensor, k: int = 2) -> Tuple[np.ndarray, torch.Tenso
     return period, abs(xf).mean(-1)[:, top_list]
 
 
-class TimesBlock(nn.Module):
+class TimesBlock(Module):
     """TimesBlock module for time series forecasting.
 
     Args:
@@ -69,7 +70,7 @@ class TimesBlock(nn.Module):
             Inception_Block_V1(d_ff, d_model, num_kernels=num_kernels),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass for the TimesBlock module.
 
         Args:

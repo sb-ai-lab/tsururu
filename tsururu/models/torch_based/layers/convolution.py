@@ -4,9 +4,10 @@ from tsururu.utils.optional_imports import OptionalImport
 
 torch = OptionalImport("torch")
 nn = OptionalImport("torch.nn")
+Module = OptionalImport("torch.nn.Module")
 
 
-class Inception_Block_V1(nn.Module):
+class Inception_Block_V1(Module):
     """Inception Block Version 1.
 
     Args:
@@ -43,7 +44,7 @@ class Inception_Block_V1(nn.Module):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """Forward pass of the Inception block.
 
         Args:
