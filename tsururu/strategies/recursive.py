@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Union
+from typing import Union, Optional
 
 import pandas as pd
 
@@ -205,7 +205,7 @@ class RecursiveStrategy(Strategy):
     def predict(
         self,
         dataset: TSDataset,
-        horizon: int | None = None,
+        horizon: Optional[int] = None,
         test_all: bool = False,
         inverse_transform: bool = True,
     ) -> pd.DataFrame:
