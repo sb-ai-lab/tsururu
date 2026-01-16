@@ -151,7 +151,7 @@ def main():
     parser.add_argument(
         "--df_path",
         type=Path,
-        default=Path("datasets/global/simulated_data_to_check.csv"),
+        default=Path("../datasets/global/simulated_data_to_check.csv"),
         help="Path to the dataframe CSV file.",
     )
     parser.add_argument(
@@ -357,7 +357,7 @@ def main():
                     "transform_target": transform_target,
                     "regime": transformer_regime,
                 },
-                "MissingValueImputer": {
+                "MissingValuesImputer": {
                     "constant_value": 0,
                     "transform_features": transform_features,
                     "transform_target": transform_target,
@@ -382,7 +382,7 @@ def main():
                 "seasonalities": ["doy", "m", "wd", "hour"],
                 "from_target_date": True,
             },
-            "MissingValueImputer": {
+            "MissingValuesImputer": {
                 "constant_value": 0,
                 "transform_features": True,
                 "transform_target": False,
