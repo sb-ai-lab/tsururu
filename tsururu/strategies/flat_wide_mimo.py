@@ -1,5 +1,9 @@
 from typing import Union
 
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 from tsururu.dataset.pipeline import Pipeline
 from tsururu.model_training.trainer import DLTrainer, MLTrainer
 from tsururu.strategies.mimo import MIMOStrategy
@@ -36,3 +40,79 @@ class FlatWideMIMOStrategy(MIMOStrategy):
     ):
         super().__init__(horizon, history, trainer, pipeline, step)
         self.strategy_name = "FlatWideMIMOStrategy"
+
+    def get_feature_importance(
+        self,
+        top_k=15,
+        aggregate_by_folds=True,
+        round_to=2,
+        return_explainer=False,
+    ):
+        trainer = self.trainers[0]
+
+        feature_name = trainer.feature_name
+
+        trainer.aggregate_feature_importance(feature_name, aggregate_by_folds)
+
+        keys = [
+            k
+            for k in trainer.shap_values["train"].keys()
+            if k not in ("feature_name", "test")
+        ]
+        n = len(keys)
+
+        if not aggregate_by_folds:
+            _, axes = plt.subplots(n, 1, squeeze=False)
+            for i, key in enumerate(keys):
+                ax = axes[i, 0]
+
+                data = trainer.shap_values["train"][key]
+                mean_imps = data.mean(axis=0)
+                top_idx = np.argsort(mean_imps)[-top_k:]
+                sorted_imps = data[:, top_idx]
+                sorted_features = trainer.shap_values["train"]["feature_name"][top_idx]
+
+                bp = ax.boxplot(
+                    sorted_imps, orientation="horizontal", patch_artist=True
+                )
+                for _, patch in enumerate(bp["boxes"]):
+                    patch.set_facecolor("lightblue")
+
+                ax.set_title(
+                    f"Shap value features on Fold {i+1}", fontsize=14, fontweight="bold"
+                )
+                ax.set_yticklabels(sorted_features)
+                plt.gcf().set_size_inches(12, 5 * top_k)
+                ax.set_ylabel("shap_value")
+                ax.grid(True)
+            plt.tight_layout()
+            plt.show()
+        else:
+            top_idx = np.argsort(
+                trainer.shap_values["train"]["feature_importance_aggregated"]
+            )[-top_k:]
+            sorted_imps = trainer.shap_values["train"]["feature_importance_aggregated"][
+                top_idx
+            ]
+            sorted_features = trainer.shap_values["train"]["feature_name"][top_idx]
+
+            if round_to == 0:
+                sorted_imps = sorted_imps.astype(int)
+            else:
+                sorted_imps = np.round(sorted_imps, round_to)
+
+            bar_conatiner = plt.barh(width=sorted_imps, y=sorted_features)
+            plt.bar_label(bar_conatiner, sorted_imps, color="red")
+            plt.gcf().set_size_inches(5, top_k / 6 + 1)
+            sns.despine()
+            plt.title(f"Aggregated shap feature importance")
+            plt.show()
+
+        if return_explainer:
+            return trainer.shap_explainer
+
+    def get_train_shap(self):
+        return self.trainers[0].shap_values["train"]
+
+    def get_test_shap(self):
+        return self.trainers[0].shap_values["test"]

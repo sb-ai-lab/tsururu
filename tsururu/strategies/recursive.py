@@ -2,6 +2,9 @@ from copy import deepcopy
 from typing import Union
 
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from tsururu.dataset.dataset import TSDataset
 from tsururu.dataset.pipeline import Pipeline
@@ -88,8 +91,22 @@ class RecursiveStrategy(Strategy):
             delta=dataset.delta,
         )
 
-        data = self.pipeline.create_data_dict_for_pipeline(dataset, features_idx, target_idx)
+        data = self.pipeline.create_data_dict_for_pipeline(
+            dataset, features_idx, target_idx
+        )
         data = self.pipeline.fit_transform(data, self.strategy_name)
+
+        # temp code
+        print("raw_ts_X_for_training: ", data["raw_ts_X"].shape)
+
+        # X, y = self.pipeline.generate(data)
+        # print("X: ", X.shape)
+        # display(X)
+        # display(pd.DataFrame(X, columns=self.pipeline.output_features).head(15))
+        # print(self.pipeline.output_features)
+        # display(data["X"].head())
+
+        # print('FAFAF')
 
         val_dataset = self.trainer.validation_params.get("validation_data")
 
@@ -183,7 +200,9 @@ class RecursiveStrategy(Strategy):
             delta=dataset.delta,
         )[:, self.model_horizon * step : self.model_horizon * (step + 1)]
 
-        data = self.pipeline.create_data_dict_for_pipeline(dataset, test_idx, target_idx)
+        data = self.pipeline.create_data_dict_for_pipeline(
+            dataset, test_idx, target_idx
+        )
         data = self.pipeline.transform(data)
 
         pred = self.trainers[0].predict(data, self.pipeline)
@@ -197,7 +216,9 @@ class RecursiveStrategy(Strategy):
 
         target_idx = target_idx[:, : pred.shape[1]]
 
-        dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
+        dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(
+            -1
+        )
 
         return dataset
 
@@ -273,7 +294,9 @@ class RecursiveStrategy(Strategy):
             if inverse_transform:
                 pred = self.pipeline.inverse_transform_y(pred)
 
-            new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = pred.reshape(-1)
+            new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = (
+                pred.reshape(-1)
+            )
 
         else:
             for step in range(intrinsic_horizon // self.model_horizon):
@@ -284,3 +307,82 @@ class RecursiveStrategy(Strategy):
         # Get dataframe with predictions only
         pred_df = self._make_preds_df(new_dataset, intrinsic_horizon, self.history)
         return pred_df
+
+    def get_feature_importance(
+        self,
+        top_k=15,
+        aggregate_by_folds=True,
+        show_plots=True,
+        round_to=2,
+        return_explainer=False,
+    ):
+        if not show_plots:
+            return self.shap_explainer
+
+        trainer = self.trainers[0]
+        feature_name = trainer.feature_name
+
+        trainer.aggregate_feature_importance(feature_name, aggregate_by_folds)
+
+        keys = [
+            k
+            for k in trainer.shap_values["train"].keys()
+            if k not in ("feature_name", "test")
+        ]
+        n = len(keys)
+
+        if not aggregate_by_folds:
+            _, axes = plt.subplots(n, 1, squeeze=False)
+            for i, key in enumerate(keys):
+                ax = axes[i, 0]
+
+                data = trainer.shap_values["train"][key]
+                mean_imps = data.mean(axis=0)
+                top_idx = np.argsort(mean_imps)[-top_k:]
+                sorted_imps = data[:, top_idx]
+                sorted_features = trainer.shap_values["train"]["feature_name"][top_idx]
+
+                bp = ax.boxplot(
+                    sorted_imps, orientation="horizontal", patch_artist=True
+                )
+                for _, patch in enumerate(bp["boxes"]):
+                    patch.set_facecolor("lightblue")
+
+                ax.set_title(
+                    f"Shap value features on Fold {i+1}", fontsize=14, fontweight="bold"
+                )
+                ax.set_yticklabels(sorted_features)
+                plt.gcf().set_size_inches(12, 5 * top_k)
+                ax.set_ylabel("shap_value")
+                ax.grid(True)
+            plt.tight_layout()
+            plt.show()
+        else:
+            top_idx = np.argsort(
+                trainer.shap_values["train"]["feature_importance_aggregated"]
+            )[-top_k:]
+            sorted_imps = trainer.shap_values["train"]["feature_importance_aggregated"][
+                top_idx
+            ]
+            sorted_features = trainer.shap_values["train"]["feature_name"][top_idx]
+
+            if round_to == 0:
+                sorted_imps = sorted_imps.astype(int)
+            else:
+                sorted_imps = np.round(sorted_imps, round_to)
+
+            bar_conatiner = plt.barh(width=sorted_imps, y=sorted_features)
+            plt.bar_label(bar_conatiner, sorted_imps, color="red")
+            plt.gcf().set_size_inches(5, top_k / 6 + 1)
+            sns.despine()
+            plt.title(f"Aggregated shap feature importance")
+            plt.show()
+
+        if return_explainer:
+            return trainer.shap_explainer
+
+    def get_train_shap(self):
+        return self.trainers[0].shap_values["train"]
+
+    def get_test_shap(self):
+        return self.trainers[0].shap_values["test"]
