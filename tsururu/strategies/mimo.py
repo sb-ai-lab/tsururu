@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Any
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -51,17 +51,32 @@ class MIMOStrategy(RecursiveStrategy):
         self,
         top_k=15,
         aggregate_by_folds=True,
-        show_plots=True,
         round_to=2,
         return_explainer=False,
-    ):
+    ) -> dict | tuple[dict, Any] | None:
+        """Generates and visualizes feature importance using SHAP values from trainer folds.
+
+        Args:
+            top_k (int, default=15): number of top features to display in plots.
+            aggregate_by_folds (bool, default=True): if True, aggregates importance across folds into single bar plot.
+                If False, creates individual boxplots for each fold.
+            show_plots (bool, default=True): if False, skips plotting and returns explainer immediately.
+            round_to (int, default=2): decimal places to round aggregated importance values (0 = integer).
+            return_explainer (bool, default=False): if True, returns (importance_dict, explainer) tuple instead of just dict.
+
+        Returns:
+            dict: feature importance dictionary if `return_explainer=False` (default).
+            tuple[dict, Any]: (importance_dict, shap_explainer) if `return_explainer=True`.
+            None: shap_explainer if `show_plots=False`.
+        """
         arr_explainers = []
         arr_train_shap = []
 
         for trainer_idx, trainer in enumerate(self.trainers):
             feature_name = trainer.feature_name
             trainer.aggregate_feature_importance(feature_name, aggregate_by_folds)
-            keys = [k for k in trainer.shap_values.keys() if k != "feature_name"]
+
+            keys = [k for k in trainer.shap_values['train'].keys() if k != "feature_name"]
             n = len(keys)
 
             arr_explainers.append(trainer.shap_explainer)
@@ -71,11 +86,11 @@ class MIMOStrategy(RecursiveStrategy):
                 for i, key in enumerate(keys):
                     ax = axes[i, 0]
 
-                    data = trainer.shap_values[key]
+                    data = trainer.shap_values['train'][key]
                     mean_imps = data.mean(axis=(0, 2))
                     top_idx = np.argsort(mean_imps)[-top_k:]
                     sorted_imps = data[:, top_idx, 0]
-                    sorted_features = trainer.shap_values["feature_name"][top_idx]
+                    sorted_features = trainer.shap_values['train']["feature_name"][top_idx]
 
                     bp = ax.boxplot(
                         sorted_imps, orientation="horizontal", patch_artist=True
@@ -119,9 +134,7 @@ class MIMOStrategy(RecursiveStrategy):
                 plt.show()
 
             train_shap = {
-                "shap_values": trainer.shap_values["train"][
-                    "feature_importance_aggregated"
-                ],
+                "shap_values": trainer.shap_values["train"],
                 "feature_names": trainer.shap_values["train"]["feature_name"],
             }
             arr_train_shap.append(train_shap)
@@ -130,11 +143,25 @@ class MIMOStrategy(RecursiveStrategy):
         if return_explainer:
             return arr_explainers
 
-    def get_train_shap(self):
+    def get_train_shap(self) -> dict:
+        """Returns SHAP values computed on the training/validation folds.
+
+        Contains feature-level SHAP values for each fold, aggregated importance, and feature names.
+
+        Returns:
+            dict: training SHAP values dictionary with keys like fold indices, 'feature_importance_aggregated', 
+                'feature_name', containing numpy arrays of SHAP values and metadata.
+        """
         return self.arr_train_shap
 
-    def get_test_shap(self):
-        """Returns test SHAP values if available."""
+    def get_test_shap(self) -> dict:
+        """Returns SHAP values computed on the test folds.
+
+        Contains feature-level SHAP values for test set predictions.
+
+        Returns:
+            dict: test SHAP values dictionary containing numpy arrays of SHAP values per feature.
+        """
         arr_test_shap = []
 
         for trainer in self.trainers:

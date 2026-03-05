@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Union
+from typing import Union, Any
 
 import pandas as pd
 import numpy as np
@@ -315,7 +315,22 @@ class RecursiveStrategy(Strategy):
         show_plots=True,
         round_to=2,
         return_explainer=False,
-    ):
+    ) -> dict | tuple[dict, Any] | None:
+        """Generates and visualizes feature importance using SHAP values from trainer folds.
+
+        Args:
+            top_k (int, default=15): number of top features to display in plots.
+            aggregate_by_folds (bool, default=True): if True, aggregates importance across folds into single bar plot.
+                If False, creates individual boxplots for each fold.
+            show_plots (bool, default=True): if False, skips plotting and returns explainer immediately.
+            round_to (int, default=2): decimal places to round aggregated importance values (0 = integer).
+            return_explainer (bool, default=False): if True, returns (importance_dict, explainer) tuple instead of just dict.
+
+        Returns:
+            dict: feature importance dictionary if `return_explainer=False` (default).
+            tuple[dict, Any]: (importance_dict, shap_explainer) if `return_explainer=True`.
+            None: shap_explainer if `show_plots=False`.
+        """
         if not show_plots:
             return self.shap_explainer
 
@@ -381,8 +396,23 @@ class RecursiveStrategy(Strategy):
         if return_explainer:
             return trainer.shap_explainer
 
-    def get_train_shap(self):
+    def get_train_shap(self) -> dict:
+        """Returns SHAP values computed on the training/validation folds.
+
+        Contains feature-level SHAP values for each fold, aggregated importance, and feature names.
+
+        Returns:
+            dict: training SHAP values dictionary with keys like fold indices, 'feature_importance_aggregated', 
+                'feature_name', containing numpy arrays of SHAP values and metadata.
+        """
         return self.trainers[0].shap_values["train"]
 
-    def get_test_shap(self):
+    def get_test_shap(self) -> dict:
+        """Returns SHAP values computed on the test folds.
+
+        Contains feature-level SHAP values for test set predictions.
+
+        Returns:
+            dict: test SHAP values dictionary containing numpy arrays of SHAP values per feature.
+        """
         return self.trainers[0].shap_values["test"]
