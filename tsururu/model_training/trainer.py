@@ -77,7 +77,7 @@ class MLTrainer:
             feature_names: Feature names.
 
         Returns:
-            np.ndarray: Feature importance values, or None in case of an error.
+            np.ndarray: Feature importance values.
         """
         explainer = shap.TreeExplainer(model.model, feature_names=feature_names)
         self.shap_explainer = explainer(X_val)
@@ -85,7 +85,7 @@ class MLTrainer:
         return shap_values
 
     def aggregate_feature_importance(
-        self, feature_names: List[str], is_aggregate: bool
+        self, feature_names: List[str], is_aggregate: bool = True
     ) -> None:
         """Aggregates or stores feature importances across all models.
 
@@ -103,7 +103,7 @@ class MLTrainer:
                     f"model_{i}_feature_importance"
                 ] = feature_importance
             self.shap_values["train"]["feature_name"] = feature_names
-        elif is_aggregate:
+        else:
             # perform averaging
             max_rows = min(arr.shape[0] for arr in feature_importances_per_model)
             padded_arrays = [
@@ -116,98 +116,19 @@ class MLTrainer:
                 "feature_importance_aggregated": mean_values,
                 "feature_name": feature_names,
             }
-        else:
-            logger.warning("Недопустимный формат is_aggregate")
-
-    def get_feature_importance(
-        self, show_plots=True, aggregate_by_folds=True, top_k=20, round_to=2
-    ) -> Tuple[Optional[Any], Optional[List[str]]]:
-        """
-        Creates feature importance plots and returns the results.
-
-        Args:
-            None (uses self.shap_values and self.feature_explainer_params).
-
-        Returns:
-            SHAP explainer or shap_values.
-        """
-
-        if not show_plots:
-            return self.shap_explainer
-
-        is_aggregate = aggregate_by_folds
-        feature_name = self.feature_name
-
-        self.aggregate_feature_importance(feature_name, is_aggregate)
-
-        if not self.shap_values:
-            logger.warning("shap_values not initialized. Call fit().")
-            return None
-
-        keys = [k for k in self.shap_values.keys() if k != "feature_name"]
-        n = len(keys)
-
-        if not is_aggregate:
-            _, axes = plt.subplots(n, 1, squeeze=False)
-            # _, axes = plt.subplots(1, n, squeeze=False)
-            for i, key in enumerate(keys):
-                ax = axes[i, 0]
-
-                data = self.shap_values[key]
-                mean_imps = data.mean(axis=(0, 2))
-                top_idx = np.argsort(mean_imps)[-top_k:]
-                sorted_imps = data[:, top_idx, 0]
-                sorted_features = self.shap_values["feature_name"][top_idx]
-
-                bp = ax.boxplot(
-                    sorted_imps, orientation="horizontal", patch_artist=True
-                )
-                for _, patch in enumerate(bp["boxes"]):
-                    patch.set_facecolor("lightblue")
-
-                ax.set_title(
-                    f"Shap value features on Fold {i+1}", fontsize=14, fontweight="bold"
-                )
-                ax.set_yticklabels(sorted_features)
-                plt.gcf().set_size_inches(12, 5 * top_k)
-                ax.set_ylabel("shap_value")
-                ax.grid(True)
-            plt.tight_layout()
-            plt.show()
-        else:
-            top_idx = np.argsort(self.shap_values["feature_importance_aggregated"])[
-                -top_k:
-            ]
-            sorted_imps = self.shap_values["feature_importance_aggregated"][top_idx]
-            sorted_features = self.shap_values["feature_name"][top_idx]
-
-            if round_to == 0:
-                sorted_imps = sorted_imps.astype(int)
-            else:
-                sorted_imps = np.round(sorted_imps, round_to)
-
-            bar_conatiner = plt.barh(width=sorted_imps, y=sorted_features)
-            plt.bar_label(bar_conatiner, sorted_imps, color="red")
-            plt.gcf().set_size_inches(5, top_k / 6 + 1)
-            sns.despine()
-            plt.title(f"Aggregated shap feature importance")
-            plt.show()
-
-        return self.shap_explainer
 
     def compute_test_importance_value(
         self, models: List[Estimator], X_test: np.ndarray, feature_names: List[str]
-    ) -> None:
+    ) -> Dict:
         """
         Computes aggregated feature importance on the test data.
 
         Args:
-            method: Importance calculation method.
             models: List of trained models.
             X_test: Test data.
             feature_names: Feature names.
 
-        Stores the result in self.shap_values['test'].
+        Stores the result in dict.
         """
         importances_per_model = []
         for model in models:
@@ -282,6 +203,7 @@ class MLTrainer:
             self.scores.append(model.score)
             logger.info(f"Fold {fold_i}. Score: {model.score}")
 
+            # Calculate shap value
             if return_importance:
                 feature_imports = self._calculate_feature_imports(
                     model, X_val, self.feature_name

@@ -1,4 +1,4 @@
-from typing import Union, Any
+from typing import Union, Any, Dict, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -53,21 +53,23 @@ class MIMOStrategy(RecursiveStrategy):
         aggregate_by_folds=True,
         round_to=2,
         return_explainer=False,
-    ) -> dict | tuple[dict, Any] | None:
-        """Generates and visualizes feature importance using SHAP values from trainer folds.
+    ) -> Dict | Tuple[Dict, Any] | None:
+        """Generates and visualizes feature importance based on SHAP values from training folds.
 
         Args:
-            top_k (int, default=15): number of top features to display in plots.
-            aggregate_by_folds (bool, default=True): if True, aggregates importance across folds into single bar plot.
-                If False, creates individual boxplots for each fold.
-            show_plots (bool, default=True): if False, skips plotting and returns explainer immediately.
-            round_to (int, default=2): decimal places to round aggregated importance values (0 = integer).
-            return_explainer (bool, default=False): if True, returns (importance_dict, explainer) tuple instead of just dict.
+            top_k (int, default=15): number of top features to display in the plots.
+            aggregate_by_folds (bool, default=True):
+                if True — aggregates importance across folds into a single bar plot.
+                if False — creates separate boxplots for each fold.
+            round_to (int, default=2): number of decimal places for rounding
+                aggregated importance values (0 = integers).
+            return_explainer (bool, default=False):
+                if True, returns a tuple (importance_dict, shap_explainer) instead of just the dictionary.
 
         Returns:
-            dict: feature importance dictionary if `return_explainer=False` (default).
-            tuple[dict, Any]: (importance_dict, shap_explainer) if `return_explainer=True`.
-            None: shap_explainer if `show_plots=False`.
+            dict: dictionary with feature importance (default).
+            tuple[dict, Any]: (importance_dict, list_of_shap_explainers) when return_explainer=True.
+            list[Any]: list of shap_explainers when aggregate_by_folds=False and return_explainer=True.
         """
         arr_explainers = []
         arr_train_shap = []
@@ -76,7 +78,9 @@ class MIMOStrategy(RecursiveStrategy):
             feature_name = trainer.feature_name
             trainer.aggregate_feature_importance(feature_name, aggregate_by_folds)
 
-            keys = [k for k in trainer.shap_values['train'].keys() if k != "feature_name"]
+            keys = [
+                k for k in trainer.shap_values["train"].keys() if k != "feature_name"
+            ]
             n = len(keys)
 
             arr_explainers.append(trainer.shap_explainer)
@@ -86,11 +90,13 @@ class MIMOStrategy(RecursiveStrategy):
                 for i, key in enumerate(keys):
                     ax = axes[i, 0]
 
-                    data = trainer.shap_values['train'][key]
+                    data = trainer.shap_values["train"][key]
                     mean_imps = data.mean(axis=(0, 2))
                     top_idx = np.argsort(mean_imps)[-top_k:]
                     sorted_imps = data[:, top_idx, 0]
-                    sorted_features = trainer.shap_values['train']["feature_name"][top_idx]
+                    sorted_features = trainer.shap_values["train"]["feature_name"][
+                        top_idx
+                    ]
 
                     bp = ax.boxplot(
                         sorted_imps, orientation="horizontal", patch_artist=True
@@ -149,7 +155,7 @@ class MIMOStrategy(RecursiveStrategy):
         Contains feature-level SHAP values for each fold, aggregated importance, and feature names.
 
         Returns:
-            dict: training SHAP values dictionary with keys like fold indices, 'feature_importance_aggregated', 
+            dict: training SHAP values dictionary with keys like fold indices, 'feature_importance_aggregated',
                 'feature_name', containing numpy arrays of SHAP values and metadata.
         """
         return self.arr_train_shap

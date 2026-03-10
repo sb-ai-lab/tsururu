@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Union, Any
+from typing import Union, Any, Dict, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -325,21 +325,23 @@ class DirectStrategy(RecursiveStrategy):
         aggregate_by_folds=True,
         round_to=2,
         return_explainer=False,
-    ) -> dict | tuple[dict, Any] | None:
-        """Generates and visualizes feature importance using SHAP values from trainer folds.
+    ) -> Dict | Tuple[Dict, Any] | None:
+        """Generates and visualizes feature importance based on SHAP values from training folds.
 
         Args:
-            top_k (int, default=15): number of top features to display in plots.
-            aggregate_by_folds (bool, default=True): if True, aggregates importance across folds into single bar plot.
-                If False, creates individual boxplots for each fold.
-            show_plots (bool, default=True): if False, skips plotting and returns explainer immediately.
-            round_to (int, default=2): decimal places to round aggregated importance values (0 = integer).
-            return_explainer (bool, default=False): if True, returns (importance_dict, explainer) tuple instead of just dict.
+            top_k (int, default=15): number of top features to display in the plots.
+            aggregate_by_folds (bool, default=True):
+                if True — aggregates importance across folds into a single bar plot.
+                if False — creates separate boxplots for each fold.
+            round_to (int, default=2): number of decimal places for rounding
+                aggregated importance values (0 = integers).
+            return_explainer (bool, default=False):
+                if True, returns a tuple (importance_dict, shap_explainer) instead of just the dictionary.
 
         Returns:
-            dict: feature importance dictionary if `return_explainer=False` (default).
-            tuple[dict, Any]: (importance_dict, shap_explainer) if `return_explainer=True`.
-            None: shap_explainer if `show_plots=False`.
+            dict: dictionary with feature importance (default).
+            tuple[dict, Any]: (importance_dict, list_of_shap_explainers) when return_explainer=True.
+            list[Any]: list of shap_explainers when aggregate_by_folds=False and return_explainer=True.
         """
         arr_explainers = []
         arr_train_shap = []
@@ -348,7 +350,9 @@ class DirectStrategy(RecursiveStrategy):
             feature_name = trainer.feature_name
             trainer.aggregate_feature_importance(feature_name, aggregate_by_folds)
 
-            keys = [k for k in trainer.shap_values['train'].keys() if k != "feature_name"]
+            keys = [
+                k for k in trainer.shap_values["train"].keys() if k != "feature_name"
+            ]
             n = len(keys)
 
             arr_explainers.append(trainer.shap_explainer)
@@ -358,30 +362,40 @@ class DirectStrategy(RecursiveStrategy):
                 for i, key in enumerate(keys):
                     ax = axes[i, 0]
 
-                    data = trainer.shap_values['train'][key]
+                    data = trainer.shap_values["train"][key]
                     mean_imps = data.mean(axis=(0, 2))
                     top_idx = np.argsort(mean_imps)[-top_k:]
                     sorted_imps = data[:, top_idx, 0]
-                    sorted_features = trainer.shap_values['train']['feature_name'][top_idx]
+                    sorted_features = trainer.shap_values["train"]["feature_name"][
+                        top_idx
+                    ]
 
-                    bp = ax.boxplot(sorted_imps, orientation='horizontal', patch_artist=True)
-                    for _, patch in enumerate(bp['boxes']):
-                        patch.set_facecolor('lightblue')
+                    bp = ax.boxplot(
+                        sorted_imps, orientation="horizontal", patch_artist=True
+                    )
+                    for _, patch in enumerate(bp["boxes"]):
+                        patch.set_facecolor("lightblue")
 
-                    ax.set_title(f'Shap value features on Fold {i+1}', fontsize=14, fontweight='bold')
+                    ax.set_title(
+                        f"Shap value features on Fold {i+1}",
+                        fontsize=14,
+                        fontweight="bold",
+                    )
                     ax.set_yticklabels(sorted_features)
                     plt.gcf().set_size_inches(12, 5 * top_k)
-                    ax.set_ylabel('shap_value')
+                    ax.set_ylabel("shap_value")
                     ax.grid(True)
                 plt.tight_layout()
                 plt.show()
             else:
-                agg_imp = trainer.shap_values['train']['feature_importance_aggregated']
+                agg_imp = trainer.shap_values["train"]["feature_importance_aggregated"]
                 # averaging by horizon
-                mean_agg = np.abs(agg_imp).mean(axis=1)  
+                mean_agg = np.abs(agg_imp).mean(axis=1)
                 top_idx = np.argsort(mean_agg)[-top_k:]
-                sorted_imps = mean_agg[top_idx] 
-                sorted_features = np.array(trainer.shap_values['train']['feature_name'])[top_idx].ravel()
+                sorted_imps = mean_agg[top_idx]
+                sorted_features = np.array(
+                    trainer.shap_values["train"]["feature_name"]
+                )[top_idx].ravel()
 
                 if round_to == 0:
                     sorted_imps = sorted_imps.astype(int)
@@ -389,34 +403,36 @@ class DirectStrategy(RecursiveStrategy):
                     sorted_imps = np.round(sorted_imps, round_to)
 
                 bar_conatiner = plt.barh(width=sorted_imps, y=sorted_features)
-                plt.bar_label(bar_conatiner, sorted_imps, color='red')
-                plt.gcf().set_size_inches(5, top_k/6 + 1)
+                plt.bar_label(bar_conatiner, sorted_imps, color="red")
+                plt.gcf().set_size_inches(5, top_k / 6 + 1)
                 sns.despine()
-                plt.title(f'Aggregated shap feature importance by trainer {trainer_idx+1}')
+                plt.title(
+                    f"Aggregated shap feature importance by trainer {trainer_idx+1}"
+                )
                 plt.show()
 
             train_shap = {
-                'shap_values': trainer.shap_values['train'],
-                'feature_names': trainer.shap_values['train']['feature_name']
+                "shap_values": trainer.shap_values["train"],
+                "feature_names": trainer.shap_values["train"]["feature_name"],
             }
             arr_train_shap.append(train_shap)
 
         self.arr_train_shap = arr_train_shap
         if return_explainer:
             return arr_explainers
-        
+
     def get_train_shap(self) -> dict:
         """Returns SHAP values computed on the training/validation folds.
 
         Contains feature-level SHAP values for each fold, aggregated importance, and feature names.
 
         Returns:
-            dict: training SHAP values dictionary with keys like fold indices, 'feature_importance_aggregated', 
+            dict: training SHAP values dictionary with keys like fold indices, 'feature_importance_aggregated',
                 'feature_name', containing numpy arrays of SHAP values and metadata.
         """
         return self.arr_train_shap
 
-    def get_test_shap(self)-> dict:
+    def get_test_shap(self) -> dict:
         """Returns SHAP values computed on the test folds.
 
         Contains feature-level SHAP values for test set predictions.
