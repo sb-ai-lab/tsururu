@@ -96,18 +96,6 @@ class RecursiveStrategy(Strategy):
         )
         data = self.pipeline.fit_transform(data, self.strategy_name)
 
-        # temp code
-        print("raw_ts_X_for_training: ", data["raw_ts_X"].shape)
-
-        # X, y = self.pipeline.generate(data)
-        # print("X: ", X.shape)
-        # display(X)
-        # display(pd.DataFrame(X, columns=self.pipeline.output_features).head(15))
-        # print(self.pipeline.output_features)
-        # display(data["X"].head())
-
-        # print('FAFAF')
-
         val_dataset = self.trainer.validation_params.get("validation_data")
 
         if val_dataset:
