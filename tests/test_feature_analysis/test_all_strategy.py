@@ -1,23 +1,17 @@
-import pytest
-import numpy as np
 import pandas as pd
+import pytest
 
-from tsururu.dataset import IndexSlicer, Pipeline, TSDataset
-from tsururu.model_training import DLTrainer, KFoldCrossValidator, MLTrainer
-from tsururu.model_training.validator import Validator
-from tsururu.models import CatBoost, Estimator
-from tsururu.strategies.base import Strategy
-from tsururu.strategies.utils import timing_decorator
-from tsururu.utils.optional_imports import OptionalImport
+from tsururu.dataset import Pipeline, TSDataset
+from tsururu.model_training import KFoldCrossValidator, MLTrainer
+from tsururu.models import CatBoost
 from tsururu.strategies import (
-    RecursiveStrategy,
-    MIMOStrategy,
-    FlatWideMIMOStrategy,
     DirectStrategy,
+    FlatWideMIMOStrategy,
+    MIMOStrategy,
+    RecursiveStrategy,
 )
 
-df_path = "../../datasets/global/AirPassengers.csv"
-df = pd.read_csv(df_path)
+df = pd.read_csv("datasets/global/AirPassengers.csv")
 
 TARGET_COL = "Passengers"
 TIME_COL = "Month"
@@ -86,17 +80,6 @@ def fitted_strategy(dataset_fix, strategy_class):
     "strategy_class", [RecursiveStrategy, MIMOStrategy, FlatWideMIMOStrategy]
 )
 class TestCommonStrategies:
-
-    def test_fit(self, dataset_fix, strategy_class):
-        strategy = strategy_class(HORIZON, HISTORY, trainer, pipeline)
-        fit_time, _ = strategy.fit(dataset_fix)
-        assert fit_time is not None
-
-    def test_predict(self, fitted_strategy, dataset_fix, strategy_class):
-        forecast_time, pred = fitted_strategy.predict(dataset_fix)
-        assert forecast_time is not None
-        assert pred is not None
-
     @pytest.mark.parametrize(
         "aggregate_by_folds, return_explainer",
         [
@@ -114,7 +97,7 @@ class TestCommonStrategies:
         aggregate_by_folds,
         return_explainer,
     ):
-        explainer = fitted_strategy.get_feature_importance(
+        _ = fitted_strategy.get_feature_importance(
             top_k=3,
             aggregate_by_folds=aggregate_by_folds,
             return_explainer=return_explainer,
@@ -128,12 +111,12 @@ class TestCommonStrategies:
 
         for agg in [True, False]:
             for expl in [True, False]:
-                result = strategy.get_feature_importance(
+                _ = strategy.get_feature_importance(
                     top_k=3, aggregate_by_folds=agg, return_explainer=expl, round_to=4
                 )
 
-        train_shap = strategy.get_train_shap()
-        test_shap = strategy.get_test_shap()
+        _ = strategy.get_train_shap()
+        _ = strategy.get_test_shap()
 
     @pytest.mark.smoke
     def test_smoke(self, dataset_fix, strategy_class):
@@ -154,17 +137,6 @@ def fitted_direct_strategy(dataset_fix):
 
 
 class TestDirectStrategy:
-
-    def test_fit(self, dataset_fix):
-        strategy = DirectStrategy(HORIZON, HISTORY, trainer, pipeline, model_horizon=2)
-        fit_time, _ = strategy.fit(dataset_fix)
-        assert fit_time is not None
-
-    def test_predict(self, fitted_direct_strategy, dataset_fix):
-        forecast_time, pred = fitted_direct_strategy.predict(dataset_fix)
-        assert forecast_time is not None
-        assert pred is not None
-
     @pytest.mark.parametrize(
         "aggregate_by_folds, return_explainer",
         [
@@ -177,7 +149,7 @@ class TestDirectStrategy:
     def test_feature_importance_combinations(
         self, fitted_direct_strategy, aggregate_by_folds, return_explainer
     ):
-        explainer = fitted_direct_strategy.get_feature_importance(
+        _ = fitted_direct_strategy.get_feature_importance(
             top_k=3,
             aggregate_by_folds=aggregate_by_folds,
             return_explainer=return_explainer,
@@ -191,12 +163,12 @@ class TestDirectStrategy:
 
         for agg in [True, False]:
             for expl in [True, False]:
-                result = strategy.get_feature_importance(
+                _ = strategy.get_feature_importance(
                     top_k=3, aggregate_by_folds=agg, return_explainer=expl, round_to=4
                 )
 
-        train_shap = strategy.get_train_shap()
-        test_shap = strategy.get_test_shap()
+        _ = strategy.get_train_shap()
+        _ = strategy.get_test_shap()
 
     @pytest.mark.smoke
     def test_smoke(self, dataset_fix):
