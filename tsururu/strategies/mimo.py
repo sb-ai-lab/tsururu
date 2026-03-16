@@ -1,7 +1,7 @@
-from typing import Union, Any, Dict, Tuple
+from typing import Union
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 
 from tsururu.dataset.pipeline import Pipeline
@@ -42,135 +42,97 @@ class MIMOStrategy(RecursiveStrategy):
         pipeline: Pipeline,
         step: int = 1,
     ):
-        super().__init__(
-            horizon, history, trainer, pipeline, step, model_horizon=horizon
-        )
+        super().__init__(horizon, history, trainer, pipeline, step, model_horizon=horizon)
         self.strategy_name = "MIMOStrategy"
 
-    def get_feature_importance(
-        self,
-        top_k=15,
-        aggregate_by_folds=True,
-        round_to=2,
-        return_explainer=False,
-    ) -> Dict | Tuple[Dict, Any] | None:
-        """Generates and visualizes feature importance based on SHAP values from training folds.
+    def _plot_shap_boxplots(self, top_k: int) -> None:
+        """Per-fold SHAP boxplots laid out in a grid (max 3 columns).
+        Handles 3D SHAP arrays by averaging over the horizon axis.
 
         Args:
-            top_k (int, default=15): number of top features to display in the plots.
-            aggregate_by_folds (bool, default=True):
-                if True — aggregates importance across folds into a single bar plot.
-                if False — creates separate boxplots for each fold.
-            round_to (int, default=2): number of decimal places for rounding
-                aggregated importance values (0 = integers).
-            return_explainer (bool, default=False):
-                if True, returns a tuple (importance_dict, shap_explainer) instead of just the dictionary.
+            top_k: number of top features to show per subplot.
 
-        Returns:
-            dict: dictionary with feature importance (default).
-            tuple[dict, Any]: (importance_dict, list_of_shap_explainers) when return_explainer=True.
-            list[Any]: list of shap_explainers when aggregate_by_folds=False and return_explainer=True.
         """
-        arr_explainers = []
-        arr_train_shap = []
+        trainer = self.trainers[0]
+        keys = [
+            k
+            for k in trainer.shap_values["train"].keys()
+            if k not in ("feature_name", "test", "feature_importance_aggregated")
+        ]
 
-        for trainer_idx, trainer in enumerate(self.trainers):
-            feature_name = trainer.feature_name
-            trainer.aggregate_feature_importance(feature_name, aggregate_by_folds)
+        n_folds = len(keys)
+        n_cols = min(3, n_folds)
+        n_rows = int(np.ceil(n_folds / n_cols))
 
-            keys = [
-                k for k in trainer.shap_values["train"].keys() if k != "feature_name"
-            ]
-            n = len(keys)
+        fig, axes = plt.subplots(
+            nrows=n_rows,
+            ncols=n_cols,
+            figsize=(6 * n_cols, 6 * n_rows * top_k / 8),
+            squeeze=False,
+        )
 
-            arr_explainers.append(trainer.shap_explainer)
+        for fold_idx, fold_key in enumerate(keys):
+            row, col = divmod(fold_idx, n_cols)
+            ax = axes[row, col]
 
-            if not aggregate_by_folds:
-                _, axes = plt.subplots(n, 1, squeeze=False)
-                for i, key in enumerate(keys):
-                    ax = axes[i, 0]
-
-                    data = trainer.shap_values["train"][key]
-                    mean_imps = data.mean(axis=(0, 2))
-                    top_idx = np.argsort(mean_imps)[-top_k:]
-                    sorted_imps = data[:, top_idx, 0]
-                    sorted_features = trainer.shap_values["train"]["feature_name"][
-                        top_idx
-                    ]
-
-                    bp = ax.boxplot(
-                        sorted_imps, orientation="horizontal", patch_artist=True
-                    )
-                    for _, patch in enumerate(bp["boxes"]):
-                        patch.set_facecolor("lightblue")
-
-                    ax.set_title(
-                        f"Shap value features on Fold {i+1}",
-                        fontsize=14,
-                        fontweight="bold",
-                    )
-                    ax.set_yticklabels(sorted_features)
-                    plt.gcf().set_size_inches(12, 5 * top_k)
-                    ax.set_ylabel("shap_value")
-                    ax.grid(True)
-                plt.tight_layout()
-                plt.show()
+            data = trainer.shap_values["train"][fold_key]
+            # data may be 3D (n_samples, n_features, horizon) — average by horizon
+            if data.ndim == 3:
+                mean_imps = data.mean(axis=(0, 2))
+                plot_data = data[:, :, 0]
             else:
-                agg_imp = trainer.shap_values["train"]["feature_importance_aggregated"]
-                # averaging by horizon
-                mean_agg = np.abs(agg_imp).mean(axis=1)
-                top_idx = np.argsort(mean_agg)[-top_k:]
-                sorted_imps = mean_agg[top_idx]
-                sorted_features = np.array(
-                    trainer.shap_values["train"]["feature_name"]
-                )[top_idx].ravel()
+                mean_imps = data.mean(axis=0)
+                plot_data = data
 
-                if round_to == 0:
-                    sorted_imps = sorted_imps.astype(int)
-                else:
-                    sorted_imps = np.round(sorted_imps, round_to)
+            top_idx = np.argsort(mean_imps)[-top_k:]
 
-                bar_conatiner = plt.barh(width=sorted_imps, y=sorted_features)
-                plt.bar_label(bar_conatiner, sorted_imps, color="red")
-                plt.gcf().set_size_inches(5, top_k / 6 + 1)
-                sns.despine()
-                plt.title(
-                    f"Aggregated shap feature importance by trainer {trainer_idx+1}"
-                )
-                plt.show()
+            bp = ax.boxplot(plot_data[:, top_idx], orientation="horizontal", patch_artist=True)
+            for patch in bp["boxes"]:
+                patch.set_facecolor("lightblue")
 
-            train_shap = {
-                "shap_values": trainer.shap_values["train"],
-                "feature_names": trainer.shap_values["train"]["feature_name"],
-            }
-            arr_train_shap.append(train_shap)
+            ax.set_title(f"Fold {fold_idx + 1}", fontsize=12, fontweight="bold")
+            ax.set_yticklabels(
+                np.array(trainer.shap_values["train"]["feature_name"])[top_idx].ravel()
+            )
+            ax.set_xlabel("SHAP Value")
+            ax.grid(True)
 
-        self.arr_train_shap = arr_train_shap
-        if return_explainer:
-            return arr_explainers
+        for idx in range(n_folds, n_rows * n_cols):
+            row = idx // n_cols
+            col = idx % n_cols
+            axes[row, col].set_visible(False)
 
-    def get_train_shap(self) -> dict:
-        """Returns SHAP values computed on the training/validation folds.
+        plt.suptitle("SHAP Feature Importance per Fold", fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        plt.show()
 
-        Contains feature-level SHAP values for each fold, aggregated importance, and feature names.
+    def _plot_shap_barh(self, top_k: int, round_to: int) -> None:
+        """Aggregated SHAP horizontal bar chart.
+        Handles 2D feature_importance_aggregated (n_features, horizon) by averaging over horizon.
 
-        Returns:
-            dict: training SHAP values dictionary with keys like fold indices, 'feature_importance_aggregated',
-                'feature_name', containing numpy arrays of SHAP values and metadata.
+        Args:
+            top_k: number of top features to show.
+            round_to: decimal places for rounding (0 = integers).
+
         """
-        return self.arr_train_shap
+        trainer = self.trainers[0]
+        agg_imp = trainer.shap_values["train"]["feature_importance_aggregated"]
 
-    def get_test_shap(self) -> dict:
-        """Returns SHAP values computed on the test folds.
+        # agg_imp may be 2D (n_features, horizon) — average absolute value by horizon
+        if np.ndim(agg_imp) == 2:
+            sorted_vals = np.abs(agg_imp).mean(axis=1)
+        else:
+            sorted_vals = agg_imp
 
-        Contains feature-level SHAP values for test set predictions.
+        top_idx = np.argsort(sorted_vals)[-top_k:]
+        sorted_imps = sorted_vals[top_idx]
+        sorted_features = np.array(trainer.shap_values["train"]["feature_name"])[top_idx].ravel()
 
-        Returns:
-            dict: test SHAP values dictionary containing numpy arrays of SHAP values per feature.
-        """
-        arr_test_shap = []
+        sorted_imps = sorted_imps.astype(int) if round_to == 0 else np.round(sorted_imps, round_to)
 
-        for trainer in self.trainers:
-            arr_test_shap.append(trainer.shap_values["test"])
-
-        return arr_test_shap
+        bar_container = plt.barh(width=sorted_imps, y=sorted_features)
+        plt.bar_label(bar_container, sorted_imps, color="red")
+        plt.gcf().set_size_inches(5, top_k / 6 + 1)
+        sns.despine()
+        plt.title("Aggregated shap feature importance")
+        plt.show()
