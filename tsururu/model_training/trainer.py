@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import shap
 
 from tsururu.dataset.pipeline import Pipeline
 from tsururu.model_training.torch_based.callbacks import ES_Checkpoints_Manager
@@ -40,11 +41,13 @@ class MLTrainer:
         model_params: Dict = {},
         validator: Optional[Validator] = None,
         validation_params: Dict = {},
+        return_importance=None,
     ):
         self.model = model
         self.model_params = model_params
         self.validator = validator
         self.validation_params = validation_params
+        self.return_importance = return_importance
 
         # Provide by strategy if needed
         self.history = None
@@ -52,6 +55,87 @@ class MLTrainer:
         self.models: List[Estimator] = []
         self.scores: List[float] = []
         self.columns: List[str] = []
+        self.feature_importances_per_model = []
+        self.feature_name = None
+        self.shap_values = {"feature_names": [], "model": {}}
+
+    def _calculate_feature_imports(
+        self,
+        model: Estimator,
+        X_val: np.ndarray,
+        feature_names: List[str],
+    ) -> np.ndarray | None:
+        """Computes feature importance for a single model using the specified method.
+
+        Args:
+            model: Trained model.
+            X_val: Validation data for SHAP.
+            feature_names: Feature names.
+
+        Returns:
+            np.ndarray: Feature importance values.
+        """
+        explainer = shap.TreeExplainer(model.model, feature_names=feature_names)
+        self.shap_explainer = explainer(X_val)
+        shap_values = self.shap_explainer.values
+        return shap_values
+
+    def aggregate_feature_importance(
+        self, feature_names: List[str], is_aggregate: bool = True
+    ) -> None:
+        """Aggregates or stores feature importances across all models.
+
+        Args:
+            feature_names: Feature names.
+            is_aggregate: True — aggregate, False — store per model.
+
+        Stores the result in self.shap_values.
+        """
+        feature_importances_per_model = list(self.shap_values["model"].values())
+        self.shap_values["train"] = {}
+        if not is_aggregate:
+            for i, feature_importance in enumerate(feature_importances_per_model):
+                self.shap_values["train"][f"model_{i}_feature_importance"] = feature_importance
+            self.shap_values["train"]["feature_name"] = feature_names
+        else:
+            # perform averaging
+            max_rows = min(arr.shape[0] for arr in feature_importances_per_model)
+            padded_arrays = [np.abs(arr[:max_rows]) for arr in feature_importances_per_model]
+            stacked = np.stack(padded_arrays, axis=0)
+            mean_values = stacked.mean(axis=(0, 1))
+
+            self.shap_values["train"] = {
+                "feature_importance_aggregated": mean_values,
+                "feature_name": feature_names,
+            }
+
+    def compute_test_importance_value(
+        self, models: List[Estimator], X_test: np.ndarray, feature_names: List[str]
+    ) -> Dict:
+        """
+        Computes aggregated feature importance on the test data.
+
+        Args:
+            models: List of trained models.
+            X_test: Test data.
+            feature_names: Feature names.
+
+        Stores the result in dict.
+        """
+        importances_per_model = []
+        for model in models:
+            explainer = shap.TreeExplainer(model.model)
+            shap_values = explainer(X_test).values
+            importances_per_model.append(shap_values)
+
+        mean_abs_importance = np.abs(np.array(importances_per_model)).mean(axis=(0, 1))
+
+        shap_values_test = {
+            "shap_values": mean_abs_importance,
+            "feature_names": feature_names,
+        }
+
+        return shap_values_test
 
     def fit(self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None) -> "MLTrainer":
         """Fits the models using the input data and pipeline.
@@ -69,6 +153,7 @@ class MLTrainer:
 
         """
         X, y = pipeline.generate(data)
+
         if val_data:
             X_val, y_val = pipeline.generate(val_data)
         else:
@@ -93,6 +178,10 @@ class MLTrainer:
         self.features_argsort = np.argsort(pipeline.output_features)
         X = X[:, self.features_argsort]
 
+        self.feature_name = pipeline.output_features[::-1]
+        self.shap_values["feature_names"] = pipeline.output_features[::-1]
+        self.shap_values["model"] = {}
+
         for fold_i, (X_train, y_train, X_val, y_val) in enumerate(
             self.validator(**self.validation_params).get_split(X, y, X_val, y_val)
         ):
@@ -102,6 +191,11 @@ class MLTrainer:
             self.scores.append(model.score)
             logger.info(f"Fold {fold_i}. Score: {model.score}")
 
+            # Calculate shap value
+            if self.return_importance:
+                feature_imports = self._calculate_feature_imports(model, X_val, self.feature_name)
+                self.shap_values["model"][f"train_fold_{fold_i}"] = feature_imports
+                self.feature_importances_per_model.append(feature_imports)
         logger.info(f"Mean score: {np.mean(self.scores).round(4)}")
         logger.info(f"Std: {np.std(self.scores).round(4)}")
 
@@ -124,8 +218,14 @@ class MLTrainer:
         X = X[:, self.features_argsort]
 
         models_preds = [model.predict(X) for model in self.models]
-        y_pred = np.mean(models_preds, axis=0)
 
+        if "test" not in self.shap_values:
+            self.shap_values["test"] = {}
+        self.shap_values["test"] = self.compute_test_importance_value(
+            self.models, X, pipeline.output_features[::-1]
+        )
+
+        y_pred = np.mean(models_preds, axis=0)
         y_pred = y_pred.reshape(pipeline.y_original_shape)
 
         return y_pred
@@ -293,10 +393,10 @@ class DLTrainer:
                 )
             self.scheduler_params.pop("relative_steps")
 
-    def init_trainer_one_fold(
-        self, features_groups: dict
-    ) -> Tuple[
-        "nn.Module", "torch.optim.Optimizer", Optional["torch.optim.lr_scheduler._LRScheduler"]
+    def init_trainer_one_fold(self, features_groups: dict) -> Tuple[
+        "nn.Module",
+        "torch.optim.Optimizer",
+        Optional["torch.optim.lr_scheduler._LRScheduler"],
     ]:
         """Initializes the model, optimizer, and scheduler for one fold.
 
@@ -342,9 +442,7 @@ class DLTrainer:
             model, optimizer, and scheduler with loaded states.
 
         """
-        self.es = torch.load(
-            self.pretrained_path / "es_checkpoint_manager.pth", weights_only=False
-        )
+        self.es = torch.load(self.pretrained_path / "es_checkpoint_manager.pth", weights_only=False)
         pretrained_weights = self.es.get_last_snapshot(full_state=True)
 
         model.load_state_dict(pretrained_weights["model"])

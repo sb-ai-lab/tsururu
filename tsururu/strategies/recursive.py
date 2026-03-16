@@ -1,7 +1,10 @@
 from copy import deepcopy
-from typing import Union
+from typing import Any, Optional, Union
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import seaborn as sns
 
 from tsururu.dataset.dataset import TSDataset
 from tsururu.dataset.pipeline import Pipeline
@@ -284,3 +287,136 @@ class RecursiveStrategy(Strategy):
         # Get dataframe with predictions only
         pred_df = self._make_preds_df(new_dataset, intrinsic_horizon, self.history)
         return pred_df
+
+    def _aggregate_shap(self, aggregate_by_folds: bool) -> None:
+        """Calls aggregate_feature_importance on the single trainer.
+
+        Args:
+            aggregate_by_folds: passed through to trainer.aggregate_feature_importance.
+
+        """
+        trainer = self.trainers[0]
+        trainer.aggregate_feature_importance(trainer.feature_name, aggregate_by_folds)
+
+    def _plot_shap_boxplots(self, top_k: int) -> None:
+        """Per-fold SHAP boxplots laid out in a grid (max 3 columns).
+
+        Args:
+            top_k: number of top features to show per subplot.
+
+        """
+        trainer = self.trainers[0]
+        keys = [
+            k
+            for k in trainer.shap_values["train"].keys()
+            if k not in ("feature_name", "feature_importance_aggregated")
+        ]
+
+        n_folds = len(keys)
+        n_cols = min(3, n_folds)
+        n_rows = int(np.ceil(n_folds / n_cols))
+
+        fig, axes = plt.subplots(
+            nrows=n_rows,
+            ncols=n_cols,
+            figsize=(6 * n_cols, 6 * n_rows * top_k / 8),
+            squeeze=False,
+        )
+
+        for fold_idx, fold_key in enumerate(keys):
+            row, col = divmod(fold_idx, n_cols)
+            ax = axes[row, col]
+
+            data = trainer.shap_values["train"][fold_key]
+            mean_imps = data.mean(axis=0)
+            top_idx = np.argsort(mean_imps)[-top_k:]
+
+            bp = ax.boxplot(data[:, top_idx], orientation="horizontal", patch_artist=True)
+            for patch in bp["boxes"]:
+                patch.set_facecolor("lightblue")
+
+            ax.set_title(f"Fold {fold_idx + 1}", fontsize=12, fontweight="bold")
+            ax.set_yticklabels(trainer.shap_values["train"]["feature_name"][top_idx])
+            ax.set_xlabel("SHAP Value")
+            ax.grid(True)
+
+        # Hide unused subplots
+        for idx in range(n_folds, n_rows * n_cols):
+            row = idx // n_cols
+            col = idx % n_cols
+            axes[row, col].set_visible(False)
+
+        plt.suptitle("SHAP Feature Importance per Fold", fontsize=16)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        plt.show()
+
+    def _plot_shap_barh(self, top_k: int, round_to: int) -> None:
+        """Aggregated SHAP horizontal bar chart for the single trainer.
+
+        Args:
+            top_k: number of top features to show.
+            round_to: decimal places for rounding (0 = integers).
+
+        """
+        trainer = self.trainers[0]
+        top_idx = np.argsort(trainer.shap_values["train"]["feature_importance_aggregated"])[-top_k:]
+        sorted_imps = trainer.shap_values["train"]["feature_importance_aggregated"][top_idx]
+        sorted_features = trainer.shap_values["train"]["feature_name"][top_idx]
+
+        sorted_imps = sorted_imps.astype(int) if round_to == 0 else np.round(sorted_imps, round_to)
+
+        bar_container = plt.barh(width=sorted_imps, y=sorted_features)
+        plt.bar_label(bar_container, sorted_imps, color="red")
+        plt.gcf().set_size_inches(5, top_k / 6 + 1)
+        sns.despine()
+        plt.title("Aggregated shap feature importance")
+        plt.show()
+
+    def get_feature_importance(
+        self,
+        top_k: int = 15,
+        aggregate_by_folds: bool = True,
+        round_to: int = 2,
+        return_explainer: bool = False,
+    ) -> Optional[Any]:
+        """Generates and visualizes feature importance based on SHAP values.
+
+        Args:
+            top_k: number of top features to display.
+            aggregate_by_folds:
+                True  — one aggregated bar chart.
+                False — per-fold boxplots.
+            round_to: decimal places for rounding (0 = integers).
+            return_explainer: if True, returns the shap_explainer object.
+
+        Returns:
+            shap_explainer when return_explainer=True, otherwise None.
+
+        """
+        self._aggregate_shap(aggregate_by_folds)
+
+        if aggregate_by_folds:
+            self._plot_shap_barh(top_k, round_to)
+        else:
+            self._plot_shap_boxplots(top_k)
+
+        if return_explainer:
+            return self.trainers[0].shap_explainer
+
+    def get_train_shap(self) -> dict:
+        """Returns training SHAP values for the single trainer.
+
+        Returns:
+            Dict with fold SHAP values, aggregated importance, and feature names.
+
+        """
+        return self.trainers[0].shap_values["train"]
+
+    def get_test_shap(self) -> dict:
+        """Returns test SHAP values for the single trainer.
+
+        Returns:
+            Dict with test SHAP values per feature.
+
+        """
+        return self.trainers[0].shap_values["test"]
