@@ -3,15 +3,10 @@
 import logging
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union, Any
-
-# temp code
-import shap
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import shap
 
 from tsururu.dataset.pipeline import Pipeline
 from tsururu.model_training.torch_based.callbacks import ES_Checkpoints_Manager
@@ -46,14 +41,13 @@ class MLTrainer:
         model_params: Dict = {},
         validator: Optional[Validator] = None,
         validation_params: Dict = {},
-        return_importance=False,
+        return_importance = None,
     ):
         self.model = model
         self.model_params = model_params
         self.validator = validator
         self.validation_params = validation_params
         self.return_importance = return_importance
-        self.shap_values = {}
 
         # Provide by strategy if needed
         self.history = None
@@ -61,17 +55,19 @@ class MLTrainer:
         self.models: List[Estimator] = []
         self.scores: List[float] = []
         self.columns: List[str] = []
+        self.feature_importances_per_model = []
+        self.feature_name = None
+        self.shap_values = {"feature_names": [], "model": {}}
 
     def _calculate_feature_imports(
         self,
         model: Estimator,
-        X_val: Union[pd.DataFrame, np.ndarray],
+        X_val: np.ndarray,
         feature_names: List[str],
     ) -> np.ndarray | None:
         """Computes feature importance for a single model using the specified method.
 
         Args:
-            method: Importance calculation method ('shap' or 'Catboost_feature_importance').
             model: Trained model.
             X_val: Validation data for SHAP.
             feature_names: Feature names.
@@ -95,22 +91,18 @@ class MLTrainer:
 
         Stores the result in self.shap_values.
         """
-        feature_importances_per_model = self.feature_importances_per_model
+        feature_importances_per_model = list(self.shap_values["model"].values())
         self.shap_values["train"] = {}
         if not is_aggregate:
             for i, feature_importance in enumerate(feature_importances_per_model):
-                self.shap_values["train"][
-                    f"model_{i}_feature_importance"
-                ] = feature_importance
+                self.shap_values["train"][f"model_{i}_feature_importance"] = feature_importance
             self.shap_values["train"]["feature_name"] = feature_names
         else:
             # perform averaging
             max_rows = min(arr.shape[0] for arr in feature_importances_per_model)
-            padded_arrays = [
-                np.abs(arr[:max_rows]) for arr in feature_importances_per_model
-            ]
+            padded_arrays = [np.abs(arr[:max_rows]) for arr in feature_importances_per_model]
             stacked = np.stack(padded_arrays, axis=0)
-            mean_values = stacked.mean(axis=(0, 1)).round(4)
+            mean_values = stacked.mean(axis=(0, 1))
 
             self.shap_values["train"] = {
                 "feature_importance_aggregated": mean_values,
@@ -136,9 +128,7 @@ class MLTrainer:
             shap_values = explainer(X_test).values
             importances_per_model.append(shap_values)
 
-        mean_abs_importance = (
-            np.abs(np.array(importances_per_model)).mean(axis=(0, 1)).round(4)
-        )
+        mean_abs_importance = np.abs(np.array(importances_per_model)).mean(axis=(0, 1))
 
         shap_values_test = {
             "shap_values": mean_abs_importance,
@@ -147,9 +137,7 @@ class MLTrainer:
 
         return shap_values_test
 
-    def fit(
-        self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None
-    ) -> "MLTrainer":
+    def fit(self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None) -> "MLTrainer":
         """Fits the models using the input data and pipeline.
 
         Args:
@@ -190,9 +178,9 @@ class MLTrainer:
         self.features_argsort = np.argsort(pipeline.output_features)
         X = X[:, self.features_argsort]
 
-        return_importance = self.return_importance
-        self.feature_importances_per_model = []
         self.feature_name = pipeline.output_features[::-1]
+        self.shap_values["feature_names"] = pipeline.output_features[::-1]
+        self.shap_values["model"] = {}
 
         for fold_i, (X_train, y_train, X_val, y_val) in enumerate(
             self.validator(**self.validation_params).get_split(X, y, X_val, y_val)
@@ -204,10 +192,9 @@ class MLTrainer:
             logger.info(f"Fold {fold_i}. Score: {model.score}")
 
             # Calculate shap value
-            if return_importance:
-                feature_imports = self._calculate_feature_imports(
-                    model, X_val, self.feature_name
-                )
+            if self.return_importance:
+                feature_imports = self._calculate_feature_imports(model, X_val, self.feature_name)
+                self.shap_values["model"][f"train_fold_{fold_i}"] = feature_imports
                 self.feature_importances_per_model.append(feature_imports)
         logger.info(f"Mean score: {np.mean(self.scores).round(4)}")
         logger.info(f"Std: {np.std(self.scores).round(4)}")
@@ -394,8 +381,7 @@ class DLTrainer:
         if "relative_steps_per_epoch" in self.scheduler_params:
             for param_name in self.scheduler_params["relative_steps_per_epoch"]:
                 self.scheduler_params[param_name] = int(
-                    self.scheduler_params[param_name]
-                    * (dataset_length // self.batch_size + 1)
+                    self.scheduler_params[param_name] * (dataset_length // self.batch_size + 1)
                 )
             self.scheduler_params.pop("relative_steps_per_epoch")
 
@@ -403,10 +389,7 @@ class DLTrainer:
             for param_name in self.scheduler_params["relative_steps"]:
                 self.scheduler_params[param_name] = int(
                     self.n_epochs
-                    * (
-                        self.scheduler_params[param_name]
-                        * (dataset_length // self.batch_size + 1)
-                    )
+                    * (self.scheduler_params[param_name] * (dataset_length // self.batch_size + 1))
                 )
             self.scheduler_params.pop("relative_steps")
 
@@ -426,9 +409,7 @@ class DLTrainer:
         """
         self.metric = self.metric() if isinstance(self.metric, type) else self.metric
 
-        model = self.model_base(
-            features_groups, self.horizon, self.history, **self.model_params
-        )
+        model = self.model_base(features_groups, self.horizon, self.history, **self.model_params)
 
         if len(self.device_ids) > 1:
             model = torch.nn.DataParallel(model, device_ids=self.device_ids)
@@ -461,9 +442,7 @@ class DLTrainer:
             model, optimizer, and scheduler with loaded states.
 
         """
-        self.es = torch.load(
-            self.pretrained_path / "es_checkpoint_manager.pth", weights_only=False
-        )
+        self.es = torch.load(self.pretrained_path / "es_checkpoint_manager.pth", weights_only=False)
         pretrained_weights = self.es.get_last_snapshot(full_state=True)
 
         model.load_state_dict(pretrained_weights["model"])
@@ -519,13 +498,9 @@ class DLTrainer:
 
                 if torch.isnan(inputs).sum() != 0 or torch.isnan(targets).sum() != 0:
                     if torch.isnan(inputs).sum() != 0:
-                        logger.warning(
-                            "It seems that there are NaN values in the input data."
-                        )
+                        logger.warning("It seems that there are NaN values in the input data.")
                     else:
-                        logger.warning(
-                            "It seems that there are NaN values in the target data."
-                        )
+                        logger.warning("It seems that there are NaN values in the target data.")
                     logger.warning(
                         "Try to check pipeline configuration (normalization part, especially)."
                         "NaN values can be caused by division by zero in DifferenceNormalizer or LastKnownNormalizer."
@@ -546,15 +521,11 @@ class DLTrainer:
 
                 if not self.scheduler_after_epoch and scheduler is not None:
                     scheduler.step()
-                    logger.info(
-                        f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}."
-                    )
+                    logger.info(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
 
             epoch_loss = running_loss / len(train_loader.dataset)
             epoch_time = time.time() - start_time
-            logger.info(
-                f"Epoch {epoch+1}/{self.n_epochs}, cost time: {epoch_time:.2f}s"
-            )
+            logger.info(f"Epoch {epoch+1}/{self.n_epochs}, cost time: {epoch_time:.2f}s")
             logger.info(f"train loss: {epoch_loss:.4f}")
 
             val_loss, val_metric = self.validate_model(val_loader, model)
@@ -562,9 +533,7 @@ class DLTrainer:
 
             if self.scheduler_after_epoch and scheduler is not None:
                 scheduler.step()
-                logger.info(
-                    f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}."
-                )
+                logger.info(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
 
             # Сохранение модели и проверка early stopping
             logs = {
@@ -607,9 +576,7 @@ class DLTrainer:
         model: "nn.Module",
         return_outputs: bool = False,
         inference: bool = False,
-    ) -> Union[
-        float, Tuple[float, float], Tuple[float, float, "torch.Tensor", "torch.Tensor"]
-    ]:
+    ) -> Union[float, Tuple[float, float], Tuple[float, float, "torch.Tensor", "torch.Tensor"]]:
         """Validates the model on the validation data.
 
         Args:
@@ -652,9 +619,7 @@ class DLTrainer:
         else:
             return loss, metric
 
-    def fit(
-        self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None
-    ) -> "DLTrainer":
+    def fit(self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None) -> "DLTrainer":
         """Fits the models using the input data and pipeline.
 
         Args:
@@ -717,9 +682,7 @@ class DLTrainer:
             dataset_length = len(train_subset)
             self._convert_relative_steps_to_absolute(dataset_length)
 
-            model, optimizer, scheduler = self.init_trainer_one_fold(
-                pipeline.features_groups
-            )
+            model, optimizer, scheduler = self.init_trainer_one_fold(pipeline.features_groups)
             if self.pretrained_path:
                 model, optimizer, scheduler = self.load_trainer_one_fold(
                     fold_i, model, optimizer, scheduler
@@ -765,9 +728,7 @@ class DLTrainer:
         logger.info(f"length of test dataset: {len(test_dataset)}")
 
         models_preds = [
-            self.validate_model(
-                test_loader, model, return_outputs=True, inference=True
-            )[2].cpu()
+            self.validate_model(test_loader, model, return_outputs=True, inference=True)[2].cpu()
             for model in self.models
         ]
 
