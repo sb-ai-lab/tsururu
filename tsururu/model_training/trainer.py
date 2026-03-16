@@ -41,7 +41,7 @@ class MLTrainer:
         model_params: Dict = {},
         validator: Optional[Validator] = None,
         validation_params: Dict = {},
-        return_importance = None,
+        return_importance=None,
     ):
         self.model = model
         self.model_params = model_params
