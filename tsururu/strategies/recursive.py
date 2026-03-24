@@ -208,7 +208,7 @@ class RecursiveStrategy(Strategy):
         horizon: int | None = None,
         test_all: bool = False,
         inverse_transform: bool = True,
-        df_future_exog = None
+        df_future_exog=None,
     ) -> pd.DataFrame:
         """Predicts the target values for the given dataset.
 
@@ -239,8 +239,11 @@ class RecursiveStrategy(Strategy):
         )
 
         new_data = dataset.make_padded_test(
-            intrinsic_horizon, self.history, test_all=test_all, step=self.step,
-            df_future_exog=df_future_exog
+            intrinsic_horizon,
+            self.history,
+            test_all=test_all,
+            step=self.step,
+            df_future_exog=df_future_exog,
         )
 
         new_dataset = TSDataset(new_data, dataset.columns_params, dataset.delta)

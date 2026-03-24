@@ -306,7 +306,7 @@ class Pipeline:
         data["future_exog_columns"] = dataset.future_exog_column
 
         return data
-    
+
     def get_future_exog_feature_names(self, data):
         """Generate feature names for future exogenous variables.
 
@@ -332,14 +332,9 @@ class Pipeline:
         if self.strategy_name in ("FlatWideMIMOStrategy", "recursive"):
             names = [f"{col}__future" for col in future_exog_columns]
         elif self.strategy_name == "MIMOStrategy":
-            names = [
-                f"{col}__future_{h}"
-                for h in range(horizon)
-                for col in future_exog_columns
-            ]
+            names = [f"{col}__future_{h}" for h in range(horizon) for col in future_exog_columns]
         return np.array(names)
-        
-        
+
     def get_future_exog_futures(self, data):
         """
         Extract future exogenous variable values aligned to target indices.
@@ -361,7 +356,7 @@ class Pipeline:
                 with values reshaped per sample.
         """
         future_exog_columns = data["future_exog_columns"]
-        
+
         idx_y = data["idx_y"]
         flat_idx = idx_y.reshape(-1)
         future_vals = data["raw_ts_X"][future_exog_columns].values[flat_idx].astype(float)
@@ -370,11 +365,9 @@ class Pipeline:
             return future_vals
         elif self.strategy_name == "MIMOStrategy":
             N = idx_y.shape[0]
-            return future_vals.reshape(N, -1) 
+            return future_vals.reshape(N, -1)
 
-    def get_from_mimo_to_flatwidemimo_columns_names(
-        self, data: dict, input_features: list
-    ) -> list:
+    def get_from_mimo_to_flatwidemimo_columns_names(self, data: dict, input_features: list) -> list:
         """
         Get the column names for the FlatWideMIMO strategy from MIMO format.
 
@@ -389,10 +382,7 @@ class Pipeline:
 
         """
         date_features_mask = np.array(
-            [
-                bool(re.match(f"{data['date_column_name']}__", feature))
-                for feature in input_features
-            ]
+            [bool(re.match(f"{data['date_column_name']}__", feature)) for feature in input_features]
         )
         id_features_mask = np.array(
             [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
@@ -435,10 +425,7 @@ class Pipeline:
 
         """
         date_features_names = input_features[
-            [
-                bool(re.match(f"{data['date_column_name']}__", feature))
-                for feature in input_features
-            ]
+            [bool(re.match(f"{data['date_column_name']}__", feature)) for feature in input_features]
         ]
         if self.strategy_name == "FlatWideMIMOStrategy":
             fh_features_names = np.array(["FH"])
@@ -463,10 +450,7 @@ class Pipeline:
         )
 
         other_features_names = np.array(
-            [
-                f"{feat}__{i}"
-                for i, feat in product(range(data["num_series"]), other_features_names)
-            ]
+            [f"{feat}__{i}" for i, feat in product(range(data["num_series"]), other_features_names)]
         )
 
         return np.hstack([fh_features_names, date_features_names, other_features_names])
@@ -513,10 +497,7 @@ class Pipeline:
 
         # date -> "{date_column_name}__" in the beginning of the string
         date_mask = np.array(
-            [
-                bool(re.match(f"{data['date_column_name']}__", feature))
-                for feature in input_features
-            ]
+            [bool(re.match(f"{data['date_column_name']}__", feature)) for feature in input_features]
         )
 
         cycle_mask = np.array([bool(re.match(f"cycle_", feature)) for feature in input_features])
@@ -586,8 +567,10 @@ class Pipeline:
         if self.multivariate:
             current_features = self._get_multivariate_X_columns_names(data, current_features)
 
-        if (data.get("future_exog_columns")
-            and self.strategy_name in ("MIMOStrategy", "FlatWideMIMOStrategy", "recursive")
+        if data.get("future_exog_columns") and self.strategy_name in (
+            "MIMOStrategy",
+            "FlatWideMIMOStrategy",
+            "recursive",
         ):
             self.future_exog_feature_names = self.get_future_exog_feature_names(data)
             current_features = np.concatenate([current_features, self.future_exog_feature_names])
@@ -742,9 +725,7 @@ class Pipeline:
         other_features_idx = index_slicer.get_cols_idx(X, other_features_colname)
 
         segments_ids = np.append(
-            np.unique([tuple(x) for x in X[id_features_colname].values], axis=0, return_index=1)[
-                1
-            ],
+            np.unique([tuple(x) for x in X[id_features_colname].values], axis=0, return_index=1)[1],
             len(X),
         )
         segments_ids = np.sort(segments_ids)
@@ -803,8 +784,7 @@ class Pipeline:
         other_features_colname = [
             col
             for col in X.columns.values
-            if col
-            not in np.hstack([id_feature_colname, date_features_colname, fh_feature_colname])
+            if col not in np.hstack([id_feature_colname, date_features_colname, fh_feature_colname])
         ]
 
         date_features_idx = index_slicer.get_cols_idx(X, date_features_colname)
@@ -879,7 +859,7 @@ class Pipeline:
                 )
             else:
                 data, current_features = self._make_multivariate_X_y(data, current_features)
-      
+
         if self.future_exog_feature_names is not None and data.get("future_exog_columns"):
             future_X = self.get_future_exog_futures(data)
             data["X"] = np.hstack([data["X"], future_X])

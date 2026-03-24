@@ -102,8 +102,8 @@ class LagTransformer(SeriesToFeaturesTransformer):
                     "ПОКА LagTransformer с from_target_date=True не работает в multivariate"
                 )
             horizon_offset = int(data["idx_y"][0, -1]) - int(data["idx_X"][0, -1])
-            anchor = data["idx_X"][:, -1] + horizon_offset 
-            lag_positions = anchor[:, np.newaxis] - self.lags[::-1]  
+            anchor = data["idx_X"][:, -1] + horizon_offset
+            lag_positions = anchor[:, np.newaxis] - self.lags[::-1]
             raw_values = data["raw_ts_X"].values
             X = raw_values[lag_positions][:, :, input_features_idx].astype(float)
             X = np.moveaxis(X, 1, 2).reshape(len(X), -1)

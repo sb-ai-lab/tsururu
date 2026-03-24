@@ -95,13 +95,11 @@ class TSDataset:
         if reconstructed_data.shape[0] != self.data.shape[0] or not np.all(
             reconstructed_data == self.data[self.date_column].values
         ):
-            logger.warning(
-                f"""
-                It seems that the data is not regular. Please, check the data and the frequency info.                
+            logger.warning(f"""
+                It seems that the data is not regular. Please, check the data and the frequency info.
                 For multivariate regime it is critical to have regular data.
-                For global regime each regular part of time series will be processed as separate time series.           
-                """
-            )
+                For global regime each regular part of time series will be processed as separate time series.
+                """)
 
     def __init__(
         self,
@@ -166,7 +164,7 @@ class TSDataset:
         if test_last:
             return segment[-history:]
 
-        return segment[-history - horizon: -horizon]
+        return segment[-history - horizon : -horizon]
 
     @staticmethod
     def _pad_segment(
@@ -192,14 +190,12 @@ class TSDataset:
         result = np.full((horizon, segment.shape[1]), np.nan, dtype=object)
 
         last_date = segment[-1, date_col_id]
-        new_dates = pd.date_range(
-            last_date + time_delta, periods=horizon, freq=time_delta)
+        new_dates = pd.date_range(last_date + time_delta, periods=horizon, freq=time_delta)
         result[:, date_col_id] = new_dates
 
         if isinstance(id_col_id, np.ndarray):
             for i in range(len(id_col_id)):
-                result[:, id_col_id[i]] = np.repeat(
-                    segment[0, id_col_id[i]], horizon)
+                result[:, id_col_id[i]] = np.repeat(segment[0, id_col_id[i]], horizon)
         else:
             result[:, id_col_id] = np.repeat(segment[0, id_col_id], horizon)
 
@@ -254,8 +250,7 @@ class TSDataset:
                 step,
                 date_column=self.date_column,
             )
-            extended_data = slicer.get_slice(
-                self.data, (current_test_ids, None))
+            extended_data = slicer.get_slice(self.data, (current_test_ids, None))
             extended_data = pd.DataFrame(
                 extended_data.reshape(-1, extended_data.shape[-1]),
                 columns=self.data.columns,
@@ -281,8 +276,7 @@ class TSDataset:
         )
 
         if test_all:
-            ids = list(np.unique(extended_data.segment_col,
-                       return_index=True)[1])[1:]
+            ids = list(np.unique(extended_data.segment_col, return_index=True)[1])[1:]
 
         data = extended_data.to_numpy()
 
@@ -293,26 +287,22 @@ class TSDataset:
 
         # Find padded parts for each segment
         padded_segments_results = [
-            self._pad_segment(segment, horizon, time_delta,
-                              date_col_id, id_col_id)
+            self._pad_segment(segment, horizon, time_delta, date_col_id, id_col_id)
             for segment in segments
         ]
 
         # Concatenate together
-        result = np.vstack(np.concatenate(
-            (segments, padded_segments_results), axis=1))
+        result = np.vstack(np.concatenate((segments, padded_segments_results), axis=1))
         if test_all:
-            result = pd.DataFrame(
-                result, columns=list(columns) + ["segment_col"])
+            result = pd.DataFrame(result, columns=list(columns) + ["segment_col"])
         else:
             result = pd.DataFrame(result, columns=columns)
         result[self.date_column] = pd.to_datetime(result[self.date_column])
-        known_cols = {role_dict["columns"][0]
-                      for role_dict in self.columns_params.values()}
-        other = [col for col in columns if col not in [
-            self.id_column, self.date_column]]
+        known_cols = {role_dict["columns"][0] for role_dict in self.columns_params.values()}
+        other = [col for col in columns if col not in [self.id_column, self.date_column]]
         float_cols = [
-            col for col in other if col not in self.categorical_column and col in known_cols]
+            col for col in other if col not in self.categorical_column and col in known_cols
+        ]
         result[float_cols] = result[float_cols].astype("float")
 
         if df_future_exog is not None and self.future_exog_column:
@@ -368,8 +358,7 @@ class TSDataset:
                 dataset_data = dataset_data.copy()
                 dataset_data[col] = pd.NA
 
-        fe_dataset = future_exog[[id_column,
-                                  date_column] + future_exog_columns].copy()
+        fe_dataset = future_exog[[id_column, date_column] + future_exog_columns].copy()
         df = dataset_data.set_index([id_column, date_column])
         fe_idx = fe_dataset.set_index([id_column, date_column])
 
