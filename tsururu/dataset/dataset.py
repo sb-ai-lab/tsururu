@@ -29,6 +29,8 @@ class TSDataset:
                     "exog_1": {...},
                     "exog_2": {...},
                     ...,
+                    # TODO
+                    "future_exog": {"columns": ["col_future"]}
                 }.
         delta: the pd.DateOffset class. Usually generated
             automatically, but can be externally specified. Needs to
@@ -74,6 +76,8 @@ class TSDataset:
             self.data[self.date_column], self.delta, return_freq_period_info=True
         )
 
+        self.delta = delta
+
         if print_freq_period_info:
             logger.info(info)
 
@@ -111,6 +115,9 @@ class TSDataset:
         self._auto_type_columns(columns_params, "id", "categorical")
         self._auto_type_columns(columns_params, "target", "continuous")
 
+        self.future_exog_column = []
+        self.categorical_column = []
+
         for _, role_dict in columns_params.items():
             column_name = role_dict["columns"][0]
             column_type = role_dict["type"]
@@ -118,6 +125,10 @@ class TSDataset:
                 data[column_name] = data[column_name].astype("float")
             elif column_type == "datetime":
                 data[column_name] = pd.to_datetime(data[column_name])
+            elif column_type == "future_exog":
+                self.future_exog_column.append(column_name)
+            elif column_type == "categorical":
+                self.categorical_column.append(column_name)
 
         self.data = data
         self.columns_params = columns_params
@@ -155,7 +166,7 @@ class TSDataset:
         if test_last:
             return segment[-history:]
 
-        return segment[-history - horizon : -horizon]
+        return segment[-history - horizon: -horizon]
 
     @staticmethod
     def _pad_segment(
@@ -181,12 +192,14 @@ class TSDataset:
         result = np.full((horizon, segment.shape[1]), np.nan, dtype=object)
 
         last_date = segment[-1, date_col_id]
-        new_dates = pd.date_range(last_date + time_delta, periods=horizon, freq=time_delta)
+        new_dates = pd.date_range(
+            last_date + time_delta, periods=horizon, freq=time_delta)
         result[:, date_col_id] = new_dates
 
         if isinstance(id_col_id, np.ndarray):
             for i in range(len(id_col_id)):
-                result[:, id_col_id[i]] = np.repeat(segment[0, id_col_id[i]], horizon)
+                result[:, id_col_id[i]] = np.repeat(
+                    segment[0, id_col_id[i]], horizon)
         else:
             result[:, id_col_id] = np.repeat(segment[0, id_col_id], horizon)
 
@@ -200,6 +213,7 @@ class TSDataset:
         test_all: bool = False,
         step: Optional[int] = None,
         id_column_name: Optional[Union[str, Sequence[str]]] = None,
+        df_future_exog: Optional[pd.DataFrame] = None,
     ):
         """Generate a test dataframe with new rows with NaN targets.
 
@@ -217,6 +231,11 @@ class TSDataset:
             id_column_name: name of the column(s) by which the data is
                 split (in some cases it is different from the originalß
                 id column(s)).
+            df_future_exog: optional dataframe with known future values
+                of exogenous variables. If provided and future_exog_column
+                is set, these values are inserted into the padded rows
+                for the corresponding columns.
+
 
         Notes:
             1. The new rows are filled with NaN target values,
@@ -235,7 +254,8 @@ class TSDataset:
                 step,
                 date_column=self.date_column,
             )
-            extended_data = slicer.get_slice(self.data, (current_test_ids, None))
+            extended_data = slicer.get_slice(
+                self.data, (current_test_ids, None))
             extended_data = pd.DataFrame(
                 extended_data.reshape(-1, extended_data.shape[-1]),
                 columns=self.data.columns,
@@ -261,7 +281,8 @@ class TSDataset:
         )
 
         if test_all:
-            ids = list(np.unique(extended_data.segment_col, return_index=True)[1])[1:]
+            ids = list(np.unique(extended_data.segment_col,
+                       return_index=True)[1])[1:]
 
         data = extended_data.to_numpy()
 
@@ -272,18 +293,85 @@ class TSDataset:
 
         # Find padded parts for each segment
         padded_segments_results = [
-            self._pad_segment(segment, horizon, time_delta, date_col_id, id_col_id)
+            self._pad_segment(segment, horizon, time_delta,
+                              date_col_id, id_col_id)
             for segment in segments
         ]
 
         # Concatenate together
-        result = np.vstack(np.concatenate((segments, padded_segments_results), axis=1))
+        result = np.vstack(np.concatenate(
+            (segments, padded_segments_results), axis=1))
         if test_all:
-            result = pd.DataFrame(result, columns=list(columns) + ["segment_col"])
+            result = pd.DataFrame(
+                result, columns=list(columns) + ["segment_col"])
         else:
             result = pd.DataFrame(result, columns=columns)
         result[self.date_column] = pd.to_datetime(result[self.date_column])
-        other = [col for col in columns if col not in [self.id_column, self.date_column]]
-        result[other] = result[other].astype("float")
+        known_cols = {role_dict["columns"][0]
+                      for role_dict in self.columns_params.values()}
+        other = [col for col in columns if col not in [
+            self.id_column, self.date_column]]
+        float_cols = [
+            col for col in other if col not in self.categorical_column and col in known_cols]
+        result[float_cols] = result[float_cols].astype("float")
+
+        if df_future_exog is not None and self.future_exog_column:
+            result = self.insert_future_exog(
+                result,
+                df_future_exog,
+                self.future_exog_column,
+                self.id_column,
+                self.date_column,
+            )
 
         return result
+
+    def insert_future_exog(
+        self,
+        dataset_data,
+        future_exog,
+        future_exog_columns,
+        id_column,
+        date_column,
+    ):
+        """Insert future exogenous variable values into the dataset.
+
+        Matches rows between dataset_data and future_exog by the
+        (id_column, date_column) pair and writes the exogenous values
+        into the corresponding positions.
+
+        Args:
+            dataset_data: original dataframe to insert exogenous values into.
+            future_exog: dataframe containing known future values of
+                exogenous variables.
+            future_exog_columns: list of column names to insert from
+                future_exog into dataset_data.
+            id_column: name of the column used to identify segments/entities.
+            date_column: name of the datetime column used for alignment.
+
+        Notes:
+            1. Columns listed in future_exog_columns that are missing from
+                dataset_data are added and initialised with pd.NA before
+                the update.
+            2. Row matching is performed on a (id_column, date_column)
+                multi-index, so both columns must have consistent types
+                across the two dataframes.
+            3. Existing non-NaN values in dataset_data are overwritten
+                where a matching row exists in future_exog.
+
+        Returns:
+            pd.DataFrame: a copy of dataset_data with future exogenous
+                values inserted for all matched (id, date) pairs.
+        """
+        for col in future_exog_columns:
+            if col not in dataset_data.columns:
+                dataset_data = dataset_data.copy()
+                dataset_data[col] = pd.NA
+
+        fe_dataset = future_exog[[id_column,
+                                  date_column] + future_exog_columns].copy()
+        df = dataset_data.set_index([id_column, date_column])
+        fe_idx = fe_dataset.set_index([id_column, date_column])
+
+        df.update(fe_idx, overwrite=True)
+        return df.reset_index()
