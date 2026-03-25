@@ -31,9 +31,10 @@ class Pipeline:
 
     """
 
-    def __init__(self, transformers: Transformer, multivariate: bool = False):
+    def __init__(self, transformers: Transformer, multivariate: bool = False, exog_transformer=None):
         self.transformers = transformers
         self.multivariate = multivariate
+        self.exog_transformer = exog_transformer
 
         self.is_fitted = False
         self.strategy_name = None
@@ -59,6 +60,7 @@ class Pipeline:
         """
         # Resulting pipeline is a Union transformer with Sequential transformers
         result_union_transformers_list = []
+        exog_sequential_transformer = None
 
         # For each column create a list of transformers for resulting Sequential transformer
         for role, columns_params in columns_params.items():
@@ -85,16 +87,21 @@ class Pipeline:
 
                 current_sequential_transformers_list.append(transformer)
 
-            result_union_transformers_list.append(
-                SequentialTransformer(
-                    transformers_list=current_sequential_transformers_list,
-                    input_features=columns_params["columns"],
-                )
+            sequential = SequentialTransformer(
+                transformers_list=current_sequential_transformers_list,
+                input_features=columns_params["columns"],
             )
+
+            if role == "exog":
+                # столбцы future_exog добавляются в X в исходном виде 
+                # с помощью get_future_exog_futures;
+                exog_sequential_transformer = sequential
+            else:
+                result_union_transformers_list.append(sequential)
 
         union = UnionTransformer(transformers_list=result_union_transformers_list)
 
-        return cls(union, multivariate)
+        return cls(union, multivariate, exog_transformer=exog_sequential_transformer)
 
     @classmethod
     def easy_setup(cls, roles: dict, pipeline_params: dict, multivariate: bool) -> "Pipeline":
@@ -357,9 +364,14 @@ class Pipeline:
         """
         future_exog_columns = data["future_exog_columns"]
 
+        if self.exog_transformer is not None:
+            read_columns = list(self.exog_transformer.output_features)
+        else:
+            read_columns = future_exog_columns
+
         idx_y = data["idx_y"]
         flat_idx = idx_y.reshape(-1)
-        future_vals = data["raw_ts_X"][future_exog_columns].values[flat_idx].astype(float)
+        future_vals = data["raw_ts_X"][read_columns].values[flat_idx].astype(float)
 
         if self.strategy_name in ("FlatWideMIMOStrategy", "recursive"):
             return future_vals
@@ -555,6 +567,9 @@ class Pipeline:
         """
         self.strategy_name = strategy_name
 
+        if self.exog_transformer is not None and data.get("future_exog_columns"):
+            data = self.exog_transformer.fit_transform(data)
+
         data = self.transformers.fit_transform(data)
         self.is_fitted = True
 
@@ -594,6 +609,9 @@ class Pipeline:
             the transformed data dictionary.
 
         """
+        if self.exog_transformer is not None and data.get("future_exog_columns"):
+            data = self.exog_transformer.transform(data)
+
         data = self.transformers.transform(data)
 
         return data
