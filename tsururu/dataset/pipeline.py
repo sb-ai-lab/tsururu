@@ -31,7 +31,9 @@ class Pipeline:
 
     """
 
-    def __init__(self, transformers: Transformer, multivariate: bool = False, exog_transformer=None):
+    def __init__(
+        self, transformers: Transformer, multivariate: bool = False, exog_transformer=None
+    ):
         self.transformers = transformers
         self.multivariate = multivariate
         self.exog_transformer = exog_transformer
@@ -93,7 +95,7 @@ class Pipeline:
             )
 
             if role == "exog":
-                # столбцы future_exog добавляются в X в исходном виде 
+                # столбцы future_exog добавляются в X в исходном виде
                 # с помощью get_future_exog_futures;
                 exog_sequential_transformer = sequential
             else:
@@ -379,7 +381,9 @@ class Pipeline:
             N = idx_y.shape[0]
             return future_vals.reshape(N, -1)
 
-    def get_from_mimo_to_flatwidemimo_columns_names(self, data: dict, input_features: list) -> list:
+    def get_from_mimo_to_flatwidemimo_columns_names(
+            self, data: dict, input_features: list
+        ) -> list:
         """
         Get the column names for the FlatWideMIMO strategy from MIMO format.
 
@@ -394,10 +398,16 @@ class Pipeline:
 
         """
         date_features_mask = np.array(
-            [bool(re.match(f"{data['date_column_name']}__", feature)) for feature in input_features]
+            [
+                bool(re.match(f"{data['date_column_name']}__", feature)) 
+                for feature in input_features
+            ]
         )
         id_features_mask = np.array(
-            [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
+            [
+                bool(re.match(f"{data['id_column_name']}__", feature)) 
+                for feature in input_features
+            ]
         )
         other_features_mask = ~(id_features_mask | date_features_mask)
 
@@ -462,7 +472,10 @@ class Pipeline:
         )
 
         other_features_names = np.array(
-            [f"{feat}__{i}" for i, feat in product(range(data["num_series"]), other_features_names)]
+            [
+                f"{feat}__{i}" 
+                for i, feat in product(range(data["num_series"]), other_features_names)
+            ]
         )
 
         return np.hstack([fh_features_names, date_features_names, other_features_names])
@@ -509,7 +522,10 @@ class Pipeline:
 
         # date -> "{date_column_name}__" in the beginning of the string
         date_mask = np.array(
-            [bool(re.match(f"{data['date_column_name']}__", feature)) for feature in input_features]
+            [
+                bool(re.match(f"{data['date_column_name']}__", feature)) 
+                for feature in input_features
+            ]
         )
 
         cycle_mask = np.array([bool(re.match(f"cycle_", feature)) for feature in input_features])
@@ -743,7 +759,9 @@ class Pipeline:
         other_features_idx = index_slicer.get_cols_idx(X, other_features_colname)
 
         segments_ids = np.append(
-            np.unique([tuple(x) for x in X[id_features_colname].values], axis=0, return_index=1)[1],
+            np.unique([tuple(x) for x in X[id_features_colname].values], axis=0, return_index=1)[
+                1
+            ],
             len(X),
         )
         segments_ids = np.sort(segments_ids)
@@ -802,7 +820,8 @@ class Pipeline:
         other_features_colname = [
             col
             for col in X.columns.values
-            if col not in np.hstack([id_feature_colname, date_features_colname, fh_feature_colname])
+            if col 
+            not in np.hstack([id_feature_colname, date_features_colname, fh_feature_colname])
         ]
 
         date_features_idx = index_slicer.get_cols_idx(X, date_features_colname)

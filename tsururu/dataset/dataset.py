@@ -95,11 +95,13 @@ class TSDataset:
         if reconstructed_data.shape[0] != self.data.shape[0] or not np.all(
             reconstructed_data == self.data[self.date_column].values
         ):
-            logger.warning(f"""
+            logger.warning(
+                f"""
                 It seems that the data is not regular. Please, check the data and the frequency info.
                 For multivariate regime it is critical to have regular data.
                 For global regime each regular part of time series will be processed as separate time series.
-                """)
+                """
+                )
 
     def __init__(
         self,
