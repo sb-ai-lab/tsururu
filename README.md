@@ -105,6 +105,19 @@ pip install -U tsururu[catboost]
 - _LagTransformer_: generates lagged features. 
 - _LastKnownNormalizer_: normalizes lagged features by the last known value in history, either by subtracting it or dividing by it.
 
+<a name="citation"></a>
+## Citation
+If you use Tsururu in your research, please cite it as below. ["Tsururu: a Time Series Forecasting Strategies Framework"](https://arxiv.org/pdf/2509.15843) arXiv:2509.15843
+
+BibTeX entry:
+```bibtex
+@article{tsururu2025,
+  title={Tsururu: A Python-based Time Series Forecasting Strategies Library},
+  author={Kostromina, Alina and Kuvshinova, Kseniia and Yugay, Aleksandr and Savchenko, Andrey and Simakov, Dmitry},
+  journal={arXiv preprint arXiv:2509.15843},
+  year={2025},
+}
+```
 <a name="license"></a>
 # License
 This project is licensed under the Apache License, Version 2.0. See [LICENSE](https://github.com/sb-ai-lab/tsururu/blob/master/LICENSE) file for more details.
