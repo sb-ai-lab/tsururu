@@ -15,6 +15,7 @@ from tsururu.transformers import (
     Transformer,
     TransformersFactory,
     UnionTransformer,
+    LagTransformer,
 )
 
 transormers_factory = TransformersFactory()
@@ -31,7 +32,9 @@ class Pipeline:
 
     """
 
-    def __init__(self, transformers: Transformer, multivariate: bool = False):
+    def __init__(
+        self, transformers: Transformer, multivariate: bool = False,
+    ):
         self.transformers = transformers
         self.multivariate = multivariate
 
@@ -42,6 +45,7 @@ class Pipeline:
 
         self.features_sort_idx = None
         self.features_groups = None
+        self.future_exog_feature_names = None
 
     @classmethod
     def from_dict(cls, columns_params: dict, multivariate: bool) -> "Pipeline":
@@ -86,8 +90,8 @@ class Pipeline:
 
             result_union_transformers_list.append(
                 SequentialTransformer(
-                    transformers_list=current_sequential_transformers_list,
-                    input_features=columns_params["columns"],
+                transformers_list=current_sequential_transformers_list,
+                input_features=columns_params["columns"],
                 )
             )
 
@@ -302,12 +306,75 @@ class Pipeline:
         data["num_series"] = dataset.data[dataset.id_column].nunique()
         data["idx_X"] = features_idx
         data["idx_y"] = target_idx
+        data["future_exog_columns"] = dataset.future_exog_column
 
         return data
 
+    def get_future_exog_feature_names(self, data):
+        """Generate feature names for future exogenous variables.
+
+        Builds a list of feature names based on the forecasting strategy.
+        For FlatWideMIMOStrategy and recursive strategies a single name
+        per column is produced; for MIMOStrategy a separate name is
+        generated for each horizon step.
+
+        Args:
+            data: dictionary containing:
+                - 'future_exog_columns': list of exogenous column names.
+                - 'idx_y': array of target indices with shape (N, horizon).
+
+        Returns:
+            np.ndarray: array of feature name strings.
+                - FlatWideMIMOStrategy / recursive: ``['{col}__future', ...]``
+                - MIMOStrategy: ``['{col}__future_{h}', ...]`` ordered by
+                horizon step first, then column.
+        """
+        future_exog_columns = data["future_exog_columns"]
+        horizon = data["idx_y"].shape[1]
+
+        if self.strategy_name in ("FlatWideMIMOStrategy", "recursive"):
+            names = [f"{col}__future" for col in future_exog_columns]
+        elif self.strategy_name == "MIMOStrategy":
+            names = [f"{col}__future_{h}" for h in range(horizon) for col in future_exog_columns]
+        return np.array(names)
+
+    def get_future_exog_futures(self, data):
+        """
+        Extract future exogenous variable values aligned to target indices.
+
+        Retrieves the values of exogenous columns at the positions defined
+        by idx_y and reshapes them according to the forecasting strategy.
+
+        Args:
+            data: dictionary containing:
+                - 'future_exog_columns': list of exogenous column names.
+                - 'raw_ts_X': dataframe of input time-series features.
+                - 'idx_y': array of target indices with shape (N, horizon).
+
+        Returns:
+            np.ndarray:
+                - FlatWideMIMOStrategy / recursive: 2-D array of shape
+                (N * horizon, n_cols) with raw extracted values.
+                - MIMOStrategy: 2-D array of shape (N, horizon * n_cols)
+                with values reshaped per sample.
+        """
+        future_exog_columns = data["future_exog_columns"]
+
+        idx_y = data["idx_y"]
+        raw_vals = data["raw_ts_X"][future_exog_columns].values.astype(float)
+
+        if self.strategy_name == "recursive":
+            # onr value per sample
+            return raw_vals[idx_y[:, 0]]
+        elif self.strategy_name == "FlatWideMIMOStrategy":
+            return raw_vals[idx_y.reshape(-1)]
+        elif self.strategy_name == "MIMOStrategy":
+            N = idx_y.shape[0]
+            return raw_vals[idx_y.reshape(-1)].reshape(N, -1)
+
     def get_from_mimo_to_flatwidemimo_columns_names(
-        self, data: dict, input_features: list
-    ) -> list:
+            self, data: dict, input_features: list
+        ) -> list:
         """
         Get the column names for the FlatWideMIMO strategy from MIMO format.
 
@@ -328,7 +395,10 @@ class Pipeline:
             ]
         )
         id_features_mask = np.array(
-            [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
+            [
+                bool(re.match(f"{data['id_column_name']}__", feature))
+                for feature in input_features
+            ]
         )
         other_features_mask = ~(id_features_mask | date_features_mask)
 
@@ -368,10 +438,7 @@ class Pipeline:
 
         """
         date_features_names = input_features[
-            [
-                bool(re.match(f"{data['date_column_name']}__", feature))
-                for feature in input_features
-            ]
+            [bool(re.match(f"{data['date_column_name']}__", feature)) for feature in input_features]
         ]
         if self.strategy_name == "FlatWideMIMOStrategy":
             fh_features_names = np.array(["FH"])
@@ -439,6 +506,18 @@ class Pipeline:
             [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
         )
 
+        # exog -> "{future_exog_cols}__" in the beginning of the string
+        future_exog_cols = data.get("future_exog_columns") or []
+        if future_exog_cols:
+            future_exog_mask = np.array(
+                [
+                    bool(re.match(f"{col}__", feature)) for col in future_exog_cols
+                    for feature in input_features
+                ]
+            )
+        else:
+            future_exog_mask = np.zeros(len(input_features), dtype=bool)
+
         if self.strategy_name == "FlatWideMIMOStrategy":
             fh_mask = np.array([element == "FH" for element in input_features])
         else:
@@ -462,7 +541,7 @@ class Pipeline:
 
         series_mask = np.logical_and(series_mask, ~(target_mask | cycle_mask))
 
-        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask)
+        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask | future_exog_mask)
 
         new_order_idx = np.concatenate(
             [
@@ -472,6 +551,7 @@ class Pipeline:
                 np.where(date_mask)[0],
                 np.where(series_mask)[0],
                 np.where(cycle_mask)[0],
+                np.where(future_exog_mask)[0],
                 np.where(other_mask)[0],
             ]
         )
@@ -483,6 +563,7 @@ class Pipeline:
             "datetime_features": np.sum(date_mask),
             "series_features": np.sum(series_mask),
             "cycle_features": np.sum(cycle_mask),
+            "future_exog_features": np.sum(future_exog_mask),
             "other_features": np.sum(other_mask),
         }
 
@@ -518,6 +599,14 @@ class Pipeline:
             )
         if self.multivariate:
             current_features = self._get_multivariate_X_columns_names(data, current_features)
+
+        if data.get("future_exog_columns") and self.strategy_name in (
+            "MIMOStrategy",
+            "FlatWideMIMOStrategy",
+            "recursive",
+        ):
+            self.future_exog_feature_names = self.get_future_exog_feature_names(data)
+            current_features = np.concatenate([current_features, self.future_exog_feature_names])
 
         self.features_sort_idx, self.features_groups = self.group_pipeline_output_features(
             data, current_features
@@ -806,6 +895,12 @@ class Pipeline:
                 )
             else:
                 data, current_features = self._make_multivariate_X_y(data, current_features)
+
+        if self.future_exog_feature_names is not None and data.get("future_exog_columns"):
+            future_X = self.get_future_exog_futures(data)
+            # future_X = future_X.reshape(1, -1)
+            data["X"] = np.hstack([data["X"], future_X])
+            current_features = np.concatenate([current_features, self.future_exog_feature_names])
 
         assert np.all(
             self.output_features == current_features[self.features_sort_idx]

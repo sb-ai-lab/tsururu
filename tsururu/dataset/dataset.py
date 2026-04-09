@@ -29,6 +29,10 @@ class TSDataset:
                     "exog_1": {...},
                     "exog_2": {...},
                     ...,
+                    "future_exog": {
+                        "columns": ["col_future"],
+                        "type": "continuous",
+                    },
                 }.
         delta: the pd.DateOffset class. Usually generated
             automatically, but can be externally specified. Needs to
@@ -74,6 +78,8 @@ class TSDataset:
             self.data[self.date_column], self.delta, return_freq_period_info=True
         )
 
+        self.delta = delta
+
         if print_freq_period_info:
             logger.info(info)
 
@@ -93,11 +99,11 @@ class TSDataset:
         ):
             logger.warning(
                 f"""
-                It seems that the data is not regular. Please, check the data and the frequency info.                
+                It seems that the data is not regular. Please, check the data and the frequency info.
                 For multivariate regime it is critical to have regular data.
-                For global regime each regular part of time series will be processed as separate time series.           
+                For global regime each regular part of time series will be processed as separate time series.
                 """
-            )
+                )
 
     def __init__(
         self,
@@ -111,6 +117,9 @@ class TSDataset:
         self._auto_type_columns(columns_params, "id", "categorical")
         self._auto_type_columns(columns_params, "target", "continuous")
 
+        self.future_exog_column = []
+        self.categorical_column = []
+
         for _, role_dict in columns_params.items():
             column_name = role_dict["columns"][0]
             column_type = role_dict["type"]
@@ -118,6 +127,10 @@ class TSDataset:
                 data[column_name] = data[column_name].astype("float")
             elif column_type == "datetime":
                 data[column_name] = pd.to_datetime(data[column_name])
+            elif column_name != "target" and column_type == "continuous":
+                self.future_exog_column.append(column_name)
+            elif column_type == "categorical":
+                self.categorical_column.append(column_name)
 
         self.data = data
         self.columns_params = columns_params
@@ -200,6 +213,7 @@ class TSDataset:
         test_all: bool = False,
         step: Optional[int] = None,
         id_column_name: Optional[Union[str, Sequence[str]]] = None,
+        df_future_exog: Optional[pd.DataFrame] = None,
     ):
         """Generate a test dataframe with new rows with NaN targets.
 
@@ -217,6 +231,11 @@ class TSDataset:
             id_column_name: name of the column(s) by which the data is
                 split (in some cases it is different from the originalß
                 id column(s)).
+            df_future_exog: optional dataframe with known future values
+                of exogenous variables. If provided and future_exog_column
+                is set, these values are inserted into the padded rows
+                for the corresponding columns.
+
 
         Notes:
             1. The new rows are filled with NaN target values,
@@ -283,7 +302,69 @@ class TSDataset:
         else:
             result = pd.DataFrame(result, columns=columns)
         result[self.date_column] = pd.to_datetime(result[self.date_column])
+        known_cols = {role_dict["columns"][0] for role_dict in self.columns_params.values()}
         other = [col for col in columns if col not in [self.id_column, self.date_column]]
-        result[other] = result[other].astype("float")
+        float_cols = [
+            col for col in other if col not in self.categorical_column and col in known_cols
+        ]
+        result[float_cols] = result[float_cols].astype("float")
+
+        if df_future_exog is not None and self.future_exog_column:
+            result = self.insert_future_exog(
+                result,
+                df_future_exog,
+                self.future_exog_column,
+                self.id_column,
+                self.date_column,
+            )
 
         return result
+
+    def insert_future_exog(
+        self,
+        dataset_data,
+        future_exog,
+        future_exog_columns,
+        id_column,
+        date_column,
+    ):
+        """Insert future exogenous variable values into the dataset.
+
+        Matches rows between dataset_data and future_exog by the
+        (id_column, date_column) pair and writes the exogenous values
+        into the corresponding positions.
+
+        Args:
+            dataset_data: original dataframe to insert exogenous values into.
+            future_exog: dataframe containing known future values of
+                exogenous variables.
+            future_exog_columns: list of column names to insert from
+                future_exog into dataset_data.
+            id_column: name of the column used to identify segments/entities.
+            date_column: name of the datetime column used for alignment.
+
+        Notes:
+            1. Columns listed in future_exog_columns that are missing from
+                dataset_data are added and initialised with pd.NA before
+                the update.
+            2. Row matching is performed on a (id_column, date_column)
+                multi-index, so both columns must have consistent types
+                across the two dataframes.
+            3. Existing non-NaN values in dataset_data are overwritten
+                where a matching row exists in future_exog.
+
+        Returns:
+            pd.DataFrame: a copy of dataset_data with future exogenous
+                values inserted for all matched (id, date) pairs.
+        """
+        for col in future_exog_columns:
+            if col not in dataset_data.columns:
+                dataset_data = dataset_data.copy()
+                dataset_data[col] = pd.NA
+
+        fe_dataset = future_exog[[id_column, date_column] + future_exog_columns].copy()
+        df = dataset_data.set_index([id_column, date_column])
+        fe_idx = fe_dataset.set_index([id_column, date_column])
+
+        df.update(fe_idx, overwrite=True)
+        return df.reset_index()

@@ -28,12 +28,13 @@ class LagTransformer(SeriesToFeaturesTransformer):
 
     """
 
-    def __init__(self, lags: Union[int, Sequence[int]]):
+    def __init__(self, lags: Union[int, Sequence[int]], from_target_date: bool = False):
         super().__init__()
         if isinstance(lags, Sequence):
             self.lags = np.array(lags)
         if isinstance(lags, int):
             self.lags = np.arange(lags)
+        self.from_target_date = from_target_date
 
     def fit(self, data: dict, input_features: Sequence[str]) -> "LagTransformer":
         """Fit transformer on "elongated series" and return it's instance.
@@ -49,6 +50,10 @@ class LagTransformer(SeriesToFeaturesTransformer):
 
         """
         super().fit(data, input_features)
+
+        assert not (
+            self.from_target_date and data["target_column_name"] in self.input_features
+        ), "from_target_date=True is not allowed for the target column"
 
         self.output_features = [
             f"{column}__lag_{lag}" for column, lag in product(self.input_features, self.lags[::-1])
@@ -90,21 +95,34 @@ class LagTransformer(SeriesToFeaturesTransformer):
         Notes:
             1. Either both idx_X or idx_y must be specified,
                 LagTransformer uses only idx_X.
-
+            2. LagTransformer uses only idx_X; idx_y is used solely to
+            compute the horizon offset when from_target_date=True.
         """
         input_features_idx = index_slicer.get_cols_idx(data["raw_ts_X"], self.input_features)
 
-        if len(data["idx_X"].shape) == 3:
+        if self.from_target_date:
+            if len(data["idx_X"].shape) == 3:
+                raise NotImplementedError(
+                    "ПОКА LagTransformer с from_target_date=True не работает в multivariate"
+                )
+            # anchor = data["idx_y"][:, -1]
+            anchor = data["idx_y"][:, 0]
+            lag_positions = anchor[:, np.newaxis] - self.lags[::-1]
+            raw_values = data["raw_ts_X"].values
+            X = raw_values[lag_positions][:, :, input_features_idx].astype(float)
+            X = np.moveaxis(X, 1, 2).reshape(len(X), -1)
+        elif len(data["idx_X"].shape) == 3:
             self._check_lags_less_than_history(
                 data["raw_ts_X"], data["idx_X"][0], input_features_idx
             )
             X = _seq_mult_ts(data["raw_ts_X"], data["idx_X"], input_features_idx)
+            X = X[:, (X.shape[1] - 1) - self.lags[::-1], :]
+            X = np.moveaxis(X, 1, 2).reshape(len(X), -1)
         else:
             self._check_lags_less_than_history(data["raw_ts_X"], data["idx_X"], input_features_idx)
             X = index_slicer.get_slice(data["raw_ts_X"], (data["idx_X"], input_features_idx))
-
-        X = X[:, (X.shape[1] - 1) - self.lags[::-1], :]
-        X = np.moveaxis(X, 1, 2).reshape(len(X), -1)
+            X = X[:, (X.shape[1] - 1) - self.lags[::-1], :]
+            X = np.moveaxis(X, 1, 2).reshape(len(X), -1)
 
         if data["X"].shape == (0,):
             data["X"] = X

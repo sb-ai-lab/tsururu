@@ -208,6 +208,7 @@ class RecursiveStrategy(Strategy):
         horizon: int | None = None,
         test_all: bool = False,
         inverse_transform: bool = True,
+        df_future_exog=None,
     ) -> pd.DataFrame:
         """Predicts the target values for the given dataset.
 
@@ -218,6 +219,9 @@ class RecursiveStrategy(Strategy):
                 Otherwise, predicts only the last window.
             inverse_transform (bool, default=True): if True, applies inverse transformations to the predictions
                 (e.g., reversing normalization/scaling).
+            df_future_exog: optional dataframe with known future values
+                of exogenous variables. Passed to make_padded_test and
+                inserted into the padded rows before inference.
 
         Returns:
             a pandas DataFrame containing the predicted target values.
@@ -235,7 +239,11 @@ class RecursiveStrategy(Strategy):
         )
 
         new_data = dataset.make_padded_test(
-            intrinsic_horizon, self.history, test_all=test_all, step=self.step
+            intrinsic_horizon,
+            self.history,
+            test_all=test_all,
+            step=self.step,
+            df_future_exog=df_future_exog,
         )
 
         new_dataset = TSDataset(new_data, dataset.columns_params, dataset.delta)
