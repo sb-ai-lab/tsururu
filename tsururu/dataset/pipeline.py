@@ -15,6 +15,7 @@ from tsururu.transformers import (
     Transformer,
     TransformersFactory,
     UnionTransformer,
+    LagTransformer,
 )
 
 transormers_factory = TransformersFactory()
@@ -32,11 +33,10 @@ class Pipeline:
     """
 
     def __init__(
-        self, transformers: Transformer, multivariate: bool = False, exog_transformer=None
+        self, transformers: Transformer, multivariate: bool = False,
     ):
         self.transformers = transformers
         self.multivariate = multivariate
-        self.exog_transformer = exog_transformer
 
         self.is_fitted = False
         self.strategy_name = None
@@ -62,7 +62,6 @@ class Pipeline:
         """
         # Resulting pipeline is a Union transformer with Sequential transformers
         result_union_transformers_list = []
-        exog_sequential_transformer = None
 
         # For each column create a list of transformers for resulting Sequential transformer
         for role, columns_params in columns_params.items():
@@ -89,21 +88,16 @@ class Pipeline:
 
                 current_sequential_transformers_list.append(transformer)
 
-            sequential = SequentialTransformer(
+            result_union_transformers_list.append(
+                SequentialTransformer(
                 transformers_list=current_sequential_transformers_list,
                 input_features=columns_params["columns"],
+                )
             )
-
-            if role == "exog":
-                # столбцы future_exog добавляются в X в исходном виде
-                # с помощью get_future_exog_futures;
-                exog_sequential_transformer = sequential
-            else:
-                result_union_transformers_list.append(sequential)
 
         union = UnionTransformer(transformers_list=result_union_transformers_list)
 
-        return cls(union, multivariate, exog_transformer=exog_sequential_transformer)
+        return cls(union, multivariate)
 
     @classmethod
     def easy_setup(cls, roles: dict, pipeline_params: dict, multivariate: bool) -> "Pipeline":
@@ -366,20 +360,17 @@ class Pipeline:
         """
         future_exog_columns = data["future_exog_columns"]
 
-        if self.exog_transformer is not None:
-            read_columns = list(self.exog_transformer.output_features)
-        else:
-            read_columns = future_exog_columns
-
         idx_y = data["idx_y"]
-        flat_idx = idx_y.reshape(-1)
-        future_vals = data["raw_ts_X"][read_columns].values[flat_idx].astype(float)
+        raw_vals = data["raw_ts_X"][future_exog_columns].values.astype(float)
 
-        if self.strategy_name in ("FlatWideMIMOStrategy", "recursive"):
-            return future_vals
+        if self.strategy_name == "recursive":
+            # onr value per sample
+            return raw_vals[idx_y[:, 0]]
+        elif self.strategy_name == "FlatWideMIMOStrategy":
+            return raw_vals[idx_y.reshape(-1)]
         elif self.strategy_name == "MIMOStrategy":
             N = idx_y.shape[0]
-            return future_vals.reshape(N, -1)
+            return raw_vals[idx_y.reshape(-1)].reshape(N, -1)
 
     def get_from_mimo_to_flatwidemimo_columns_names(
             self, data: dict, input_features: list
@@ -399,13 +390,13 @@ class Pipeline:
         """
         date_features_mask = np.array(
             [
-                bool(re.match(f"{data['date_column_name']}__", feature)) 
+                bool(re.match(f"{data['date_column_name']}__", feature))
                 for feature in input_features
             ]
         )
         id_features_mask = np.array(
             [
-                bool(re.match(f"{data['id_column_name']}__", feature)) 
+                bool(re.match(f"{data['id_column_name']}__", feature))
                 for feature in input_features
             ]
         )
@@ -473,7 +464,7 @@ class Pipeline:
 
         other_features_names = np.array(
             [
-                f"{feat}__{i}" 
+                f"{feat}__{i}"
                 for i, feat in product(range(data["num_series"]), other_features_names)
             ]
         )
@@ -515,6 +506,18 @@ class Pipeline:
             [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
         )
 
+        # exog -> "{future_exog_cols}__" in the beginning of the string
+        future_exog_cols = data.get("future_exog_columns") or []
+        if future_exog_cols:
+            future_exog_mask = np.array(
+                [
+                    bool(re.match(f"{col}__", feature)) for col in future_exog_cols
+                    for feature in input_features
+                ]
+            )
+        else:
+            future_exog_mask = np.zeros(len(input_features), dtype=bool)
+
         if self.strategy_name == "FlatWideMIMOStrategy":
             fh_mask = np.array([element == "FH" for element in input_features])
         else:
@@ -523,7 +526,7 @@ class Pipeline:
         # date -> "{date_column_name}__" in the beginning of the string
         date_mask = np.array(
             [
-                bool(re.match(f"{data['date_column_name']}__", feature)) 
+                bool(re.match(f"{data['date_column_name']}__", feature))
                 for feature in input_features
             ]
         )
@@ -538,7 +541,7 @@ class Pipeline:
 
         series_mask = np.logical_and(series_mask, ~(target_mask | cycle_mask))
 
-        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask)
+        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask | future_exog_mask)
 
         new_order_idx = np.concatenate(
             [
@@ -548,6 +551,7 @@ class Pipeline:
                 np.where(date_mask)[0],
                 np.where(series_mask)[0],
                 np.where(cycle_mask)[0],
+                np.where(future_exog_mask)[0],
                 np.where(other_mask)[0],
             ]
         )
@@ -559,6 +563,7 @@ class Pipeline:
             "datetime_features": np.sum(date_mask),
             "series_features": np.sum(series_mask),
             "cycle_features": np.sum(cycle_mask),
+            "future_exog_features": np.sum(future_exog_mask),
             "other_features": np.sum(other_mask),
         }
 
@@ -582,9 +587,6 @@ class Pipeline:
 
         """
         self.strategy_name = strategy_name
-
-        if self.exog_transformer is not None and data.get("future_exog_columns"):
-            data = self.exog_transformer.fit_transform(data)
 
         data = self.transformers.fit_transform(data)
         self.is_fitted = True
@@ -625,9 +627,6 @@ class Pipeline:
             the transformed data dictionary.
 
         """
-        if self.exog_transformer is not None and data.get("future_exog_columns"):
-            data = self.exog_transformer.transform(data)
-
         data = self.transformers.transform(data)
 
         return data
@@ -820,7 +819,7 @@ class Pipeline:
         other_features_colname = [
             col
             for col in X.columns.values
-            if col 
+            if col
             not in np.hstack([id_feature_colname, date_features_colname, fh_feature_colname])
         ]
 
@@ -899,6 +898,7 @@ class Pipeline:
 
         if self.future_exog_feature_names is not None and data.get("future_exog_columns"):
             future_X = self.get_future_exog_futures(data)
+            # future_X = future_X.reshape(1, -1)
             data["X"] = np.hstack([data["X"], future_X])
             current_features = np.concatenate([current_features, self.future_exog_feature_names])
 

@@ -29,8 +29,10 @@ class TSDataset:
                     "exog_1": {...},
                     "exog_2": {...},
                     ...,
-                    # TODO
-                    "future_exog": {"columns": ["col_future"]}
+                    "future_exog": {
+                        "columns": ["col_future"],
+                        "type": "continuous",
+                    },
                 }.
         delta: the pd.DateOffset class. Usually generated
             automatically, but can be externally specified. Needs to
@@ -125,7 +127,7 @@ class TSDataset:
                 data[column_name] = data[column_name].astype("float")
             elif column_type == "datetime":
                 data[column_name] = pd.to_datetime(data[column_name])
-            elif column_type == "future_exog":
+            elif column_name != "target" and column_type == "continuous":
                 self.future_exog_column.append(column_name)
             elif column_type == "categorical":
                 self.categorical_column.append(column_name)

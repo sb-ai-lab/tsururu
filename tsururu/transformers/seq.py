@@ -51,6 +51,10 @@ class LagTransformer(SeriesToFeaturesTransformer):
         """
         super().fit(data, input_features)
 
+        assert not (
+            self.from_target_date and data["target_column_name"] in self.input_features
+        ), "from_target_date=True is not allowed for the target column"
+
         self.output_features = [
             f"{column}__lag_{lag}" for column, lag in product(self.input_features, self.lags[::-1])
         ]
@@ -101,8 +105,8 @@ class LagTransformer(SeriesToFeaturesTransformer):
                 raise NotImplementedError(
                     "ПОКА LagTransformer с from_target_date=True не работает в multivariate"
                 )
-            horizon_offset = int(data["idx_y"][0, -1]) - int(data["idx_X"][0, -1])
-            anchor = data["idx_X"][:, -1] + horizon_offset
+            # anchor = data["idx_y"][:, -1]
+            anchor = data["idx_y"][:, 0]
             lag_positions = anchor[:, np.newaxis] - self.lags[::-1]
             raw_values = data["raw_ts_X"].values
             X = raw_values[lag_positions][:, :, input_features_idx].astype(float)
