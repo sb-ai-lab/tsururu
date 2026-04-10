@@ -1,6 +1,5 @@
 import logging
 
-import numpy as np
 import pandas as pd
 
 from tsururu.dataset import IndexSlicer, Pipeline, TSDataset
@@ -56,7 +55,7 @@ PIPELINE_PARAMS = {
 
 
 def test_assert_for_nans_in_nn_X(caplog):
-    df = pd.read_csv("tsururu/datasets/global/simulated_data_to_check.csv")
+    df = pd.read_csv("datasets/global/simulated_data_to_check.csv")
 
     dataset = TSDataset(
         data=df,
@@ -83,7 +82,9 @@ def test_assert_for_nans_in_nn_X(caplog):
         "n_epochs": 1,
     }
 
-    trainer = DLTrainer(model, model_params, validation, validation_params, **trainer_params)
+    trainer = DLTrainer(
+        model, model_params, validation, validation_params, **trainer_params
+    )
 
     strategy = MIMOStrategy(HORIZON, HISTORY, trainer, pipeline)
 

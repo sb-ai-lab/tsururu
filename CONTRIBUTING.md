@@ -28,9 +28,12 @@ Please be respectful and constructive in all interactions. We follow the [Contri
 git clone https://github.com/<your-username>/tsururu.git
 cd tsururu
 
+# Create environment
+python -m venv .venv
+source .venv/bin/activate
+
 # Install in editable mode with dev dependencies
-pip install -e ".[all]"
-pip install pre-commit pytest
+pip install -e ".[all,dev]"
 
 # Install pre-commit hooks
 pre-commit install

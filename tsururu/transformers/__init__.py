@@ -47,7 +47,9 @@ class TransformersFactory:
         return sorted(list(self.transformers.keys()))
 
     def __getitem__(self, params):
-        return self.transformers[params["transformer_name"]](**params["transformer_params"])
+        return self.transformers[params["transformer_name"]](
+            **params["transformer_params"]
+        )
 
     def create_transformer(self, transformer_name, transformer_params):
         return self.transformers[transformer_name](**transformer_params)

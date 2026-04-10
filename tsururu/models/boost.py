@@ -8,8 +8,12 @@ from tsururu.utils.optional_imports import OptionalImport
 Pool = OptionalImport("catboost.Pool")
 CatBoostRegressor = OptionalImport("catboost.CatBoostRegressor")
 GradientBoosting = OptionalImport("py_boost.GradientBoosting")
-RandomSamplingSketch = OptionalImport("py_boost.multioutput.sketching.RandomSamplingSketch")
-RandomProjectionSketch = OptionalImport("py_boost.multioutput.sketching.RandomProjectionSketch")
+RandomSamplingSketch = OptionalImport(
+    "py_boost.multioutput.sketching.RandomSamplingSketch"
+)
+RandomProjectionSketch = OptionalImport(
+    "py_boost.multioutput.sketching.RandomProjectionSketch"
+)
 
 
 class CatBoost(Estimator):
@@ -57,7 +61,9 @@ class CatBoost(Estimator):
             plot=False,
         )
 
-        self.score = self.model.best_score_["validation"][f"{self.model_params['loss_function']}"]
+        self.score = self.model.best_score_["validation"][
+            f"{self.model_params['loss_function']}"
+        ]
 
         return self
 

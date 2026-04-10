@@ -34,7 +34,9 @@ class LabelEncodingTransformer(FeaturesGenerator):
         for column_name in self.input_features:
             self.les[column_name] = LabelEncoder().fit(data["raw_ts_X"][column_name])
 
-        self.output_features = [f"{column_name}__label" for column_name in self.input_features]
+        self.output_features = [
+            f"{column_name}__label" for column_name in self.input_features
+        ]
 
         return self
 
@@ -52,7 +54,9 @@ class LabelEncodingTransformer(FeaturesGenerator):
         """
         new_arr = np.empty((len(data["raw_ts_X"]), len(self.output_features)), np.int32)
         for i, column_name in enumerate(self.input_features):
-            new_arr[:, i] = self.les[column_name].transform(data["raw_ts_X"][column_name])
+            new_arr[:, i] = self.les[column_name].transform(
+                data["raw_ts_X"][column_name]
+            )
         data["raw_ts_X"][self.output_features] = new_arr
 
         return data
@@ -120,7 +124,9 @@ class OneHotEncodingTransformer(FeaturesGenerator):
             for column_i, column_name in enumerate(self.input_features):
                 for id_name in np.delete(
                     data["raw_ts_X"][column_name].unique(),
-                    np.where(data["raw_ts_X"][column_name].unique() == self.drop[column_i]),
+                    np.where(
+                        data["raw_ts_X"][column_name].unique() == self.drop[column_i]
+                    ),
                 ):
                     self.output_features.append(f"{column_name}__{id_name}_ohe")
 

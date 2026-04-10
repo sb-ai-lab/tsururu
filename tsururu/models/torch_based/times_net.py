@@ -55,7 +55,13 @@ class TimesBlock(nn.Module):
     """
 
     def __init__(
-        self, seq_len: int, pred_len: int, top_k: int, d_model: int, d_ff: int, num_kernels: int
+        self,
+        seq_len: int,
+        pred_len: int,
+        top_k: int,
+        d_model: int,
+        d_ff: int,
+        num_kernels: int,
     ):
         super(TimesBlock, self).__init__()
 
@@ -87,14 +93,18 @@ class TimesBlock(nn.Module):
             period = period_list[i]
             if (self.seq_len + self.pred_len) % period != 0:
                 length = (((self.seq_len + self.pred_len) // period) + 1) * period
-                padding = torch.zeros([B, (length - (self.seq_len + self.pred_len)), N]).to(
-                    x.device
-                )
+                padding = torch.zeros(
+                    [B, (length - (self.seq_len + self.pred_len)), N]
+                ).to(x.device)
                 out = torch.cat([x, padding], dim=1)
             else:
                 length = self.seq_len + self.pred_len
                 out = x
-            out = out.reshape(B, length // period, period, N).permute(0, 3, 1, 2).contiguous()
+            out = (
+                out.reshape(B, length // period, period, N)
+                .permute(0, 3, 1, 2)
+                .contiguous()
+            )
             out = self.conv(out)
             out = out.permute(0, 2, 3, 1).reshape(B, -1, N)
             res.append(out[:, : (self.seq_len + self.pred_len), :])
@@ -173,7 +183,9 @@ class TimesNet_NN(DLEstimator):
                 dropout=dropout,
             )
         else:
-            self.enc_embedding = Embedding(emb_channels, d_model, use_time=False, dropout=dropout)
+            self.enc_embedding = Embedding(
+                emb_channels, d_model, use_time=False, dropout=dropout
+            )
 
         self.layer_norm = nn.LayerNorm(d_model)
         self.predict_linear = nn.Linear(self.seq_len, pred_len + self.seq_len)
@@ -197,7 +209,9 @@ class TimesNet_NN(DLEstimator):
         )  # (batch_size, seq_len, num_series)
 
         # RevIN on series
-        series_means = series.mean(1, keepdim=True).detach()  # (batch_size, 1, num_series)
+        series_means = series.mean(
+            1, keepdim=True
+        ).detach()  # (batch_size, 1, num_series)
         series = series - series_means  # (batch_size, seq_len, num_series)
         series_stdev = torch.sqrt(
             torch.var(series, dim=1, keepdim=True, unbiased=False) + 1e-5
@@ -208,7 +222,10 @@ class TimesNet_NN(DLEstimator):
             # 4d tensors
             if self.time_embed:
                 time_features_4d = slice_features_4d(
-                    x, ["datetime_features"], self.features_groups_corrected, self.num_series
+                    x,
+                    ["datetime_features"],
+                    self.features_groups_corrected,
+                    self.num_series,
                 )  # (batch_size, seq_len, num_series, num_datetime_features)
                 exog_features_4d = slice_features_4d(
                     x,
@@ -219,12 +236,16 @@ class TimesNet_NN(DLEstimator):
             else:
                 time_features_4d = torch.empty(
                     series.shape[0], series.shape[1], self.num_series, 0
-                ).to(
-                    series.device
-                )  # (batch_size, seq_len, num_series, 0)
+                ).to(series.device)  # (batch_size, seq_len, num_series, 0)
                 exog_features_4d = slice_features_4d(
                     x,
-                    ["id", "fh", "datetime_features", "series_features", "other_features"],
+                    [
+                        "id",
+                        "fh",
+                        "datetime_features",
+                        "series_features",
+                        "other_features",
+                    ],
                     self.features_groups_corrected,
                     self.num_series,
                 )  # (batch_size, seq_len, num_series, num_exog_features)
@@ -263,13 +284,17 @@ class TimesNet_NN(DLEstimator):
                 )  # (batch_size * num_series, seq_len + pred_len, d_model)
 
             # project back
-            dec_out = self.projection(enc_out)  # (batch_size * num_series, seq_len + pred_len, 1)
+            dec_out = self.projection(
+                enc_out
+            )  # (batch_size * num_series, seq_len + pred_len, 1)
 
             dec_out = rearrange(
                 dec_out, "(b c) s d -> b s c d", c=self.num_series
             )  # (batch_size, seq_len + pred_len, num_series, 1)
 
-            dec_out = dec_out.squeeze(-1)  # (batch_size, seq_len + pred_len, num_series)
+            dec_out = dec_out.squeeze(
+                -1
+            )  # (batch_size, seq_len + pred_len, num_series)
 
         else:
             # 3d tensors
@@ -288,7 +313,13 @@ class TimesNet_NN(DLEstimator):
                 )  # (batch_size, seq_len, 0)
                 exog_features = slice_features(
                     x,
-                    ["id", "fh", "datetime_features", "series_features", "other_features"],
+                    [
+                        "id",
+                        "fh",
+                        "datetime_features",
+                        "series_features",
+                        "other_features",
+                    ],
                     self.features_groups_corrected,
                 )  # (batch_size, seq_len, num_exog_features)
 
@@ -297,9 +328,15 @@ class TimesNet_NN(DLEstimator):
             )  # (batch_size, seq_len, num_series + num_exog_features)
 
             # embedding
-            enc_out = self.enc_embedding(series, time_features)  # (batch_size, seq_len, d_model)
-            enc_out = rearrange(enc_out, "b s c -> b c s")  # (batch_size, d_model, seq_len)
-            enc_out = self.predict_linear(enc_out)  # (batch_size, d_model, seq_len + pred_len)
+            enc_out = self.enc_embedding(
+                series, time_features
+            )  # (batch_size, seq_len, d_model)
+            enc_out = rearrange(
+                enc_out, "b s c -> b c s"
+            )  # (batch_size, d_model, seq_len)
+            enc_out = self.predict_linear(
+                enc_out
+            )  # (batch_size, d_model, seq_len + pred_len)
             enc_out = rearrange(
                 enc_out, "b c s -> b s c"
             )  # (batch_size, seq_len + pred_len, d_model)
@@ -311,14 +348,20 @@ class TimesNet_NN(DLEstimator):
                 )  # (batch_size, seq_len + pred_len, d_model)
 
             # project back
-            dec_out = self.projection(enc_out)  # (batch_size, seq_len + pred_len, num_series)
+            dec_out = self.projection(
+                enc_out
+            )  # (batch_size, seq_len + pred_len, num_series)
 
         # RevIN back
         dec_out = dec_out * (
-            series_stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len + self.seq_len, 1)
+            series_stdev[:, 0, :]
+            .unsqueeze(1)
+            .repeat(1, self.pred_len + self.seq_len, 1)
         )
         dec_out = dec_out + (
-            series_means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len + self.seq_len, 1)
+            series_means[:, 0, :]
+            .unsqueeze(1)
+            .repeat(1, self.pred_len + self.seq_len, 1)
         )
 
         return dec_out[:, -self.pred_len :, :]  # [B, L, D]

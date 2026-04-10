@@ -88,7 +88,9 @@ class RecursiveStrategy(Strategy):
             delta=dataset.delta,
         )
 
-        data = self.pipeline.create_data_dict_for_pipeline(dataset, features_idx, target_idx)
+        data = self.pipeline.create_data_dict_for_pipeline(
+            dataset, features_idx, target_idx
+        )
         data = self.pipeline.fit_transform(data, self.strategy_name)
 
         val_dataset = self.trainer.validation_params.get("validation_data")
@@ -183,7 +185,9 @@ class RecursiveStrategy(Strategy):
             delta=dataset.delta,
         )[:, self.model_horizon * step : self.model_horizon * (step + 1)]
 
-        data = self.pipeline.create_data_dict_for_pipeline(dataset, test_idx, target_idx)
+        data = self.pipeline.create_data_dict_for_pipeline(
+            dataset, test_idx, target_idx
+        )
         data = self.pipeline.transform(data)
 
         pred = self.trainers[0].predict(data, self.pipeline)
@@ -197,7 +201,9 @@ class RecursiveStrategy(Strategy):
 
         target_idx = target_idx[:, : pred.shape[1]]
 
-        dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
+        dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(
+            -1
+        )
 
         return dataset
 
@@ -273,7 +279,9 @@ class RecursiveStrategy(Strategy):
             if inverse_transform:
                 pred = self.pipeline.inverse_transform_y(pred)
 
-            new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = pred.reshape(-1)
+            new_dataset.data.loc[target_ids.reshape(-1), dataset.target_column] = (
+                pred.reshape(-1)
+            )
 
         else:
             for step in range(intrinsic_horizon // self.model_horizon):

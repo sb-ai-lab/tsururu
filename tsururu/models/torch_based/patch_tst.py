@@ -10,7 +10,9 @@ from tsururu.utils.optional_imports import OptionalImport
 
 torch = OptionalImport("torch")
 nn = OptionalImport("torch.nn")
-PatchTST_backbone = OptionalImport("tsururu.models.torch_based.layers.patch_tst.PatchTST_backbone")
+PatchTST_backbone = OptionalImport(  # noqa: F811
+    "tsururu.models.torch_based.layers.patch_tst.PatchTST_backbone"
+)
 
 
 class PatchTST_NN(DLEstimator):
@@ -248,7 +250,10 @@ class PatchTST_NN(DLEstimator):
             res_init = torch.concat([res_init, exog_features], dim=2)
             trend_init = torch.concat([trend_init, exog_features], dim=2)
 
-            res_init, trend_init = res_init.permute(0, 2, 1), trend_init.permute(0, 2, 1)
+            res_init, trend_init = (
+                res_init.permute(0, 2, 1),
+                trend_init.permute(0, 2, 1),
+            )
             res = self.model_res(res_init)
             trend = self.model_trend(trend_init)
             x = res + trend

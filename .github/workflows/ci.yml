@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  # trigger for all branches
   push:
   pull_request:
 
@@ -21,8 +20,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install pre-commit
-        run: pip install pre-commit
+      - name: Install dependencies
+        run: pip install -e ".[all,dev]"
 
       - name: Run pre-commit
         run: pre-commit run --all-files
@@ -34,7 +33,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
 
     steps:
@@ -48,8 +46,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -e ".[catboost]"
-          pip install pytest
+          pip install -e ".[all,dev]"
 
       - name: Run tests
         run: pytest tests/ -v --tb=short

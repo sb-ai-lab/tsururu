@@ -14,7 +14,7 @@ model:
     individual: False
     channel_independent: True
 
-scheduler: 
+scheduler:
   scheduler_type: LambdaLR
   scheduler_params:
     lr_lambda: "lambda epoch: 0.5 ** (epoch // 1)"
@@ -31,4 +31,4 @@ trainer_params:
   drop_last: False # As in original code!!!
   device: cuda:0
 
-seed: [2025, 2026, 2027] 
+seed: [2025, 2026, 2027]

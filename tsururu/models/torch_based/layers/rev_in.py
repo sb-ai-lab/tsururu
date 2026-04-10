@@ -9,7 +9,12 @@ Module = OptionalImport("torch.nn.Module")
 
 class RevIN(Module):
     def __init__(
-        self, num_features: int, eps=1e-5, affine=True, subtract_last=False, non_norm=False
+        self,
+        num_features: int,
+        eps=1e-5,
+        affine=True,
+        subtract_last=False,
+        non_norm=False,
     ):
         """Reversible Instance Normalization (RevIN) module.
 

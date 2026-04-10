@@ -38,7 +38,9 @@ class OptionalImport:
             try:
                 module = importlib.import_module(module_path)
             except ImportError as e:
-                raise ImportError(f"To use this, please install the '{root}' package.") from e
+                raise ImportError(
+                    f"To use this, please install the '{root}' package."
+                ) from e
             self._module = getattr(module, attr) if attr is not None else module
         return getattr(self._module, item)
 
@@ -49,7 +51,9 @@ class OptionalImport:
             try:
                 module = importlib.import_module(module_path)
             except ImportError as e:
-                raise ImportError(f"To use this, please install the '{root}' package.") from e
+                raise ImportError(
+                    f"To use this, please install the '{root}' package."
+                ) from e
             self._module = getattr(module, attr) if attr is not None else module
         return self._module(*args, **kwargs)
 

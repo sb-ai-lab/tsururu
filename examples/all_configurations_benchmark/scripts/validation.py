@@ -58,9 +58,9 @@ def expand_val_with_train(
     L_split_data = train_data[date_column].values[(len(train_data) - history)]
     L_last_train_data = train_data[train_data[date_column] >= L_split_data]
     val_data_expanded = pd.concat((L_last_train_data, val_data))
-    val_data_expanded = val_data_expanded.sort_values([id_column, date_column]).reset_index(
-        drop=True
-    )
+    val_data_expanded = val_data_expanded.sort_values(
+        [id_column, date_column]
+    ).reset_index(drop=True)
 
     return val_data_expanded
 
@@ -114,9 +114,9 @@ def expand_test_with_val_and_train(
         test_data_expanded = pd.concat((L_last_train_data, L_last_val_data, test_data))
     else:
         test_data_expanded = pd.concat((L_last_val_data, test_data))
-    test_data_expanded = test_data_expanded.sort_values([id_column, date_column]).reset_index(
-        drop=True
-    )
+    test_data_expanded = test_data_expanded.sort_values(
+        [id_column, date_column]
+    ).reset_index(drop=True)
 
     return test_data_expanded
 
@@ -161,13 +161,16 @@ def get_train_val_test_datasets(
 
     train_data = data[data[date_column] < train_val_split_data]
     val_data = data[
-        (data[date_column] >= train_val_split_data) & (data[date_column] <= val_test_slit_data)
+        (data[date_column] >= train_val_split_data)
+        & (data[date_column] <= val_test_slit_data)
     ]
     test_data = data[data[date_column] > val_test_slit_data]
     if test_split_data:
         test_data = test_data[test_data[date_column] < test_split_data]
 
-    val_data = expand_val_with_train(train_data, val_data, id_column, date_column, history)
+    val_data = expand_val_with_train(
+        train_data, val_data, id_column, date_column, history
+    )
     test_data_expanded = expand_test_with_val_and_train(
         train_data, val_data, test_data, id_column, date_column, history
     )

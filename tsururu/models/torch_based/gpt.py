@@ -50,7 +50,8 @@ class GPT4TS_NN(DLEstimator):
 
         if channel_independent:
             patch_num = (
-                seq_len * (sum(self.features_groups_corrected.values()) - self.num_series + 1)
+                seq_len
+                * (sum(self.features_groups_corrected.values()) - self.num_series + 1)
                 - patch_len
             ) // stride + 2
         else:
@@ -100,7 +101,9 @@ class GPT4TS_NN(DLEstimator):
         )  # (batch_size, seq_len, num_series)
 
         # RevIN on series
-        series_means = series.mean(1, keepdim=True).detach()  # (batch_size, 1, num_series)
+        series_means = series.mean(
+            1, keepdim=True
+        ).detach()  # (batch_size, 1, num_series)
         series = series - series_means  # (batch_size, seq_len, num_series)
         series_stdev = torch.sqrt(
             torch.var(series, dim=1, keepdim=True, unbiased=False) + 1e-5
@@ -182,7 +185,9 @@ class GPT4TS_NN(DLEstimator):
             outputs = self.gpt2(
                 inputs_embeds=outputs
             ).last_hidden_state  # (batch_size, patch_num, d_model)
-            outputs = rearrange(outputs, "b pn d -> b (pn d)")  # (batch_size, patch_num * d_model)
+            outputs = rearrange(
+                outputs, "b pn d -> b (pn d)"
+            )  # (batch_size, patch_num * d_model)
             outputs = self.out_layer(outputs)  # (batch_size, pred_len)
             outputs = outputs.unsqueeze(-1)  # (batch_size, pred_len, num_series)
 

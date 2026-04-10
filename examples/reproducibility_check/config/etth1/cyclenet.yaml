@@ -14,7 +14,7 @@ model:
     model_type: linear
     channel_independent: True
 
-scheduler: 
+scheduler:
   scheduler_type: LambdaLR
   scheduler_params:
     lr_lambda: "lambda epoch: 1.0 if epoch < 10 else 0.1"

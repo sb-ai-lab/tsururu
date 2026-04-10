@@ -37,7 +37,9 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
 
     """
 
-    def __init__(self, transform_features: bool, transform_target: bool, agg_by_id: bool = True):
+    def __init__(
+        self, transform_features: bool, transform_target: bool, agg_by_id: bool = True
+    ):
         super().__init__(
             transform_features=transform_features,
             transform_target=transform_target,
@@ -45,7 +47,9 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
         self.agg_by_id = agg_by_id
         self.fitted_params = {}
 
-    def fit(self, data: dict, input_features: Sequence[str]) -> SeriesToSeriesTransformer:
+    def fit(
+        self, data: dict, input_features: Sequence[str]
+    ) -> SeriesToSeriesTransformer:
         """Fit transformer on "elongated series" and return its instance.
 
         Args:
@@ -67,18 +71,24 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
                 .agg(["mean", "std"])
             )
         else:
-            overall_mean_std = data["raw_ts_X"][self.input_features].agg(["mean", "std"])
+            overall_mean_std = data["raw_ts_X"][self.input_features].agg(
+                ["mean", "std"]
+            )
             ids = data["raw_ts_X"][data["id_column_name"]].unique()
             stat_df = pd.DataFrame(
                 index=ids,
-                columns=pd.MultiIndex.from_product([self.input_features, ["mean", "std"]]),
+                columns=pd.MultiIndex.from_product(
+                    [self.input_features, ["mean", "std"]]
+                ),
             )
             for column in self.input_features:
                 stat_df[(column, "mean")] = overall_mean_std.loc["mean", column]
                 stat_df[(column, "std")] = overall_mean_std.loc["std", column]
 
         self.fitted_params = stat_df.to_dict(orient="index")
-        self.output_features = [f"{column}__standard_scaler" for column in self.input_features]
+        self.output_features = [
+            f"{column}__standard_scaler" for column in self.input_features
+        ]
 
         return self
 
@@ -150,7 +160,8 @@ class StandardScalerTransformer(SeriesToSeriesTransformer):
                 data["raw_ts_y"][data["id_column_name"]], (data["idx_y"][:, 0], None)
             )
             self.params = [
-                list(self.fitted_params[current_id].values()) for current_id in id_from_target_idx
+                list(self.fitted_params[current_id].values())
+                for current_id in id_from_target_idx
             ]
             self.params = np.array(self.params)
 
@@ -196,7 +207,9 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
         )
         self.regime = regime
 
-    def fit(self, data: dict, input_features: Sequence[str]) -> SeriesToSeriesTransformer:
+    def fit(
+        self, data: dict, input_features: Sequence[str]
+    ) -> SeriesToSeriesTransformer:
         """Fit transformer on "elongated series" and return it's instance.
 
         Args:
@@ -214,7 +227,9 @@ class DifferenceNormalizer(SeriesToSeriesTransformer):
             data["raw_ts_X"].groupby(data["id_column_name"])[self.input_features].last()
         )
         self.params = last_values_df.to_dict(orient="index")
-        self.output_features = [f"{column}__diff_norm" for column in self.input_features]
+        self.output_features = [
+            f"{column}__diff_norm" for column in self.input_features
+        ]
 
         return self
 
@@ -318,7 +333,9 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         self.regime = regime
         self.last_lag_substring = last_lag_substring
 
-    def fit(self, data: dict, input_features: Sequence[str]) -> FeaturesToFeaturesTransformer:
+    def fit(
+        self, data: dict, input_features: Sequence[str]
+    ) -> FeaturesToFeaturesTransformer:
         """Fit transformer on "elongated series" and return it's instance.
 
         Args:
@@ -332,7 +349,9 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
 
         """
         super().fit(data, input_features)
-        self.output_features = [f"{column}__last_known_norm" for column in self.input_features]
+        self.output_features = [
+            f"{column}__last_known_norm" for column in self.input_features
+        ]
 
         return self
 
@@ -351,7 +370,9 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
         # Update the params if self.transform_target is True
         if self.transform_target:
             try:
-                feature = re.compile(r"^(.*)__(lag_\d+)$").findall(self.input_features[0])[0][0]
+                feature = re.compile(r"^(.*)__(lag_\d+)$").findall(
+                    self.input_features[0]
+                )[0][0]
             except IndexError:
                 raise ValueError(
                     "There is no lags in data['raw_ts_X']! Make sure that you initialize LastKnownNormalizer AFTER LagTransformer!"
@@ -374,9 +395,9 @@ class LastKnownNormalizer(FeaturesToFeaturesTransformer):
             current states of `data` dictionary.
 
         """
-        assert (
-            len(data["X"]) != 0
-        ), "X is empty! Make sure that you initialize LastKnownNormalizer AFTER LagTransformer!"
+        assert len(data["X"]) != 0, (
+            "X is empty! Make sure that you initialize LastKnownNormalizer AFTER LagTransformer!"
+        )
 
         last_lag_idx_by_feature = {}
         feature_by_idx = {}

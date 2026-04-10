@@ -16,7 +16,7 @@ def path_to_tsururu_format(root_path, data_path):
         return output_file
 
     df = pd.read_csv(dataset_path)
-    df_melted = pd.melt(df, id_vars=['date']).rename(columns={"variable": "id"})
+    df_melted = pd.melt(df, id_vars=["date"]).rename(columns={"variable": "id"})
 
     os.makedirs(dataset_tsururu_path, exist_ok=True)
     df_melted.to_csv(output_file, index=False)
@@ -28,9 +28,9 @@ def expand_val_with_train(train_data, val_data, id_column, date_column, history)
     L_split_data = train_data[date_column].values[(len(train_data) - history)]
     L_last_train_data = train_data[train_data[date_column] >= L_split_data]
     val_data_expanded = pd.concat((L_last_train_data, val_data))
-    val_data_expanded = val_data_expanded.sort_values([id_column, date_column]).reset_index(
-        drop=True
-    )
+    val_data_expanded = val_data_expanded.sort_values(
+        [id_column, date_column]
+    ).reset_index(drop=True)
     return val_data_expanded
 
 
@@ -60,13 +60,15 @@ def expand_test_with_val_and_train(
         test_data_expanded = pd.concat((L_last_train_data, L_last_val_data, test_data))
     else:
         test_data_expanded = pd.concat((L_last_val_data, test_data))
-    test_data_expanded = test_data_expanded.sort_values([id_column, date_column]).reset_index(
-        drop=True
-    )
+    test_data_expanded = test_data_expanded.sort_values(
+        [id_column, date_column]
+    ).reset_index(drop=True)
     return test_data_expanded
 
 
-def get_train_val_test_datasets(dataset_path, columns_params, train_size, test_size, history):
+def get_train_val_test_datasets(
+    dataset_path, columns_params, train_size, test_size, history
+):
     data = pd.read_csv(dataset_path)
 
     date_column = columns_params["date"]["columns"][0]
@@ -89,13 +91,16 @@ def get_train_val_test_datasets(dataset_path, columns_params, train_size, test_s
 
     train_data = data[data[date_column] < train_val_split_data]
     val_data = data[
-        (data[date_column] >= train_val_split_data) & (data[date_column] <= val_test_slit_data)
+        (data[date_column] >= train_val_split_data)
+        & (data[date_column] <= val_test_slit_data)
     ]
     test_data = data[data[date_column] > val_test_slit_data]
     if test_split_data:
         test_data = test_data[test_data[date_column] < test_split_data]
 
-    val_data = expand_val_with_train(train_data, val_data, id_column, date_column, history)
+    val_data = expand_val_with_train(
+        train_data, val_data, id_column, date_column, history
+    )
     test_data_expanded = expand_test_with_val_and_train(
         train_data, val_data, test_data, id_column, date_column, history
     )

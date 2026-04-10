@@ -1,35 +1,38 @@
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
 repos:
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-toml
       - id: check-added-large-files
         args: [--maxkb=5000]
-  - repo: https://github.com/psf/black
-    rev: 26.3.1
-    hooks:
-      - id: black
-        args: ["--check-only", --line-length=100]
-  - repo: https://github.com/timothycrosley/isort
-    rev: 8.0.1
-    hooks:
-      - id: isort
-        args: ["--check-only", --profile, black]
+      - id: no-commit-to-branch
+        args: ['--branch', 'main', '--branch', 'master']
+      - id: check-merge-conflict
 
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.3.0
-    hooks:
-      - id: flake8
-        # E203: spaces before the colon
-        args: [--max-line-length=100, --ignore=E203]
-        additional_dependencies: [flake8-bugbear, Flake8-pyproject]
 
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1
     hooks:
-      - id: prettier
-        types_or: [markdown, yaml, toml, json, dockerfile, shell]
-        additional_dependencies: ["prettier@3.1.0", "prettier-plugin-sh@0.13.1"]
-        args: [--print-width=100, --prose-wrap=always]
+      - id: ruff-format
+        args: [--no-cache]
+        exclude: \.ipynb$
+      - id: ruff
+        args: [--fix, --no-cache]
+        exclude: \.ipynb$
+
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: run pytest
+        entry: pytest tests
+        language: system
+        pass_filenames: false
+        types: [python]

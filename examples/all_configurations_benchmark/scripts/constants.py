@@ -2,7 +2,6 @@
 
 # NOTE: The parameters are the same as originally used in papers, where available.
 
-
 all_models_params = {
     # The same params were used for datasets: m5, fred_md, wth, demand_forecasting_kernels
     "ILI": {

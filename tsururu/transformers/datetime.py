@@ -81,7 +81,8 @@ class TimeToNumGenerator(FeaturesGenerator):
 
             new_arr = pd.to_datetime(time_col.to_numpy().reshape(-1), origin="unix")
             data_transformed = (
-                (new_arr - np.datetime64(self.basic_date)) / np.timedelta64(1, self.delta)
+                (new_arr - np.datetime64(self.basic_date))
+                / np.timedelta64(1, self.delta)
             ).values.astype(np.float32)
 
             result_data.append(data_transformed)
@@ -229,7 +230,9 @@ class CycleGenerator(FeaturesGenerator):
         self.delta = delta
         self.basic_date = None
 
-    def fit(self, data: dict, input_features: Optional[Sequence[str]] = None) -> "CycleGenerator":
+    def fit(
+        self, data: dict, input_features: Optional[Sequence[str]] = None
+    ) -> "CycleGenerator":
         """Fit transformer on "elongated series" and return it's instance.
 
         Args:

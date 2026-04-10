@@ -40,7 +40,8 @@ class Dataset_NN(Dataset):
         )
         unique_dates = to_datetime(unique_dates)
         self.date_indices = {
-            date: np.where(inverse_indices == idx)[0] for idx, date in enumerate(unique_dates)
+            date: np.where(inverse_indices == idx)[0]
+            for idx, date in enumerate(unique_dates)
         }
 
     def _create_indices(self) -> np.ndarray:
@@ -54,7 +55,9 @@ class Dataset_NN(Dataset):
         # If multivariate, we need to create indices for each unique date
         # (we use a bunch of rows in the idx_X for each date)
         if self.pipeline.multivariate:
-            arange_value = len(self.data["idx_X"]) // self.data["raw_ts_X"]["id"].nunique()
+            arange_value = (
+                len(self.data["idx_X"]) // self.data["raw_ts_X"]["id"].nunique()
+            )
             self._create_date_indices()
         else:
             # If global, we need to create indices for each row in the idx_X
@@ -119,8 +122,12 @@ class Dataset_NN(Dataset):
         Notes: We want to get only the time series points that are necessary for the current sample
 
         """
-        raw_ts_X_adjusted = self.data["raw_ts_X"].iloc[idx_X.flatten()].reset_index(drop=True)
-        raw_ts_y_adjusted = self.data["raw_ts_y"].iloc[idx_y.flatten()].reset_index(drop=True)
+        raw_ts_X_adjusted = (
+            self.data["raw_ts_X"].iloc[idx_X.flatten()].reset_index(drop=True)
+        )
+        raw_ts_y_adjusted = (
+            self.data["raw_ts_y"].iloc[idx_y.flatten()].reset_index(drop=True)
+        )
 
         idx_X_adjusted = np.arange(np.size(idx_X)).reshape(idx_X.shape)
         idx_y_adjusted = np.arange(np.size(idx_y)).reshape(idx_y.shape)
@@ -180,7 +187,11 @@ class Dataset_NN(Dataset):
 
             # Breed "FH" feature N = self.num_lags times
             X = np.concatenate(
-                (X[:FH_idx_start], np.tile(X[FH_idx_start], self.num_lags), X[FH_idx_end + 1 :]),
+                (
+                    X[:FH_idx_start],
+                    np.tile(X[FH_idx_start], self.num_lags),
+                    X[FH_idx_end + 1 :],
+                ),
                 axis=0,
             )
 
@@ -194,14 +205,16 @@ class Dataset_NN(Dataset):
                 + self.pipeline.features_groups["fh"]
             )
             datetime_features_end = (
-                datetime_features_start + self.pipeline.features_groups["datetime_features"]
+                datetime_features_start
+                + self.pipeline.features_groups["datetime_features"]
             )
 
             X = np.concatenate(
                 (
                     X[:, :datetime_features_start],
                     np.repeat(
-                        X[:, datetime_features_start:datetime_features_end], self.num_lags
+                        X[:, datetime_features_start:datetime_features_end],
+                        self.num_lags,
                     ).reshape(1, -1),
                     X[:, datetime_features_end:],
                 ),
@@ -210,7 +223,7 @@ class Dataset_NN(Dataset):
 
         try:
             X = X.reshape(self.num_lags, -1, order="F")
-        except:
+        except Exception:
             raise ValueError(
                 "Failed to reshape data. Check feature lags and data shape compatibility."
             )

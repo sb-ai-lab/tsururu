@@ -51,7 +51,8 @@ class LagTransformer(SeriesToFeaturesTransformer):
         super().fit(data, input_features)
 
         self.output_features = [
-            f"{column}__lag_{lag}" for column, lag in product(self.input_features, self.lags[::-1])
+            f"{column}__lag_{lag}"
+            for column, lag in product(self.input_features, self.lags[::-1])
         ]
 
         return self
@@ -92,7 +93,9 @@ class LagTransformer(SeriesToFeaturesTransformer):
                 LagTransformer uses only idx_X.
 
         """
-        input_features_idx = index_slicer.get_cols_idx(data["raw_ts_X"], self.input_features)
+        input_features_idx = index_slicer.get_cols_idx(
+            data["raw_ts_X"], self.input_features
+        )
 
         if len(data["idx_X"].shape) == 3:
             self._check_lags_less_than_history(
@@ -100,8 +103,12 @@ class LagTransformer(SeriesToFeaturesTransformer):
             )
             X = _seq_mult_ts(data["raw_ts_X"], data["idx_X"], input_features_idx)
         else:
-            self._check_lags_less_than_history(data["raw_ts_X"], data["idx_X"], input_features_idx)
-            X = index_slicer.get_slice(data["raw_ts_X"], (data["idx_X"], input_features_idx))
+            self._check_lags_less_than_history(
+                data["raw_ts_X"], data["idx_X"], input_features_idx
+            )
+            X = index_slicer.get_slice(
+                data["raw_ts_X"], (data["idx_X"], input_features_idx)
+            )
 
         X = X[:, (X.shape[1] - 1) - self.lags[::-1], :]
         X = np.moveaxis(X, 1, 2).reshape(len(X), -1)
@@ -152,7 +159,9 @@ class TargetGenerator(SeriesToFeaturesTransformer):
                 TargetGenerator uses only idx_y.
 
         """
-        input_features_idx = index_slicer.get_cols_idx(data["raw_ts_y"], self.input_features)
+        input_features_idx = index_slicer.get_cols_idx(
+            data["raw_ts_y"], self.input_features
+        )
         data["y"] = index_slicer.get_slice(
             data["raw_ts_y"], (data["idx_y"], input_features_idx)
         ).squeeze(-1)

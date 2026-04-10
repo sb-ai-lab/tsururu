@@ -77,7 +77,7 @@ def get_features_target_idx(dataset):
 
 
 def test_categorical_encoding():
-    df = pd.read_csv("tsururu/datasets/global/simulated_data_to_check.csv")
+    df = pd.read_csv("datasets/global/simulated_data_to_check.csv")
     df["id2"] = df["id"] + 2
     df["id"] = df["id"].apply(int_to_str)
     df["id2"] = df["id2"].apply(int_to_str)
@@ -107,10 +107,12 @@ def test_categorical_encoding():
 
     id2__g_ohe__lag_0_idx = pipeline.output_features == "id2__g_ohe__lag_0"
     assert np.all(
-        np.unique(X[:, id2__g_ohe__lag_0_idx], return_counts=True)[0] == np.array([0.0, 1.0])
+        np.unique(X[:, id2__g_ohe__lag_0_idx], return_counts=True)[0]
+        == np.array([0.0, 1.0])
     )
     assert np.all(
-        np.unique(X[:, id2__g_ohe__lag_0_idx], return_counts=True)[1] == np.array([8919, 991])
+        np.unique(X[:, id2__g_ohe__lag_0_idx], return_counts=True)[1]
+        == np.array([8919, 991])
     )
 
     assert np.all(
@@ -134,7 +136,7 @@ def test_categorical_encoding():
 
 
 def test_transform_method_not_all_categories_in_test():
-    df = pd.read_csv("tsururu/datasets/global/simulated_data_to_check.csv")
+    df = pd.read_csv("datasets/global/simulated_data_to_check.csv")
     df["id2"] = df["id"] + 2
     df["id"] = df["id"].apply(int_to_str)
     df["id2"] = df["id2"].apply(int_to_str)
@@ -189,22 +191,28 @@ def test_transform_method_not_all_categories_in_test():
     )
 
     assert np.all(
-        np.unique(X_train[:, id2__c_ohe__lag_0_idx], return_counts=True)[0] == np.array([0.0, 1.0])
+        np.unique(X_train[:, id2__c_ohe__lag_0_idx], return_counts=True)[0]
+        == np.array([0.0, 1.0])
     )
     assert np.all(
-        np.unique(X_test[:, id2__c_ohe__lag_0_idx], return_counts=True)[0] == np.array([0.0])
-    )
-
-    assert np.all(
-        np.unique(X_train[:, id2__d_ohe__lag_0_idx], return_counts=True)[0] == np.array([0.0, 1.0])
-    )
-    assert np.all(
-        np.unique(X_test[:, id2__d_ohe__lag_0_idx], return_counts=True)[0] == np.array([0.0, 1.0])
+        np.unique(X_test[:, id2__c_ohe__lag_0_idx], return_counts=True)[0]
+        == np.array([0.0])
     )
 
     assert np.all(
-        np.unique(X_train[:, id2__e_ohe__lag_0_idx], return_counts=True)[0] == np.array([0.0, 1.0])
+        np.unique(X_train[:, id2__d_ohe__lag_0_idx], return_counts=True)[0]
+        == np.array([0.0, 1.0])
     )
     assert np.all(
-        np.unique(X_test[:, id2__e_ohe__lag_0_idx], return_counts=True)[0] == np.array([0.0])
+        np.unique(X_test[:, id2__d_ohe__lag_0_idx], return_counts=True)[0]
+        == np.array([0.0, 1.0])
+    )
+
+    assert np.all(
+        np.unique(X_train[:, id2__e_ohe__lag_0_idx], return_counts=True)[0]
+        == np.array([0.0, 1.0])
+    )
+    assert np.all(
+        np.unique(X_test[:, id2__e_ohe__lag_0_idx], return_counts=True)[0]
+        == np.array([0.0])
     )

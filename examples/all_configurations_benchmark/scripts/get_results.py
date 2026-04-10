@@ -117,8 +117,12 @@ def process_file(
     df_model.rename(columns={"y_pred": "y_pred_model", "value": "y_true"}, inplace=True)
 
     if normalized:
-        dataset_name = re.search(r"\/dataset_([^\/]+?)__", str(model_pred_path)).group(1)
-        stat_df = get_df_with_train_mean_and_std(DATASETS_DIRECTORY / f"{dataset_name}.csv")
+        dataset_name = re.search(r"\/dataset_([^\/]+?)__", str(model_pred_path)).group(
+            1
+        )
+        stat_df = get_df_with_train_mean_and_std(
+            DATASETS_DIRECTORY / f"{dataset_name}.csv"
+        )
 
     results = []
     for grp_id, grp_data in df_model.groupby("id"):
@@ -136,13 +140,13 @@ def process_file(
                 y_pred_model = (y_pred_model - stat_df.loc[grp_id, "mean"]) / (
                     stat_df.loc[grp_id, "std"] + 1e-6
                 )
-            except:
+            except Exception:
                 continue
 
         try:
             mae_current = mean_absolute_error(y_true, y_pred_model)
             rmse_current = root_mean_squared_error(y_true, y_pred_model)
-        except:
+        except Exception:
             continue
 
         results.append(
@@ -158,8 +162,16 @@ def process_file(
     df_stats = pd.DataFrame(
         {
             "id": ["mean", "median", "std"],
-            "mae": [df_res["mae"].mean(), df_res["mae"].median(), df_res["mae"].std(ddof=1)],
-            "rmse": [df_res["rmse"].mean(), df_res["rmse"].median(), df_res["rmse"].std(ddof=1)],
+            "mae": [
+                df_res["mae"].mean(),
+                df_res["mae"].median(),
+                df_res["mae"].std(ddof=1),
+            ],
+            "rmse": [
+                df_res["rmse"].mean(),
+                df_res["rmse"].median(),
+                df_res["rmse"].std(ddof=1),
+            ],
         }
     )
     df_res = pd.concat([df_res, df_stats], ignore_index=True)
@@ -198,7 +210,9 @@ def main(
                     )
                     if normalized:
                         out_csv = model_pred_path.with_name(
-                            file.replace("pred_test.csv", "metrics_test_v2_normalized.csv")
+                            file.replace(
+                                "pred_test.csv", "metrics_test_v2_normalized.csv"
+                            )
                         )
                     else:
                         out_csv = model_pred_path.with_name(
@@ -214,7 +228,9 @@ def main(
                     )
                     if normalized:
                         out_csv = model_pred_path.with_name(
-                            file.replace("pred_val.csv", "metrics_val_v2_normalized.csv")
+                            file.replace(
+                                "pred_val.csv", "metrics_val_v2_normalized.csv"
+                            )
                         )
                     else:
                         out_csv = model_pred_path.with_name(
@@ -225,8 +241,8 @@ def main(
 
     # get aggregated df with results
     if NORMALIZED:
-        metrics_test_path_suffix = f"__metrics_test_v2_normalized.csv"
-        metrics_val_path_suffix = f"__metrics_val_v2_normalized.csv"
+        metrics_test_path_suffix = "__metrics_test_v2_normalized.csv"
+        metrics_val_path_suffix = "__metrics_val_v2_normalized.csv"
     else:
         metrics_test_path_suffix = "__metrics_test_v2.csv"
         metrics_val_path_suffix = "__metrics_val_v2.csv"
@@ -309,13 +325,19 @@ def main(
 
                     mae_test = df_test_mean["mae"].values[0]
                     rmse_test = df_test_mean["rmse"].values[0]
-                    fit_time_test = df_test[df_test["id"] == "fit_time"]["mae"].values[0]
-                    forecast_time_test = df_test[df_test["id"] == "forecast_time"]["mae"].values[0]
+                    fit_time_test = df_test[df_test["id"] == "fit_time"]["mae"].values[
+                        0
+                    ]
+                    forecast_time_test = df_test[df_test["id"] == "forecast_time"][
+                        "mae"
+                    ].values[0]
 
                     mae_val = df_val_mean["mae"].values[0]
                     rmse_val = df_val_mean["rmse"].values[0]
                     fit_time_val = df_val[df_val["id"] == "fit_time"]["mae"].values[0]
-                    forecast_time_val = df_val[df_val["id"] == "forecast_time"]["mae"].values[0]
+                    forecast_time_val = df_val[df_val["id"] == "forecast_time"][
+                        "mae"
+                    ].values[0]
 
                     new_row = {
                         "dataset": dataset_name,
@@ -344,7 +366,9 @@ def main(
                     results_df_list.append(new_row)
 
     results_df = pd.DataFrame(results_df_list)
-    results_df.to_csv(f"agg_results_{str(date.today())}__normalized_{NORMALIZED}.csv", index=False)
+    results_df.to_csv(
+        f"agg_results_{str(date.today())}__normalized_{NORMALIZED}.csv", index=False
+    )
 
 
 if __name__ == "__main__":

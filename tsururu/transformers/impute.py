@@ -38,7 +38,9 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
         weighted_alpha: Optional[float] = None,
         lag: Optional[int] = None,
     ):
-        super().__init__(transform_features=transform_features, transform_target=transform_target)
+        super().__init__(
+            transform_features=transform_features, transform_target=transform_target
+        )
         self.impute_inf = impute_inf
         self.regime = regime
         self.constant_value = constant_value
@@ -46,7 +48,9 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
         self.weighted_alpha = weighted_alpha if weighted_alpha is not None else 0
         self.lag = lag if lag is not None else 1
 
-    def fit(self, data: dict, input_features: Sequence[str]) -> SeriesToSeriesTransformer:
+    def fit(
+        self, data: dict, input_features: Sequence[str]
+    ) -> SeriesToSeriesTransformer:
         """Fit transformer on 'elongated series' and return its instance.
 
         Args:
@@ -75,32 +79,36 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
         """
         for i, column_name in enumerate(self.input_features):
             if self.regime == "mean":
-                segment.loc[:, self.output_features[i]] = segment.loc[:, column_name].copy()
+                segment.loc[:, self.output_features[i]] = segment.loc[
+                    :, column_name
+                ].copy()
                 segment.loc[:, self.output_features[i]] = self._fill_mean(
                     segment.loc[:, self.output_features[i]]
                 )
             elif self.regime == "lag":
-                segment.loc[:, self.output_features[i]] = segment.loc[:, column_name].copy()
+                segment.loc[:, self.output_features[i]] = segment.loc[
+                    :, column_name
+                ].copy()
                 segment.loc[:, self.output_features[i]] = self._fill_lag(
                     segment.loc[:, self.output_features[i]]
                 )
             # Fill remaining missing values with constant value
             if self.output_features[i] in segment.columns:
-                segment.loc[:, self.output_features[i]] = segment.loc[:, self.output_features[i]].fillna(
-                    self.constant_value
-                )
+                segment.loc[:, self.output_features[i]] = segment.loc[
+                    :, self.output_features[i]
+                ].fillna(self.constant_value)
                 if self.impute_inf:
-                    segment.loc[:, self.output_features[i]] = segment.loc[:, self.output_features[i]].replace(
-                        [np.inf, -np.inf], self.constant_value
-                    )
+                    segment.loc[:, self.output_features[i]] = segment.loc[
+                        :, self.output_features[i]
+                    ].replace([np.inf, -np.inf], self.constant_value)
             else:
-                segment.loc[:, self.output_features[i]] = segment.loc[:, column_name].fillna(
-                    self.constant_value
-                )
+                segment.loc[:, self.output_features[i]] = segment.loc[
+                    :, column_name
+                ].fillna(self.constant_value)
                 if self.impute_inf:
-                    segment.loc[:, self.output_features[i]] = segment.loc[:, self.output_features[i]].replace(
-                        [np.inf, -np.inf], self.constant_value
-                    )
+                    segment.loc[:, self.output_features[i]] = segment.loc[
+                        :, self.output_features[i]
+                    ].replace([np.inf, -np.inf], self.constant_value)
 
         return segment
 
@@ -119,7 +127,7 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
             window_size = len(series)
         else:
             window_size = self.window
-            
+
         idx_list = series[series.isnull()].index
         if self.impute_inf:
             idx_list = idx_list.union(series.index[~np.isfinite(series)])
@@ -138,7 +146,7 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
                     )
                 else:
                     mean_value = window.mean()
-            except:
+            except Exception:
                 mean_value = series.loc[idx]
 
             filled_series.at[idx] = mean_value
@@ -160,11 +168,11 @@ class MissingValuesImputer(SeriesToSeriesTransformer):
         idx_list = series[series.isnull()].index
         if self.impute_inf:
             idx_list = idx_list.union(series.index[~np.isfinite(series)])
-        
+
         for idx in idx_list:
             try:
                 current_lag = series.loc[idx - self.lag]
-            except:
+            except Exception:
                 current_lag = series.loc[idx]
 
             filled_series.at[idx] = current_lag

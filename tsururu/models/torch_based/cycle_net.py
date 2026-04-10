@@ -20,7 +20,9 @@ class RecurrentCycle(Module):
         super(RecurrentCycle, self).__init__()
         self.cycle_len = cycle_len
         self.channel_size = channel_size
-        self.data = torch.nn.Parameter(torch.zeros(cycle_len, channel_size), requires_grad=True)
+        self.data = torch.nn.Parameter(
+            torch.zeros(cycle_len, channel_size), requires_grad=True
+        )
 
     def forward(self, index, length):
         gather_index = (
@@ -70,7 +72,9 @@ class CycleNet_NN(DLEstimator):
 
         self.channel_independent = channel_independent
 
-        self.cycleQueue = RecurrentCycle(cycle_len=self.cycle_len, channel_size=self.num_series)
+        self.cycleQueue = RecurrentCycle(
+            cycle_len=self.cycle_len, channel_size=self.num_series
+        )
 
         assert self.model_type in ["linear", "mlp"]
 
@@ -97,7 +101,9 @@ class CycleNet_NN(DLEstimator):
             )
 
         if self.revin:
-            self.revin_layer = RevIN(self.num_series, affine=affine, subtract_last=subtract_last)
+            self.revin_layer = RevIN(
+                self.num_series, affine=affine, subtract_last=subtract_last
+            )
 
     def forward(self, x):
         # x: (batch_size, seq_len, enc_in)
@@ -110,9 +116,9 @@ class CycleNet_NN(DLEstimator):
         if self.revin:
             series = self.revin_layer(series, "norm")
 
-        cycle_index = slice_features(x, ["cycle_features"], self.features_groups_corrected)[
-            :, -1, 0
-        ].long()
+        cycle_index = slice_features(
+            x, ["cycle_features"], self.features_groups_corrected
+        )[:, -1, 0].long()
         series = series - self.cycleQueue(
             cycle_index, self.seq_len
         )  # [batch_size, seq_len, num_series]
@@ -128,7 +134,9 @@ class CycleNet_NN(DLEstimator):
             z = torch.cat(
                 [series.unsqueeze(-1), exog_features], dim=3
             )  # [batch_size, seq_len, num_series, features_per_series]
-            z = z.transpose(1, 2)  # [batch_size, num_series, seq_len, features_per_series]
+            z = z.transpose(
+                1, 2
+            )  # [batch_size, num_series, seq_len, features_per_series]
             z = z.reshape(bs, self.num_series, -1)
 
             y = self.model(z)  # [batch_size, num_series, pred_len]
@@ -145,10 +153,14 @@ class CycleNet_NN(DLEstimator):
             z = z.reshape(bs, -1)
 
             y = self.model(z)  # [batch_size, num_series*pred_len]
-            y = y.reshape(bs, self.pred_len, self.num_series)  # [batch_size, pred_len, num_series]
+            y = y.reshape(
+                bs, self.pred_len, self.num_series
+            )  # [batch_size, pred_len, num_series]
 
         # add back the cycle of the output data
-        y = y + self.cycleQueue((cycle_index + self.seq_len) % self.cycle_len, self.pred_len)
+        y = y + self.cycleQueue(
+            (cycle_index + self.seq_len) % self.cycle_len, self.pred_len
+        )
 
         # instance denorm
         if self.revin:

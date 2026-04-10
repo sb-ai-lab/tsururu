@@ -2,13 +2,11 @@ import pandas as pd
 import pytest
 
 
-
 @pytest.fixture(scope="package")
 def get_dataset():
-
     from tsururu.dataset import TSDataset
 
-    df = pd.read_csv("tsururu/datasets/global/simulated_data_to_check.csv")
+    df = pd.read_csv("datasets/global/simulated_data_to_check.csv")
 
     # Add some features with different names
     for i, i_name in enumerate(

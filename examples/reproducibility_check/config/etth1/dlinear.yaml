@@ -14,7 +14,7 @@ model:
     individual: False
     channel_independent: True
 
-scheduler: 
+scheduler:
   scheduler_type: LambdaLR
   scheduler_params:
     lr_lambda: "lambda epoch: 0.5 ** (epoch // 1)"

@@ -179,7 +179,9 @@ def get_hparams_comparison_table_for_dataset(
 
     for param_group in param_groups.keys():
         df_nn = df[df["model_type"] == "NN"]
-        nn_res = calc_avg_rank_median_mae_for_param(df_nn, param_group, metric_col="mae_test")
+        nn_res = calc_avg_rank_median_mae_for_param(
+            df_nn, param_group, metric_col="mae_test"
+        )
 
         df_boost = df[df["model_type"] == "Boosting"]
         boost_res = calc_avg_rank_median_mae_for_param(
@@ -191,11 +193,14 @@ def get_hparams_comparison_table_for_dataset(
             df_all, param_group, metric_col="mae_test"
         )
 
-        merged = nn_res.merge(boost_res, on="param_value", how="outer", suffixes=("_nn", "_boost"))
+        merged = nn_res.merge(
+            boost_res, on="param_value", how="outer", suffixes=("_nn", "_boost")
+        )
         merged = merged.merge(overall_res, on="param_value", how="outer")
 
         merged.rename(
-            columns={"avg_rank": "avg_rank_all", "median_mae": "median_mae_all"}, inplace=True
+            columns={"avg_rank": "avg_rank_all", "median_mae": "median_mae_all"},
+            inplace=True,
         )
 
         rows = []
@@ -232,9 +237,13 @@ def get_hparams_comparison_table_for_dataset(
 
     if save_latex:
         latex_df = final_df.copy()
-        latex_df.columns = pd.MultiIndex.from_tuples(latex_df.columns, names=["Model", "Metric"])
+        latex_df.columns = pd.MultiIndex.from_tuples(
+            latex_df.columns, names=["Model", "Metric"]
+        )
         latex_df.to_latex(
-            f"hparams_comparison_{dataset}.tex" if dataset else "hparams_comparison.tex",
+            f"hparams_comparison_{dataset}.tex"
+            if dataset
+            else "hparams_comparison.tex",
             multirow=True,
             multicolumn=True,
             caption="Comparison of hyperparameters.",
@@ -308,12 +317,18 @@ def get_top10_test_val_table_for_dataset(
     df_final.index.name = "rank"
 
     # Delete "_NN" suffix from model names
-    df_final["Model (test)"] = df_final["Model (test)"].str.replace("_NN", "", regex=False)
-    df_final["Model (val)"] = df_final["Model (val)"].str.replace("_NN", "", regex=False)
+    df_final["Model (test)"] = df_final["Model (test)"].str.replace(
+        "_NN", "", regex=False
+    )
+    df_final["Model (val)"] = df_final["Model (val)"].str.replace(
+        "_NN", "", regex=False
+    )
 
     if save_latex:
         df_final.to_latex(
-            f"comparison of models_{dataset}.tex" if dataset else "comparison_of_models.tex",
+            f"comparison of models_{dataset}.tex"
+            if dataset
+            else "comparison_of_models.tex",
             multirow=True,
             multicolumn=True,
             caption="Comparison of models.",

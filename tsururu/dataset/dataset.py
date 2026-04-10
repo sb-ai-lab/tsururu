@@ -57,9 +57,9 @@ class TSDataset:
 
         """
         for role in ["target", "date", "id"]:
-            assert (
-                len(self.columns_params[role]["columns"]) == 1
-            ), f"the `columns` container for role {role} should contain only one column"
+            assert len(self.columns_params[role]["columns"]) == 1, (
+                f"the `columns` container for role {role} should contain only one column"
+            )
 
     def _check_regular(self, print_freq_period_info):
         """Check that the data is regular.
@@ -92,10 +92,10 @@ class TSDataset:
             reconstructed_data == self.data[self.date_column].values
         ):
             logger.warning(
-                f"""
-                It seems that the data is not regular. Please, check the data and the frequency info.                
+                """
+                It seems that the data is not regular. Please, check the data and the frequency info.
                 For multivariate regime it is critical to have regular data.
-                For global regime each regular part of time series will be processed as separate time series.           
+                For global regime each regular part of time series will be processed as separate time series.
                 """
             )
 
@@ -181,7 +181,9 @@ class TSDataset:
         result = np.full((horizon, segment.shape[1]), np.nan, dtype=object)
 
         last_date = segment[-1, date_col_id]
-        new_dates = pd.date_range(last_date + time_delta, periods=horizon, freq=time_delta)
+        new_dates = pd.date_range(
+            last_date + time_delta, periods=horizon, freq=time_delta
+        )
         result[:, date_col_id] = new_dates
 
         if isinstance(id_col_id, np.ndarray):
@@ -267,7 +269,8 @@ class TSDataset:
 
         segments = np.split(data, ids)
         segments = [
-            self._crop_segment(segment, test_last, horizon, history) for segment in segments
+            self._crop_segment(segment, test_last, horizon, history)
+            for segment in segments
         ]
 
         # Find padded parts for each segment
@@ -283,7 +286,9 @@ class TSDataset:
         else:
             result = pd.DataFrame(result, columns=columns)
         result[self.date_column] = pd.to_datetime(result[self.date_column])
-        other = [col for col in columns if col not in [self.id_column, self.date_column]]
+        other = [
+            col for col in columns if col not in [self.id_column, self.date_column]
+        ]
         result[other] = result[other].astype("float")
 
         return result

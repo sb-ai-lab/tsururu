@@ -36,9 +36,9 @@ class DLinear_NN(DLEstimator):
     ):
         super().__init__(features_groups, pred_len, seq_len)
 
-        assert not (
-            individual and not channel_independent
-        ), "individual must be False when channel_independent is False."
+        assert not (individual and not channel_independent), (
+            "individual must be False when channel_independent is False."
+        )
 
         self.decompsition = series_decomp(moving_avg)
         self.individual = individual
@@ -62,11 +62,15 @@ class DLinear_NN(DLEstimator):
 
                     self.Linear_Seasonal[i].weight = nn.Parameter(
                         (1 / (self.seq_len * (num_exog_features + 1)))
-                        * torch.ones([self.pred_len, self.seq_len * (num_exog_features + 1)])
+                        * torch.ones(
+                            [self.pred_len, self.seq_len * (num_exog_features + 1)]
+                        )
                     )
                     self.Linear_Trend[i].weight = nn.Parameter(
                         (1 / (self.seq_len * (num_exog_features + 1)))
-                        * torch.ones([self.pred_len, self.seq_len * (num_exog_features + 1)])
+                        * torch.ones(
+                            [self.pred_len, self.seq_len * (num_exog_features + 1)]
+                        )
                     )
             else:
                 self.Linear_Seasonal = nn.Linear(
@@ -78,11 +82,15 @@ class DLinear_NN(DLEstimator):
 
                 self.Linear_Seasonal.weight = nn.Parameter(
                     (1 / (self.seq_len * (num_exog_features + 1)))
-                    * torch.ones([self.pred_len, self.seq_len * (num_exog_features + 1)])
+                    * torch.ones(
+                        [self.pred_len, self.seq_len * (num_exog_features + 1)]
+                    )
                 )
                 self.Linear_Trend.weight = nn.Parameter(
                     (1 / (self.seq_len * (num_exog_features + 1)))
-                    * torch.ones([self.pred_len, self.seq_len * (num_exog_features + 1)])
+                    * torch.ones(
+                        [self.pred_len, self.seq_len * (num_exog_features + 1)]
+                    )
                 )
         else:
             self.Linear_Seasonal = nn.Linear(
@@ -94,11 +102,15 @@ class DLinear_NN(DLEstimator):
 
             self.Linear_Seasonal.weight = nn.Parameter(
                 (1 / (self.seq_len * num_channels))
-                * torch.ones([self.pred_len * self.num_series, self.seq_len * num_channels])
+                * torch.ones(
+                    [self.pred_len * self.num_series, self.seq_len * num_channels]
+                )
             )
             self.Linear_Trend.weight = nn.Parameter(
                 (1 / (self.seq_len * num_channels))
-                * torch.ones([self.pred_len * self.num_series, self.seq_len * num_channels])
+                * torch.ones(
+                    [self.pred_len * self.num_series, self.seq_len * num_channels]
+                )
             )
 
     def encoder(self, x: "torch.Tensor") -> "torch.Tensor":
@@ -114,7 +126,9 @@ class DLinear_NN(DLEstimator):
         series = slice_features(
             x, ["series"], self.features_groups_corrected
         )  # (batch_size, seq_len, num_series)
-        seasonal_init, trend_init = self.decompsition(series)  # (batch_size, seq_len, num_series)
+        seasonal_init, trend_init = self.decompsition(
+            series
+        )  # (batch_size, seq_len, num_series)
 
         if self.channel_independent:
             # 4d tensors
@@ -147,17 +161,18 @@ class DLinear_NN(DLEstimator):
                 seasonal_output = torch.zeros(
                     [seasonal_init.size(0), self.num_series, self.pred_len],
                     dtype=seasonal_init.dtype,
-                ).to(
-                    seasonal_init.device
-                )  # (batch_size, num_series, pred_len)
+                ).to(seasonal_init.device)  # (batch_size, num_series, pred_len)
                 trend_output = torch.zeros(
-                    [trend_init.size(0), self.num_series, self.pred_len], dtype=trend_init.dtype
-                ).to(
-                    trend_init.device
-                )  # (batch_size, num_series, pred_len)
+                    [trend_init.size(0), self.num_series, self.pred_len],
+                    dtype=trend_init.dtype,
+                ).to(trend_init.device)  # (batch_size, num_series, pred_len)
                 for i in range(self.num_series):
-                    seasonal_output[:, i, :] = self.Linear_Seasonal[i](seasonal_reshaped[:, i, :])
-                    trend_output[:, i, :] = self.Linear_Trend[i](trend_reshaped[:, i, :])
+                    seasonal_output[:, i, :] = self.Linear_Seasonal[i](
+                        seasonal_reshaped[:, i, :]
+                    )
+                    trend_output[:, i, :] = self.Linear_Trend[i](
+                        trend_reshaped[:, i, :]
+                    )
             else:
                 seasonal_output = self.Linear_Seasonal(
                     seasonal_reshaped
@@ -190,7 +205,9 @@ class DLinear_NN(DLEstimator):
             seasonal_output = self.Linear_Seasonal(
                 seasonal_reshaped
             )  # (batch_size, num_series * pred_len)
-            trend_output = self.Linear_Trend(trend_reshaped)  # (batch_size, num_series * pred_len)
+            trend_output = self.Linear_Trend(
+                trend_reshaped
+            )  # (batch_size, num_series * pred_len)
 
             seasonal_output = einops.rearrange(
                 seasonal_output, "b (c s) -> b c s", s=self.pred_len

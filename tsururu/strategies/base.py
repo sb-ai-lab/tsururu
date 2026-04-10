@@ -87,7 +87,10 @@ class Strategy:
 
     @staticmethod
     def _make_preds_df(
-        dataset: TSDataset, horizon: int, history: int, id_column_name: Optional[str] = None
+        dataset: TSDataset,
+        horizon: int,
+        history: int,
+        id_column_name: Optional[str] = None,
     ) -> pd.DataFrame:
         """Create a DataFrame with predictions based on the given
             dataset.
@@ -137,7 +140,9 @@ class Strategy:
                 .apply(lambda x: x.iloc[:horizon])
                 .reset_index(drop=True)
             )
-            pred_df = pred_df[[id_column_name, dataset.date_column, dataset.target_column]]
+            pred_df = pred_df[
+                [id_column_name, dataset.date_column, dataset.target_column]
+            ]
         else:
             pred_df = (
                 pred_df.groupby(id_column_name)
@@ -201,7 +206,9 @@ class Strategy:
 
             yield (full_train, full_test)
 
-    def make_step(self, step: int, dataset: TSDataset, inverse_transform: bool) -> TSDataset:
+    def make_step(
+        self, step: int, dataset: TSDataset, inverse_transform: bool
+    ) -> TSDataset:
         """Make a step in the strategy.
 
         Args:
@@ -256,7 +263,9 @@ class Strategy:
         for train_idx, test_idx in self._backtest_generator(dataset, cv, self.horizon):
             current_train = dataset.data.iloc[train_idx.reshape(-1)]
             current_test = dataset.data.iloc[test_idx.reshape(-1)]
-            current_dataset = TSDataset(current_train, dataset.columns_params, dataset.delta)
+            current_dataset = TSDataset(
+                current_train, dataset.columns_params, dataset.delta
+            )
 
             fit_time, _ = self.fit(current_dataset)
             forecast_time, current_pred = self.predict(current_dataset)

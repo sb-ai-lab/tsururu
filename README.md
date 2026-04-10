@@ -2,9 +2,9 @@
 
 # Tsururu (TSForesight) – a time series forecasting strategies framework
 
-Tsururu is a Python-based library that provides a wide range of multi-series and multi-point-ahead prediction strategies, compatible with any underlying model, including neural networks. 
+Tsururu is a Python-based library that provides a wide range of multi-series and multi-point-ahead prediction strategies, compatible with any underlying model, including neural networks.
 
-While much attention is currently focused on selecting models for time series forecasting, the crucial aspect of how to perform training and inference often goes overlooked. Tsururu aims to address this gap. 
+While much attention is currently focused on selecting models for time series forecasting, the crucial aspect of how to perform training and inference often goes overlooked. Tsururu aims to address this gap.
 
 Also tsururu provides various preprocessing techniques.
 
@@ -65,28 +65,28 @@ pip install -U tsururu[catboost]
 <a name="description"></a>
 ## Multi-series prediction strategies:
 - _Local-modelling_:
-  - An individual model for each time series. 
+  - An individual model for each time series.
   - Each time series is modeled independently of the others.
 - _Global-modelling_:
   - A single model for all time series.
   - Features created from each series do not overlap with other series. Series are related but modeled separately.
 - _Multivariate-modelling_:
-  - A single model for all time series. 
+  - A single model for all time series.
   - Features created from each series are concatenated at each time step. Try to capture dependencies between the series at the same time point.
 
 ## Multi-point-ahead prediction strategies:
-- _Recursive:_ 
-	- One model is used for the entire forecast horizon. 
+- _Recursive:_
+	- One model is used for the entire forecast horizon.
 	- training: The model is trained to predict one point ahead.
 	- prediction: The model iteratively predicts each point, using previous predictions to update the features in the test data.
 	- Note 1: There is an option to use a “reduced” version, where features are generated for all test observations at once, and unavailable values are filled with NaN.
 	- Note 2: Recursive can also be combined with the MIMO strategy, allowing the model to predict model_horizon points ahead at each step.
-- _Direct:_ 
+- _Direct:_
 	- Individual models are trained for each point in the forecast horizon.
 	- Note 1: There is an option to use "equal_train_size" option, where all models can be trained on the same X_train set, formed for the last model predicting h point. Only the target variable (y) is updated for each model, reducing the time spent generating new training sets.
 	- Note 2: Direct can also be combined with MIMO, where each individual model predicts model_horizon points ahead.
 - _MultiOutput (MIMO - Multi-input-multi-output):_
- 	- One model is trained and used for the entire forecast horizon at once. 
+ 	- One model is trained and used for the entire forecast horizon at once.
 	- Note 1: This strategy can also accommodate exogenous features (for local- or global-modelling strategies).
 - _FlatWideMIMO:_.
 	- A hybrid of Direct and MIMO. One model is trained, but Direct’s features are deployed across the forecast horizon.
@@ -102,7 +102,7 @@ pip install -U tsururu[catboost]
 - _TimeToNumGenerator_ and _DateSeasonsGenerator_: generates seasonal features (e.g., month, quarter, day of the week) from date information.
 - _LabelEncodingTransformer_ and _OneHotEncodingTransformer_: encodes categorical features.
 - _MissingValuesImputer_: handles missing values by imputing them with a chosen strategy.
-- _LagTransformer_: generates lagged features. 
+- _LagTransformer_: generates lagged features.
 - _LastKnownNormalizer_: normalizes lagged features by the last known value in history, either by subtracting it or dividing by it.
 
 <a name="citation"></a>

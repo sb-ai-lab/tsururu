@@ -92,7 +92,9 @@ class DirectStrategy(RecursiveStrategy):
                 delta=dataset.delta,
             )
 
-            data = self.pipeline.create_data_dict_for_pipeline(dataset, features_idx, target_idx)
+            data = self.pipeline.create_data_dict_for_pipeline(
+                dataset, features_idx, target_idx
+            )
             data = self.pipeline.fit_transform(data, self.strategy_name)
 
             val_dataset = self.trainer.validation_params.get("validation_data")
@@ -145,7 +147,11 @@ class DirectStrategy(RecursiveStrategy):
                         self.step,
                         date_column=val_dataset.date_column,
                         delta=val_dataset.delta,
-                    )[:, (horizon - 1) * self.model_horizon : horizon * self.model_horizon]
+                    )[
+                        :,
+                        (horizon - 1) * self.model_horizon : horizon
+                        * self.model_horizon,
+                    ]
 
                     val_data["target_idx"] = val_target_idx
 
@@ -257,7 +263,11 @@ class DirectStrategy(RecursiveStrategy):
         return self
 
     def make_step(
-        self, step: int, horizon: int, dataset: TSDataset, inverse_transform: bool = True
+        self,
+        step: int,
+        horizon: int,
+        dataset: TSDataset,
+        inverse_transform: bool = True,
     ) -> TSDataset:
         """Make a step in the direct strategy.
 
@@ -289,13 +299,17 @@ class DirectStrategy(RecursiveStrategy):
             delta=dataset.delta,
         )[:, self.model_horizon * step : self.model_horizon * (step + 1)]
 
-        data = self.pipeline.create_data_dict_for_pipeline(dataset, test_idx, target_idx)
+        data = self.pipeline.create_data_dict_for_pipeline(
+            dataset, test_idx, target_idx
+        )
         data = self.pipeline.transform(data)
 
         pred = self.trainers[step % len(self.trainers)].predict(data, self.pipeline)
         if inverse_transform:
             pred = self.pipeline.inverse_transform_y(pred)
 
-        dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(-1)
+        dataset.data.loc[target_idx.reshape(-1), dataset.target_column] = pred.reshape(
+            -1
+        )
 
         return dataset
