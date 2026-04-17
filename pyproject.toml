@@ -40,9 +40,11 @@ all = [
   "py-boost",
   "torch>=1.9.0",
   "einops",
-  "transformers"
+  "transformers",
+  "pytest>=8.0",
+  "ipykernel>=6.0",
+  "pre-commit>=3.5.0"
 ]
-dev = ["pytest>=8.0", "ipykernel>=6.0", "pre-commit>=4.5.1"]
 
 [project.urls]
 Homepage = "https://github.com/sb-ai-lab/tsururu"
@@ -52,6 +54,9 @@ Issues = "https://github.com/sb-ai-lab/tsururu/issues"
 requires = ["poetry-core>=2.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.4.1"
-ipykernel = "^6.30.1"
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+  "ipykernel>=6.0",
+  "pre-commit>=3.5.0"
+]
