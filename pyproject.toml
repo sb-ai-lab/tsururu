@@ -40,10 +40,7 @@ all = [
   "py-boost",
   "torch>=1.9.0",
   "einops",
-  "transformers",
-  "pytest>=8.0",
-  "ipykernel>=6.0",
-  "pre-commit>=3.5.0"
+  "transformers"
 ]
 
 [project.urls]
@@ -51,8 +48,8 @@ Homepage = "https://github.com/sb-ai-lab/tsururu"
 Issues = "https://github.com/sb-ai-lab/tsururu/issues"
 
 [build-system]
-requires = ["poetry-core>=2.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
