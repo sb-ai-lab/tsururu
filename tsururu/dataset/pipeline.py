@@ -648,7 +648,7 @@ class Pipeline:
             # get unique date feature names without lag suffix
             date_feature_names = (
                 X.columns[date_features_mask]
-                .str.replace("__lag_\d+$", "", regex=True)
+                .str.replace(r"__lag_\d+$", "", regex=True)
                 .unique()
             )
 
