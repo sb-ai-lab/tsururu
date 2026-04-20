@@ -114,8 +114,10 @@ BibTeX entry:
 @article{tsururu2025,
   title={Tsururu: A Python-based Time Series Forecasting Strategies Library},
   author={Kostromina, Alina and Kuvshinova, Kseniia and Yugay, Aleksandr and Savchenko, Andrey and Simakov, Dmitry},
-  journal={arXiv preprint arXiv:2509.15843},
+  booktitle={Proceedings of the Thirty-Fourth International Joint Conference on Artificial Intelligence},
   year={2025},
+  pages={11077-11081},
+  doi={10.24963/ijcai.2025/1266}
 }
 ```
 <a name="license"></a>
