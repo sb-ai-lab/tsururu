@@ -1,10 +1,10 @@
 import logging
-import pytest
+# import pytest
 
 import pandas as pd
 
-pytest.importorskip("torch", reason="torch is not installed")
-pytest.importorskip("einops", reason="einops is not installed")
+# pytest.importorskip("torch", reason="torch is not installed")
+# pytest.importorskip("einops", reason="einops is not installed")
 
 from tsururu.dataset import IndexSlicer, Pipeline, TSDataset
 from tsururu.model_training.trainer import DLTrainer

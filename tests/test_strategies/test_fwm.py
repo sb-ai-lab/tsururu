@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-pytest.importorskip("catboost", reason="catboost is not installed")
+# pytest.importorskip("catboost", reason="catboost is not installed")
 
 from tsururu.dataset import IndexSlicer, Pipeline, TSDataset
 from tsururu.model_training.trainer import MLTrainer

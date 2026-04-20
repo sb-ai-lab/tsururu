@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +60,7 @@ jobs:
 
       - name: Sync environment with dev extras
         run: |
-          uv sync --group dev
+          uv sync --all-extras
 
       - name: Run tests
         run: uv run pytest tests/ -v --tb=short
