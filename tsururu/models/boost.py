@@ -77,7 +77,7 @@ class PyBoost(Estimator):
                 "loss": "mse",
                 "ntrees": 150000,
                 "es": 100,
-                "versbose": 1000
+                "verbose": 1000
             }.
 
     Notes:
