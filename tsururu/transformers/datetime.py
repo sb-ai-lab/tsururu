@@ -181,7 +181,8 @@ class DateSeasonsGenerator(FeaturesGenerator):
             _, time_delta = index_slicer.timedelta(time_col, delta=self.delta)
             if self.from_target_date:
                 horizon = data["idx_y"][0, -1] - data["idx_X"][0, -1]
-                time_col = time_col + horizon * time_delta
+                time_col = time_col + np.int64(horizon) * np.int64(time_delta)
+
             time_col = pd.to_datetime(time_col.to_numpy(), origin="unix")
 
             new_arr = np.empty((time_col.shape[0], len(self.output_features)), np.int32)
