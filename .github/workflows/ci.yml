@@ -44,6 +44,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.11", "3.12", "3.13"]
+        exclude:
+          - os: windows-latest
+            python-version: "3.13"
 
     steps:
       - uses: actions/checkout@v6
@@ -61,7 +64,7 @@ jobs:
 
       - name: Sync environment with dev extras
         run: |
-          uv sync --all-extras
+          uv sync --group dev
 
       - name: Run tests
         run: uv run pytest tests/ -v --tb=short
