@@ -28,35 +28,38 @@ Please be respectful and constructive in all interactions. We follow the [Contri
 git clone https://github.com/<your-username>/tsururu.git
 cd tsururu
 
-# Create environment
-python -m venv .venv
+# Install uv
+python -m pip install uv
+
+# Create environment with uv dependency manager
+uv venv
 source .venv/bin/activate
 
-# Install in editable mode with dev dependencies
-pip install -e ".[all,dev]"
-
-# Install pre-commit hooks
-pre-commit install
+# Install dependencies
+# - For standard development:
+uv sync
+# - If you need optional-dependencies (see pyproject.toml):
+uv sync --all-extras
 ```
 
-## Pre-commit Hooks
+We use [pre-commit](https://pre-commit.com/) to enforce code style. After installing hooks, they run automatically on every commit.
 
-We use [pre-commit](https://pre-commit.com/) to enforce code style. After installing hooks (`pre-commit install`), they run automatically on every commit. To run manually:
+To manually verify all files before committing:
 
 ```bash
-pre-commit run --all-files
+uv run pre-commit run --all-files
 ```
 
 ## Running Tests
 
 ```bash
-pytest tests/
+uv run pytest tests/
 ```
 
 To run a specific test module:
 
 ```bash
-pytest tests/test_strategies/
+uv run pytest tests/test_strategies/
 ```
 
 ## Pull Request Guidelines
