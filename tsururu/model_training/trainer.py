@@ -53,7 +53,9 @@ class MLTrainer:
         self.scores: List[float] = []
         self.columns: List[str] = []
 
-    def fit(self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None) -> "MLTrainer":
+    def fit(
+        self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None
+    ) -> "MLTrainer":
         """Fits the models using the input data and pipeline.
 
         Args:
@@ -281,7 +283,8 @@ class DLTrainer:
         if "relative_steps_per_epoch" in self.scheduler_params:
             for param_name in self.scheduler_params["relative_steps_per_epoch"]:
                 self.scheduler_params[param_name] = int(
-                    self.scheduler_params[param_name] * (dataset_length // self.batch_size + 1)
+                    self.scheduler_params[param_name]
+                    * (dataset_length // self.batch_size + 1)
                 )
             self.scheduler_params.pop("relative_steps_per_epoch")
 
@@ -289,14 +292,19 @@ class DLTrainer:
             for param_name in self.scheduler_params["relative_steps"]:
                 self.scheduler_params[param_name] = int(
                     self.n_epochs
-                    * (self.scheduler_params[param_name] * (dataset_length // self.batch_size + 1))
+                    * (
+                        self.scheduler_params[param_name]
+                        * (dataset_length // self.batch_size + 1)
+                    )
                 )
             self.scheduler_params.pop("relative_steps")
 
     def init_trainer_one_fold(
         self, features_groups: dict
     ) -> Tuple[
-        "nn.Module", "torch.optim.Optimizer", Optional["torch.optim.lr_scheduler._LRScheduler"]
+        "nn.Module",
+        "torch.optim.Optimizer",
+        Optional["torch.optim.lr_scheduler._LRScheduler"],
     ]:
         """Initializes the model, optimizer, and scheduler for one fold.
 
@@ -309,7 +317,9 @@ class DLTrainer:
         """
         self.metric = self.metric() if isinstance(self.metric, type) else self.metric
 
-        model = self.model_base(features_groups, self.horizon, self.history, **self.model_params)
+        model = self.model_base(
+            features_groups, self.horizon, self.history, **self.model_params
+        )
 
         if len(self.device_ids) > 1:
             model = torch.nn.DataParallel(model, device_ids=self.device_ids)
@@ -400,9 +410,13 @@ class DLTrainer:
 
                 if torch.isnan(inputs).sum() != 0 or torch.isnan(targets).sum() != 0:
                     if torch.isnan(inputs).sum() != 0:
-                        logger.warning("It seems that there are NaN values in the input data.")
+                        logger.warning(
+                            "It seems that there are NaN values in the input data."
+                        )
                     else:
-                        logger.warning("It seems that there are NaN values in the target data.")
+                        logger.warning(
+                            "It seems that there are NaN values in the target data."
+                        )
                     logger.warning(
                         "Try to check pipeline configuration (normalization part, especially)."
                         "NaN values can be caused by division by zero in DifferenceNormalizer or LastKnownNormalizer."
@@ -423,11 +437,15 @@ class DLTrainer:
 
                 if not self.scheduler_after_epoch and scheduler is not None:
                     scheduler.step()
-                    logger.info(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
+                    logger.info(
+                        f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}."
+                    )
 
             epoch_loss = running_loss / len(train_loader.dataset)
             epoch_time = time.time() - start_time
-            logger.info(f"Epoch {epoch+1}/{self.n_epochs}, cost time: {epoch_time:.2f}s")
+            logger.info(
+                f"Epoch {epoch + 1}/{self.n_epochs}, cost time: {epoch_time:.2f}s"
+            )
             logger.info(f"train loss: {epoch_loss:.4f}")
 
             val_loss, val_metric = self.validate_model(val_loader, model)
@@ -435,7 +453,9 @@ class DLTrainer:
 
             if self.scheduler_after_epoch and scheduler is not None:
                 scheduler.step()
-                logger.info(f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}.")
+                logger.info(
+                    f"Updating learning rate to {scheduler.get_last_lr()[0]:.6f}."
+                )
 
             # Сохранение модели и проверка early stopping
             logs = {
@@ -478,7 +498,9 @@ class DLTrainer:
         model: "nn.Module",
         return_outputs: bool = False,
         inference: bool = False,
-    ) -> Union[float, Tuple[float, float], Tuple[float, float, "torch.Tensor", "torch.Tensor"]]:
+    ) -> Union[
+        float, Tuple[float, float], Tuple[float, float, "torch.Tensor", "torch.Tensor"]
+    ]:
         """Validates the model on the validation data.
 
         Args:
@@ -521,7 +543,9 @@ class DLTrainer:
         else:
             return loss, metric
 
-    def fit(self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None) -> "DLTrainer":
+    def fit(
+        self, data: dict, pipeline: Pipeline, val_data: Optional[dict] = None
+    ) -> "DLTrainer":
         """Fits the models using the input data and pipeline.
 
         Args:
@@ -584,7 +608,9 @@ class DLTrainer:
             dataset_length = len(train_subset)
             self._convert_relative_steps_to_absolute(dataset_length)
 
-            model, optimizer, scheduler = self.init_trainer_one_fold(pipeline.features_groups)
+            model, optimizer, scheduler = self.init_trainer_one_fold(
+                pipeline.features_groups
+            )
             if self.pretrained_path:
                 model, optimizer, scheduler = self.load_trainer_one_fold(
                     fold_i, model, optimizer, scheduler
@@ -630,7 +656,9 @@ class DLTrainer:
         logger.info(f"length of test dataset: {len(test_dataset)}")
 
         models_preds = [
-            self.validate_model(test_loader, model, return_outputs=True, inference=True)[2].cpu()
+            self.validate_model(
+                test_loader, model, return_outputs=True, inference=True
+            )[2].cpu()
             for model in self.models
         ]
 

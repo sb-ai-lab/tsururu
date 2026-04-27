@@ -9,7 +9,9 @@ torch = OptionalImport("torch")
 nn = OptionalImport("torch.nn")
 
 
-def PositionalEncoding(q_len: int, d_model: int, normalize: bool = True) -> "torch.Tensor":
+def PositionalEncoding(
+    q_len: int, d_model: int, normalize: bool = True
+) -> "torch.Tensor":
     """Generate positional encoding.
 
     Args:
@@ -92,7 +94,10 @@ def Coord1dPosEncoding(
         positional encoding tensor.
 
     """
-    cpe = 2 * (torch.linspace(0, 1, q_len).reshape(-1, 1) ** (0.5 if exponential else 1)) - 1
+    cpe = (
+        2 * (torch.linspace(0, 1, q_len).reshape(-1, 1) ** (0.5 if exponential else 1))
+        - 1
+    )
     if normalize:
         cpe = cpe - cpe.mean()
         cpe = cpe / (cpe.std() * 10)

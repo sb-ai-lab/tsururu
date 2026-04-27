@@ -1,0 +1,38 @@
+default_install_hook_types: [pre-commit]
+default_stages: [pre-commit]
+
+repos:
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=5000]
+      - id: no-commit-to-branch
+        args: ['--branch', 'main', '--branch', 'master']
+      - id: check-merge-conflict
+
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1
+    hooks:
+      - id: ruff-format
+        args: [--no-cache]
+        exclude: \.ipynb$
+      - id: ruff
+        args: [--fix, --no-cache]
+        exclude: \.ipynb$
+
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: run pytest
+        entry: pytest tests
+        language: system
+        pass_filenames: false
+        types: [python]

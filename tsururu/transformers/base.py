@@ -49,7 +49,9 @@ class Transformer:
         self.input_features = input_features
         self.output_features = None  # array with names of resulting columns
 
-    def fit(self, data: dict, input_features: Optional[Sequence[str]] = None) -> "Transformer":
+    def fit(
+        self, data: dict, input_features: Optional[Sequence[str]] = None
+    ) -> "Transformer":
         """Fit transformer on "elongated series" and return it's instance.
 
         Args:
@@ -82,7 +84,9 @@ class Transformer:
         """
         raise NotImplementedError()
 
-    def fit_transform(self, data: dict, input_features: Optional[Sequence[str]] = None) -> dict:
+    def fit_transform(
+        self, data: dict, input_features: Optional[Sequence[str]] = None
+    ) -> dict:
         """Default implementation of fit_transform - fit and then transform.
 
         Args:
@@ -128,7 +132,9 @@ class SequentialTransformer(Transformer):
 
     """
 
-    def __init__(self, transformers_list: Sequence[Transformer], input_features: Sequence[str]):
+    def __init__(
+        self, transformers_list: Sequence[Transformer], input_features: Sequence[str]
+    ):
         super().__init__(input_features=input_features)
         self.transformers_list = transformers_list
         self.inverse_transformers_list = []
@@ -149,7 +155,8 @@ class SequentialTransformer(Transformer):
 
         """
         raise NotImplementedError(
-            "Sequential supports only fit_transform since needs output" "to fit next transformer."
+            "Sequential supports only fit_transform since needs output"
+            "to fit next transformer."
         )
 
     def transform(self, data: dict) -> dict:
@@ -176,7 +183,9 @@ class SequentialTransformer(Transformer):
 
         return data
 
-    def fit_transform(self, data, input_features: Optional[Sequence[str]] = None) -> dict:
+    def fit_transform(
+        self, data, input_features: Optional[Sequence[str]] = None
+    ) -> dict:
         """Fit and apply the sequence of transformers to data containers
             one after the other and transform "elongated series".
 
@@ -202,11 +211,14 @@ class SequentialTransformer(Transformer):
             current_input_features = trf.output_features
             if hasattr(trf, "transform_target") and trf.transform_target:
                 # Check that transform_target corresponding to transformer for target column
-                assert self.input_features == [
-                    data["target_column_name"]
-                ], f"`transform_target` can't be used with exogenous features. You try use it on {self.input_features}, while target column is `{data['target_column_name']}`"
+                assert self.input_features == [data["target_column_name"]], (
+                    f"`transform_target` can't be used with exogenous features. You try use it on {self.input_features}, while target column is `{data['target_column_name']}`"
+                )
                 self.inverse_transformers_list.append(trf)
-            elif hasattr(trf, "inverse_transformers_list") and trf.inverse_transformers_list:
+            elif (
+                hasattr(trf, "inverse_transformers_list")
+                and trf.inverse_transformers_list
+            ):
                 self.inverse_transformers_list.extend(trf.inverse_transformers_list)
 
         self.inverse_transformers_list = self.inverse_transformers_list[::-1]
@@ -307,12 +319,17 @@ class UnionTransformer(Transformer):
             data = trf.transform(data)
             if hasattr(trf, "transform_target") and trf.transform_target:
                 self.inverse_transformers_list.append(trf)
-            elif hasattr(trf, "inverse_transformers_list") and trf.inverse_transformers_list:
+            elif (
+                hasattr(trf, "inverse_transformers_list")
+                and trf.inverse_transformers_list
+            ):
                 self.inverse_transformers_list.extend(trf.inverse_transformers_list)
 
         return data
 
-    def fit_transform(self, data: dict, input_features: Optional[Sequence[str]] = None) -> dict:
+    def fit_transform(
+        self, data: dict, input_features: Optional[Sequence[str]] = None
+    ) -> dict:
         """Fit and apply the sequence of transformers to data containers
             in parallel and transform "elongated series".
 
@@ -335,12 +352,15 @@ class UnionTransformer(Transformer):
                 output_features_list.append(trf.output_features)
             if hasattr(trf, "transform_target") and trf.transform_target:
                 # Check that transform_target corresponding to transformer for target column
-                assert self.input_features == [
-                    data["target_column_name"]
-                ], "`transform_target` can't be used with exogenous features. You try use it on"
+                assert self.input_features == [data["target_column_name"]], (
+                    "`transform_target` can't be used with exogenous features. You try use it on"
+                )
                 f"{self.input_features}, while target column is `{data['target_column_name']}`"
                 self.inverse_transformers_list.append(trf)
-            elif hasattr(trf, "inverse_transformers_list") and trf.inverse_transformers_list:
+            elif (
+                hasattr(trf, "inverse_transformers_list")
+                and trf.inverse_transformers_list
+            ):
                 self.inverse_transformers_list.extend(trf.inverse_transformers_list)
 
         self.output_features = np.concatenate(output_features_list)
@@ -459,7 +479,10 @@ class SeriesToSeriesTransformer(Transformer):
         data[data_key] = (
             data[data_key]
             .groupby(data["id_column_name"], sort=False)
-            .apply(lambda group: self._transform_segment(group, group.name), include_groups=False)
+            .apply(
+                lambda group: self._transform_segment(group, group.name),
+                include_groups=False,
+            )
             .reset_index(level=data["id_column_name"], drop=False)
         )
 
@@ -490,9 +513,9 @@ class SeriesToSeriesTransformer(Transformer):
         else:
             for i, column_name in enumerate(self.input_features):
                 if column_name.split("__")[0] == data["target_column_name"]:
-                    data["raw_ts_y"].loc[:, self.output_features[i]] = data["raw_ts_y"].loc[
-                        :, column_name
-                    ]
+                    data["raw_ts_y"].loc[:, self.output_features[i]] = data[
+                        "raw_ts_y"
+                    ].loc[:, column_name]
 
         return data
 

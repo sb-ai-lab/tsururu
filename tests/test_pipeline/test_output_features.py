@@ -89,7 +89,10 @@ PIPELINE_PARAMS_WITH_WRONG_EXOG_TRANSFORMER["exog_1"] = {
         "add_feature_1",
     ],
     "features": {
-        "StandardScalerTransformer": {"transform_features": True, "transform_target": True},
+        "StandardScalerTransformer": {
+            "transform_features": True,
+            "transform_target": True,
+        },
         "LagTransformer": {"lags": 2},
     },
 }
@@ -223,4 +226,6 @@ def test_features_names(get_dataset, pipeline_params, result):
 
 def test_wrong_exog_transformer(get_dataset):
     with pytest.raises(AssertionError):
-        _ = Pipeline.from_dict(PIPELINE_PARAMS_WITH_WRONG_EXOG_TRANSFORMER, multivariate=False)
+        _ = Pipeline.from_dict(
+            PIPELINE_PARAMS_WITH_WRONG_EXOG_TRANSFORMER, multivariate=False
+        )

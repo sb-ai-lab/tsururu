@@ -18,7 +18,7 @@ In the paper accepted to the Demo-Track of IJCAI 2025, we benchmarked Tsururu on
   Visualizes the ranking of preprocessing methods across other fixed hyperparameters of the pipeline. Methods not connected by a horizontal line are significantly different.
 ![critical_difference_diagram](imgs/CD_ILI.png)
 
-   **Key findings:** 
+   **Key findings:**
    - The LastKnownNormalizer significantly outperforms default preprocessing strategies.
 
 2. **Ablation on hyperparameters**
@@ -78,10 +78,10 @@ How to reproduce results or get new results on custom datasets or model using Ts
    - Use `scripts/run_exp.py` to launch your experiments.
    - Use `scripts/get_results.py` to parse the raw logs and generate a CSV file with scaled metrics.
 
-2. **Clean raw outputs**  
+2. **Clean raw outputs**
    - Use `notebooks/clean_results.ipynb` to clean and normalize the results from `get_results.py`.
 
-3. **Aggregate and visualize**  
+3. **Aggregate and visualize**
    - Use `notebooks/aggregated_results.ipynb` to generate summary tables and plots from the cleaned results.
 
 additionally:

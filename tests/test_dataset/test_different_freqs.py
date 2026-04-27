@@ -47,7 +47,7 @@ PIPELINE_PARAMS = {
     },
 }
 
-BASE_PATH = "tsururu/tests/test_dataset/different_freqs_datasets/"
+BASE_PATH = "tests/test_dataset/different_freqs_datasets/"
 
 DF_PATH_YS = f"{BASE_PATH}simulated_data_to_check_YS.csv"
 DF_PATH_Y = f"{BASE_PATH}simulated_data_to_check_Y.csv"
@@ -67,7 +67,9 @@ DF_PATH_32S = f"{BASE_PATH}simulated_data_to_check_32s.csv"
 DF_PATH_S = f"{BASE_PATH}simulated_data_to_check_1s.csv"
 DF_PATH_1MS = f"{BASE_PATH}simulated_data_to_check_1ms.csv"
 
-DF_PATH_28D = f"{BASE_PATH}simulated_data_to_check_28D.csv"  # wrong without pd.DateOffset
+DF_PATH_28D = (
+    f"{BASE_PATH}simulated_data_to_check_28D.csv"  # wrong without pd.DateOffset
+)
 
 
 @pytest.mark.parametrize(
@@ -288,34 +290,55 @@ def test_date_features(
     data = pipeline.fit_transform(data, strategy_name="MIMOStrategy")
     X, _ = pipeline.generate(data)
 
-    result_lag_2__season_y__date_idx = pipeline.output_features == "date__season_y__lag_2"
-    result_lag_2__season_m__date_idx = pipeline.output_features == "date__season_m__lag_2"
-    result_lag_2__season_d__date_idx = pipeline.output_features == "date__season_d__lag_2"
-    result_lag_2__season_h__date_idx = pipeline.output_features == "date__season_hour__lag_2"
-    result_lag_2__season_min__date_idx = pipeline.output_features == "date__season_min__lag_2"
-    result_lag_2__season_sec__date_idx = pipeline.output_features == "date__season_sec__lag_2"
-    result_lag_2__season_ms__date_idx = pipeline.output_features == "date__season_ms__lag_2"
+    result_lag_2__season_y__date_idx = (
+        pipeline.output_features == "date__season_y__lag_2"
+    )
+    result_lag_2__season_m__date_idx = (
+        pipeline.output_features == "date__season_m__lag_2"
+    )
+    result_lag_2__season_d__date_idx = (
+        pipeline.output_features == "date__season_d__lag_2"
+    )
+    result_lag_2__season_h__date_idx = (
+        pipeline.output_features == "date__season_hour__lag_2"
+    )
+    result_lag_2__season_min__date_idx = (
+        pipeline.output_features == "date__season_min__lag_2"
+    )
+    result_lag_2__season_sec__date_idx = (
+        pipeline.output_features == "date__season_sec__lag_2"
+    )
+    result_lag_2__season_ms__date_idx = (
+        pipeline.output_features == "date__season_ms__lag_2"
+    )
 
     assert np.array_equal(
-        X[:, result_lag_2__season_y__date_idx][:5].flatten(), result_lag_2__season_y__date
+        X[:, result_lag_2__season_y__date_idx][:5].flatten(),
+        result_lag_2__season_y__date,
     )
     assert np.array_equal(
-        X[:, result_lag_2__season_m__date_idx][:5].flatten(), result_lag_2__season_m__date
+        X[:, result_lag_2__season_m__date_idx][:5].flatten(),
+        result_lag_2__season_m__date,
     )
     assert np.array_equal(
-        X[:, result_lag_2__season_d__date_idx][:5].flatten(), result_lag_2__season_d__date
+        X[:, result_lag_2__season_d__date_idx][:5].flatten(),
+        result_lag_2__season_d__date,
     )
     assert np.array_equal(
-        X[:, result_lag_2__season_h__date_idx][:5].flatten(), result_lag_2__season_h__date
+        X[:, result_lag_2__season_h__date_idx][:5].flatten(),
+        result_lag_2__season_h__date,
     )
     assert np.array_equal(
-        X[:, result_lag_2__season_min__date_idx][:5].flatten(), result_lag_2__season_min__date
+        X[:, result_lag_2__season_min__date_idx][:5].flatten(),
+        result_lag_2__season_min__date,
     )
     assert np.array_equal(
-        X[:, result_lag_2__season_sec__date_idx][:5].flatten(), result_lag_2__season_sec__date
+        X[:, result_lag_2__season_sec__date_idx][:5].flatten(),
+        result_lag_2__season_sec__date,
     )
     assert np.array_equal(
-        X[:, result_lag_2__season_ms__date_idx][:5].flatten(), result_lag_2__season_ms__date
+        X[:, result_lag_2__season_ms__date_idx][:5].flatten(),
+        result_lag_2__season_ms__date,
     )
     assert index_slicer.ids_from_date(dataset.data, "date") == [
         100,
@@ -339,7 +362,9 @@ def test_custom_offset_28days():
         delta=pd.DateOffset(days=28),
     )
 
-    PIPELINE_PARAMS["date"]["features"]["DateSeasonsGenerator"]["delta"] = pd.DateOffset(days=28)
+    PIPELINE_PARAMS["date"]["features"]["DateSeasonsGenerator"]["delta"] = (
+        pd.DateOffset(days=28)
+    )
 
     pipeline = Pipeline.from_dict(PIPELINE_PARAMS, multivariate=False)
 
@@ -365,17 +390,30 @@ def test_custom_offset_28days():
     data = pipeline.fit_transform(data, strategy_name="MIMOStrategy")
     X, _ = pipeline.generate(data)
 
-    result_lag_2__season_y__date_idx = pipeline.output_features == "date__season_y__lag_2"
-    result_lag_2__season_m__date_idx = pipeline.output_features == "date__season_m__lag_2"
-    result_lag_2__season_d__date_idx = pipeline.output_features == "date__season_d__lag_2"
+    result_lag_2__season_y__date_idx = (
+        pipeline.output_features == "date__season_y__lag_2"
+    )
+    result_lag_2__season_m__date_idx = (
+        pipeline.output_features == "date__season_m__lag_2"
+    )
+    result_lag_2__season_d__date_idx = (
+        pipeline.output_features == "date__season_d__lag_2"
+    )
 
     assert np.array_equal(
-        X[:, result_lag_2__season_y__date_idx][:5].flatten(), [2020, 2020, 2020, 2020, 2020]
+        X[:, result_lag_2__season_y__date_idx][:5].flatten(),
+        [2020, 2020, 2020, 2020, 2020],
     )
-    assert np.array_equal(X[:, result_lag_2__season_m__date_idx][:5].flatten(), [7, 8, 9, 10, 11])
-    assert np.array_equal(X[:, result_lag_2__season_d__date_idx][:5].flatten(), [15, 12, 9, 7, 4])
+    assert np.array_equal(
+        X[:, result_lag_2__season_m__date_idx][:5].flatten(), [7, 8, 9, 10, 11]
+    )
+    assert np.array_equal(
+        X[:, result_lag_2__season_d__date_idx][:5].flatten(), [15, 12, 9, 7, 4]
+    )
 
-    assert index_slicer.ids_from_date(dataset.data, "date", delta=pd.DateOffset(days=28)) == [
+    assert index_slicer.ids_from_date(
+        dataset.data, "date", delta=pd.DateOffset(days=28)
+    ) == [
         100,
         200,
         300,

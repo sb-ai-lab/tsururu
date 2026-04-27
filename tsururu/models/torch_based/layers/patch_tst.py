@@ -100,7 +100,6 @@ class PatchTST_backbone(Module):
         verbose: bool = False,
         **kwargs,
     ):
-
         super().__init__()
 
         # RevIn
@@ -338,7 +337,6 @@ class TSTiEncoder(Module):
         verbose: bool = False,
         **kwargs,
     ):
-
         super().__init__()
 
         self.patch_num = patch_num
@@ -399,7 +397,9 @@ class TSTiEncoder(Module):
             )  # x: [bs * n_vars x сhannels x patch_len x patch_num]
 
         # Input encoding
-        x = x.reshape(x.shape[0], -1, x.shape[-1])  # x: [... x сhannels * patch_len x patch_num]
+        x = x.reshape(
+            x.shape[0], -1, x.shape[-1]
+        )  # x: [... x сhannels * patch_len x patch_num]
         x = x.permute(0, 2, 1)  # x: [... x patch_num x сhannels * patch_len]
 
         x = self.W_P(x)  # x: [... x patch_num x d_model]
@@ -440,7 +440,9 @@ class TSTiEncoder(Module):
         exog = x[:, n_vars:]
 
         # Reorganize series channels into batch dimension
-        series = torch.movedim(series, 1, 0)  # series: [n_vars, batch_size, patch_len, patch_num]
+        series = torch.movedim(
+            series, 1, 0
+        )  # series: [n_vars, batch_size, patch_len, patch_num]
         series = series.reshape(-1, 1, *series.shape[2:])  # [n_vars*batch_size, 1, ...]
 
         if exog.numel() == 0:
@@ -540,13 +542,18 @@ class TSTEncoder(Module):
         if self.res_attention:
             for mod in self.layers:
                 output, scores = mod(
-                    output, prev=scores, key_padding_mask=key_padding_mask, attn_mask=attn_mask
+                    output,
+                    prev=scores,
+                    key_padding_mask=key_padding_mask,
+                    attn_mask=attn_mask,
                 )
 
             return output
         else:
             for mod in self.layers:
-                output = mod(output, key_padding_mask=key_padding_mask, attn_mask=attn_mask)
+                output = mod(
+                    output, key_padding_mask=key_padding_mask, attn_mask=attn_mask
+                )
 
             return output
 
@@ -590,9 +597,9 @@ class TSTEncoderLayer(Module):
         pre_norm: bool = False,
     ):
         super().__init__()
-        assert (
-            not d_model % n_heads
-        ), f"d_model ({d_model}) must be divisible by n_heads ({n_heads})"
+        assert not d_model % n_heads, (
+            f"d_model ({d_model}) must be divisible by n_heads ({n_heads})"
+        )
         d_k = d_model // n_heads if d_k is None else d_k
         d_v = d_model // n_heads if d_v is None else d_v
 
@@ -663,7 +670,12 @@ class TSTEncoderLayer(Module):
         # Multi-Head attention
         if self.res_attention:
             src2, attn, scores = self.self_attn(
-                src, src, src, prev, key_padding_mask=key_padding_mask, attn_mask=attn_mask
+                src,
+                src,
+                src,
+                prev,
+                key_padding_mask=key_padding_mask,
+                attn_mask=attn_mask,
             )
         else:
             src2, attn = self.self_attn(
@@ -672,7 +684,9 @@ class TSTEncoderLayer(Module):
         if self.store_attn:
             self.attn = attn
         # Add & Norm
-        src = src + self.dropout_attn(src2)  # Add: residual connection with residual dropout
+        src = src + self.dropout_attn(
+            src2
+        )  # Add: residual connection with residual dropout
         if not self.pre_norm:
             src = self.norm_attn(src)
 
@@ -682,7 +696,9 @@ class TSTEncoderLayer(Module):
         # Position-wise Feed-Forward
         src2 = self.ff(src)
         # Add & Norm
-        src = src + self.dropout_ffn(src2)  # Add: residual connection with residual dropout
+        src = src + self.dropout_ffn(
+            src2
+        )  # Add: residual connection with residual dropout
         if not self.pre_norm:
             src = self.norm_ffn(src)
 
@@ -739,11 +755,17 @@ class _MultiheadAttention(Module):
         # Scaled Dot-Product Attention (multiple heads)
         self.res_attention = res_attention
         self.sdp_attn = _ScaledDotProductAttention(
-            d_model, n_heads, attn_dropout=attn_dropout, res_attention=self.res_attention, lsa=lsa
+            d_model,
+            n_heads,
+            attn_dropout=attn_dropout,
+            res_attention=self.res_attention,
+            lsa=lsa,
         )
 
         # Poject output
-        self.to_out = nn.Sequential(nn.Linear(n_heads * d_v, d_model), nn.Dropout(proj_dropout))
+        self.to_out = nn.Sequential(
+            nn.Linear(n_heads * d_v, d_model), nn.Dropout(proj_dropout)
+        )
 
     def forward(
         self,
@@ -790,7 +812,12 @@ class _MultiheadAttention(Module):
         # Apply Scaled Dot-Product Attention (multiple heads)
         if self.res_attention:
             output, attn_weights, attn_scores = self.sdp_attn(
-                q_s, k_s, v_s, prev=prev, key_padding_mask=key_padding_mask, attn_mask=attn_mask
+                q_s,
+                k_s,
+                v_s,
+                prev=prev,
+                key_padding_mask=key_padding_mask,
+                attn_mask=attn_mask,
             )
         else:
             output, attn_weights = self.sdp_attn(
@@ -902,7 +929,9 @@ class _ScaledDotProductAttention(Module):
         if (
             key_padding_mask is not None
         ):  # mask with shape [bs x q_len] (only when max_w_len == q_len)
-            attn_scores.masked_fill_(key_padding_mask.unsqueeze(1).unsqueeze(2), -np.inf)
+            attn_scores.masked_fill_(
+                key_padding_mask.unsqueeze(1).unsqueeze(2), -np.inf
+            )
 
         # normalize the attention weights
         attn_weights = F.softmax(
@@ -911,7 +940,9 @@ class _ScaledDotProductAttention(Module):
         attn_weights = self.attn_dropout(attn_weights)
 
         # compute the new values given the attention weights
-        output = torch.matmul(attn_weights, v)  # output: [bs x n_heads x max_q_len x d_v]
+        output = torch.matmul(
+            attn_weights, v
+        )  # output: [bs x n_heads x max_q_len x d_v]
 
         if self.res_attention:
             return output, attn_weights, attn_scores

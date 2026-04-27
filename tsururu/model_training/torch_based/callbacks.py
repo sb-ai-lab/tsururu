@@ -120,7 +120,9 @@ class ES_Checkpoints_Manager(Callback):
             return True
 
         worst_best_score = (
-            -self.best_snapshots[0][0] if self.mode == "min" else self.best_snapshots[0][0]
+            -self.best_snapshots[0][0]
+            if self.mode == "min"
+            else self.best_snapshots[0][0]
         )
         return self._is_improvement(current_score, worst_best_score)
 
@@ -290,7 +292,9 @@ class ES_Checkpoints_Manager(Callback):
 
         # Early stopping logic
         if self.early_stopping_patience > 0:
-            if self.best_score is None or self._is_improvement(current_score, self.best_score):
+            if self.best_score is None or self._is_improvement(
+                current_score, self.best_score
+            ):
                 self.best_score = current_score
                 self.early_stopping_counter = 0
             else:

@@ -10,15 +10,15 @@ multivariate: True
 model:
   model_type: TimeMixer_NN
   model_params:
-    e_layers: 2 
+    e_layers: 2
     down_sampling_layers: 3
     down_sampling_window: 2
     d_model: 16
     d_ff: 32
-    down_sampling_method: avg 
+    down_sampling_method: avg
     channel_independence: True
 
-scheduler: 
+scheduler:
   scheduler_type: LambdaLR
   scheduler_params:
     lr_lambda: "lambda epoch: 1.0"

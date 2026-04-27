@@ -81,11 +81,15 @@ class IndexSlicer:
             x = pd.to_datetime(x)
 
         if delta is None:
-            inferred_freq = pd.infer_freq(x[-3:])  # Need at least 3 dates to infer frequency
+            inferred_freq = pd.infer_freq(
+                x[-3:]
+            )  # Need at least 3 dates to infer frequency
             delta = x.diff().iloc[-1]
 
             # N Years
-            if delta > pd.Timedelta(days=360) and (delta.days % 365 == 0 or delta.days % 366 == 0):
+            if delta > pd.Timedelta(days=360) and (
+                delta.days % 365 == 0 or delta.days % 366 == 0
+            ):
                 delta, freq_period_info = self._timedelta_above_daily_freq(
                     d_multiplier=12,
                     check_end_regex=r"\b\d*A-|\b\d*YE-",
@@ -200,7 +204,8 @@ class IndexSlicer:
         _, time_delta = self.timedelta(data[date_column], delta=delta)
         ids = (
             np.argwhere(
-                data[date_column][1:].values != (data[date_column] + time_delta)[:-1].values
+                data[date_column][1:].values
+                != (data[date_column] + time_delta)[:-1].values
             )
             + 1
         )
@@ -289,7 +294,9 @@ class IndexSlicer:
             the index data array for test observations' windows.
 
         """
-        return self._rolling_window(np.arange(len(data)), history, step)[-(horizon + 1) : -horizon]
+        return self._rolling_window(np.arange(len(data)), history, step)[
+            -(horizon + 1) : -horizon
+        ]
 
     def _get_ids(
         self,

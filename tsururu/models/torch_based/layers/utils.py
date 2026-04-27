@@ -28,7 +28,9 @@ def get_activation_fn(activation: Union[str, Callable[[], Module]]) -> Module:
         return nn.ReLU()
     elif activation.lower() == "gelu":
         return nn.GELU()
-    raise ValueError(f'{activation} is not available. You can use "relu", "gelu", or a callable')
+    raise ValueError(
+        f'{activation} is not available. You can use "relu", "gelu", or a callable'
+    )
 
 
 class Transpose(Module):

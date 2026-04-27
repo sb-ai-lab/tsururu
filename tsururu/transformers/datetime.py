@@ -77,11 +77,12 @@ class TimeToNumGenerator(FeaturesGenerator):
             _, time_delta = index_slicer.timedelta(time_col, delta=self.delta)
             if self.from_target_date:
                 horizon = data["target_idx"][0, -1] - data["features_idx"][0, -1]
-                time_col = time_col + horizon * time_delta
+                time_col = time_col + np.int64(horizon) * time_delta
 
             new_arr = pd.to_datetime(time_col.to_numpy().reshape(-1), origin="unix")
             data_transformed = (
-                (new_arr - np.datetime64(self.basic_date)) / np.timedelta64(1, self.delta)
+                (new_arr - np.datetime64(self.basic_date))
+                / np.timedelta64(1, self.delta)
             ).values.astype(np.float32)
 
             result_data.append(data_transformed)
@@ -180,7 +181,8 @@ class DateSeasonsGenerator(FeaturesGenerator):
             _, time_delta = index_slicer.timedelta(time_col, delta=self.delta)
             if self.from_target_date:
                 horizon = data["idx_y"][0, -1] - data["idx_X"][0, -1]
-                time_col = time_col + horizon * time_delta
+                time_col = time_col + np.int64(horizon) * time_delta
+
             time_col = pd.to_datetime(time_col.to_numpy(), origin="unix")
 
             new_arr = np.empty((time_col.shape[0], len(self.output_features)), np.int32)
@@ -229,7 +231,9 @@ class CycleGenerator(FeaturesGenerator):
         self.delta = delta
         self.basic_date = None
 
-    def fit(self, data: dict, input_features: Optional[Sequence[str]] = None) -> "CycleGenerator":
+    def fit(
+        self, data: dict, input_features: Optional[Sequence[str]] = None
+    ) -> "CycleGenerator":
         """Fit transformer on "elongated series" and return it's instance.
 
         Args:

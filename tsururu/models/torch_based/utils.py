@@ -7,7 +7,9 @@ torch = OptionalImport("torch")
 nn = OptionalImport("torch.nn")
 
 
-def adjust_features_groups(features_groups: Dict[str, int], num_lags: int) -> Dict[str, int]:
+def adjust_features_groups(
+    features_groups: Dict[str, int], num_lags: int
+) -> Dict[str, int]:
     """Adjust the feature group counts based on normalization rules.
 
     Args:
@@ -149,7 +151,9 @@ def slice_features_4d(
     for tensor, group in zip(unique_tensors, unique_groups):
         total_features = tensor.shape[-1]
         per_series_features = total_features // num_series
-        tensor_reshaped = tensor.view(batch_size, seq_len, num_series, per_series_features)
+        tensor_reshaped = tensor.view(
+            batch_size, seq_len, num_series, per_series_features
+        )
         reshaped_uniques.append(tensor_reshaped)
 
     # Expand common features to repeat across all series:

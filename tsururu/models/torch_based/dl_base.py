@@ -17,5 +17,7 @@ class DLEstimator(Module):
 
         self.pred_len = pred_len
         self.seq_len = seq_len
-        self.features_groups_corrected = adjust_features_groups(features_groups, self.seq_len)
+        self.features_groups_corrected = adjust_features_groups(
+            features_groups, self.seq_len
+        )
         self.num_series = self.features_groups_corrected["series"]

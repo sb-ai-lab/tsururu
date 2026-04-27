@@ -68,10 +68,7 @@ STRATEGIES_OVER_TIME = [
     "MIMOStrategy",
     "FlatWideMIMOStrategy",
 ]
-MULTIVARIATE = [
-    True, 
-    False
-]
+MULTIVARIATE = [True, False]
 
 DATE_FEATURES = [
     "without_normalization",
@@ -277,12 +274,14 @@ def main():
     ):
         # Cases when we skip the combination
         if (
-            strategy_over_time == "MIMOStrategy" or strategy_over_time == "FlatWideMIMOStrategy"
+            strategy_over_time == "MIMOStrategy"
+            or strategy_over_time == "FlatWideMIMOStrategy"
         ) and model_horizon is not None:
             continue
 
         if (
-            strategy_over_time == "RecursiveStrategy" or strategy_over_time == "DirectStrategy"
+            strategy_over_time == "RecursiveStrategy"
+            or strategy_over_time == "DirectStrategy"
         ) and model_horizon is None:
             continue
 
@@ -374,7 +373,9 @@ def main():
                 },
             }
         else:
-            pipeline_params["target"]["features"] = {"LagTransformer": {"lags": HISTORY}}
+            pipeline_params["target"]["features"] = {
+                "LagTransformer": {"lags": HISTORY}
+            }
 
         # Date
         date_features_dict = {
@@ -451,25 +452,41 @@ def main():
         pipeline = Pipeline.from_dict(pipeline_params, multivariate=multivariate)
 
         model, model_params, trainer = model
-        
+
         if trainer == MLTrainer:
-            trainer = trainer(model, model_params, VALIDATION, VALIDATION_PARAMS, **ml_trainer_params)
+            trainer = trainer(
+                model, model_params, VALIDATION, VALIDATION_PARAMS, **ml_trainer_params
+            )
         else:
-            trainer = trainer(model, model_params, VALIDATION, VALIDATION_PARAMS, **dl_trainer_params)
+            trainer = trainer(
+                model, model_params, VALIDATION, VALIDATION_PARAMS, **dl_trainer_params
+            )
 
         try:
             if strategy_over_time == "RecursiveStrategy":
                 strategy = RecursiveStrategy(
-                    HORIZON, HISTORY, trainer, pipeline, STEP, model_horizon=model_horizon
+                    HORIZON,
+                    HISTORY,
+                    trainer,
+                    pipeline,
+                    STEP,
+                    model_horizon=model_horizon,
                 )
             elif strategy_over_time == "DirectStrategy":
                 strategy = DirectStrategy(
-                    HORIZON, HISTORY, trainer, pipeline, STEP, model_horizon=model_horizon
+                    HORIZON,
+                    HISTORY,
+                    trainer,
+                    pipeline,
+                    STEP,
+                    model_horizon=model_horizon,
                 )
             elif strategy_over_time == "MIMOStrategy":
                 strategy = MIMOStrategy(HORIZON, HISTORY, trainer, pipeline, STEP)
             elif strategy_over_time == "FlatWideMIMOStrategy":
-                strategy = FlatWideMIMOStrategy(HORIZON, HISTORY, trainer, pipeline, STEP)
+                strategy = FlatWideMIMOStrategy(
+                    HORIZON, HISTORY, trainer, pipeline, STEP
+                )
 
             fit_time, _ = strategy.fit(dataset)
             forecast_time, current_pred = strategy.predict(dataset)
@@ -477,12 +494,16 @@ def main():
             current_pred = current_pred.merge(test, on=[DATE_COLUMN, ID_COLUMN])
 
             (args.results_path / model_name).parent.mkdir(parents=True, exist_ok=True)
-            
+
             current_pred.to_csv(
                 os.path.join(args.results_path / f"{model_name}_pred.csv"), index=False
             )
 
-            metrics = current_pred.groupby(ID_COLUMN).apply(lambda x: get_metrics(x)).reset_index()
+            metrics = (
+                current_pred.groupby(ID_COLUMN)
+                .apply(lambda x: get_metrics(x))
+                .reset_index()
+            )
             metrics.loc["mean"] = metrics.mean()
             metrics.loc["fit_time"] = fit_time
             metrics.loc["forecast_time"] = forecast_time
@@ -492,11 +513,12 @@ def main():
             metrics = metrics.rename(columns={"index": ID_COLUMN})
 
             metrics.to_csv(
-                os.path.join(args.results_path / f"{model_name}_metrics.csv"), index=False
+                os.path.join(args.results_path / f"{model_name}_metrics.csv"),
+                index=False,
             )
             print("Success!")
 
-        except:
+        except Exception:
             print("Fail!")
 
     # Aggregate results
@@ -505,17 +527,23 @@ def main():
         if file.endswith("_metrics.csv"):
             current_df = pd.read_csv(file)
             current_df["model"] = re.search(r"model_(.*?)\/", file).group(1)
-            current_df["strategy_over_time"] = re.search(r"strategy_time_(.*?)__", file).group(1)
-            current_df["multivariate"] = re.search(
-                r"mult_(.*?)\/", file
+            current_df["strategy_over_time"] = re.search(
+                r"strategy_time_(.*?)__", file
             ).group(1)
+            current_df["multivariate"] = re.search(r"mult_(.*?)\/", file).group(1)
             current_df["date_features"] = re.search(r"datetime_(.*?)__", file).group(1)
             current_df["id_features"] = re.search(r"id_(.*?)__", file).group(1)
             current_df["model_horizon"] = re.search(r"model_hor_(.*?)\/", file).group(1)
             current_df["transformer"] = re.search(r"transformer_(.*?)__", file).group(1)
-            current_df["transformer_regime"] = re.search(r"regime_(.*?)__", file).group(1)
-            current_df["transform_target"] = re.search(r"tr_target_(.*?)__", file).group(1)
-            current_df["transform_features"] = re.search(r"tr_features_(.*?)_", file).group(1)
+            current_df["transformer_regime"] = re.search(r"regime_(.*?)__", file).group(
+                1
+            )
+            current_df["transform_target"] = re.search(
+                r"tr_target_(.*?)__", file
+            ).group(1)
+            current_df["transform_features"] = re.search(
+                r"tr_features_(.*?)_", file
+            ).group(1)
             df_list.append(current_df)
 
     df = pd.concat(df_list)

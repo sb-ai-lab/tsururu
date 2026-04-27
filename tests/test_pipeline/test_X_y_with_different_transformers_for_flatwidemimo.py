@@ -2,7 +2,6 @@ from copy import deepcopy
 from itertools import product
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from tsururu.dataset import IndexSlicer, Pipeline
@@ -35,7 +34,11 @@ PIPELINE_PARAMS_STANDARD = {
     },
 }
 
-transformers = ["StandardScalerTransformer", "DifferenceNormalizer", "LastKnownNormalizer"]
+transformers = [
+    "StandardScalerTransformer",
+    "DifferenceNormalizer",
+    "LastKnownNormalizer",
+]
 regimes = ["ratio", "delta"]
 transform_features_list = [True, False]
 transform_target_list = [True, False]
@@ -47,7 +50,7 @@ for transformer, regime, transform_features, transform_target in product(
 ):
     current_config = deepcopy(PIPELINE_PARAMS_STANDARD)
 
-    if transform_target == False and transform_features == False:
+    if not transform_target and not transform_features:
         continue
 
     if transformer == "StandardScalerTransformer":
@@ -79,9 +82,9 @@ for transformer, regime, transform_features, transform_target in product(
             },
             "LagTransformer": {"lags": 3},
         }
-    PIPELINE_CONFIGURATIONS[f"{transformer}_{regime}_{transform_features}_{transform_target}"] = (
-        current_config
-    )
+    PIPELINE_CONFIGURATIONS[
+        f"{transformer}_{regime}_{transform_features}_{transform_target}"
+    ] = current_config
 
 
 @pytest.mark.parametrize(
@@ -190,12 +193,15 @@ def test_features_names(get_dataset, pipeline_params, result_lag_2__value, resul
     X, y = pipeline.generate(data)
 
     if pipeline_params["target"]["features"].get("StandardScalerTransformer"):
-        result_lag_2__value_idx = pipeline.output_features == "value__standard_scaler__lag_2"
+        result_lag_2__value_idx = (
+            pipeline.output_features == "value__standard_scaler__lag_2"
+        )
     elif pipeline_params["target"]["features"].get("DifferenceNormalizer"):
         result_lag_2__value_idx = pipeline.output_features == "value__diff_norm__lag_2"
     elif pipeline_params["target"]["features"].get("LastKnownNormalizer"):
-        result_lag_2__value_idx = pipeline.output_features == "value__lag_2__last_known_norm"
-
+        result_lag_2__value_idx = (
+            pipeline.output_features == "value__lag_2__last_known_norm"
+        )
 
     lag_2__value = X[:, result_lag_2__value_idx]
 

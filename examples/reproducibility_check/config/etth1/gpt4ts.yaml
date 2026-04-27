@@ -17,11 +17,11 @@ model:
     freeze: 1
     channel_independent: True
 
-scheduler: 
+scheduler:
   scheduler_type: CosineAnnealingLR
   scheduler_params:
     T_max: 20
-    eta_min: 0.00000001 
+    eta_min: 0.00000001
 
 trainer_params:
   n_epochs: 10

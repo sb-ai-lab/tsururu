@@ -66,8 +66,11 @@ class Pipeline:
             transformers_dict = columns_params["features"]
             for transformer_name, transformer_params in transformers_dict.items():
                 assert (
-                    role != "target" and transformer_params.get("transform_target", False)
-                ) is False, "It is not possible to use transform_target=True with transformers for exogenous variables"
+                    role != "target"
+                    and transformer_params.get("transform_target", False)
+                ) is False, (
+                    "It is not possible to use transform_target=True with transformers for exogenous variables"
+                )
 
                 if transformer_name == "LagTransformer" and role == "target":
                     features_transformer = transormers_factory.create_transformer(
@@ -96,7 +99,9 @@ class Pipeline:
         return cls(union, multivariate)
 
     @classmethod
-    def easy_setup(cls, roles: dict, pipeline_params: dict, multivariate: bool) -> "Pipeline":
+    def easy_setup(
+        cls, roles: dict, pipeline_params: dict, multivariate: bool
+    ) -> "Pipeline":
         """Create a pipeline semi-automatically from a dict of columns roles
             and a dict of small description of pipeline.
 
@@ -120,7 +125,9 @@ class Pipeline:
 
         """
         # Check if all necessary keys are in pipeline_params
-        assert "target_lags" in pipeline_params, "target_lags MUST BE in pipeline_params!"
+        assert "target_lags" in pipeline_params, (
+            "target_lags MUST BE in pipeline_params!"
+        )
 
         # Add default values for pipeline_params if they are not provided
         if "date_lags" not in pipeline_params:
@@ -147,13 +154,13 @@ class Pipeline:
         ], "there is no such target_normalizer_regime!"
 
         if pipeline_params["target_normalizer"] in ["standard_scaler", "none"]:
-            assert (
-                pipeline_params["target_normalizer_regime"] == "none"
-            ), "target_normalizer_regime MUST BE `none` for this normalizer"
+            assert pipeline_params["target_normalizer_regime"] == "none", (
+                "target_normalizer_regime MUST BE `none` for this normalizer"
+            )
         else:
-            assert (
-                pipeline_params["target_normalizer_regime"] != "none"
-            ), "target_normalizer_regime MUST BE NOT `none` for this normalizer"
+            assert pipeline_params["target_normalizer_regime"] != "none", (
+                "target_normalizer_regime MUST BE NOT `none` for this normalizer"
+            )
 
         # Resulting pipeline is a Union transformer with Sequential transformers
         result_union_transformers_list = []
@@ -166,7 +173,9 @@ class Pipeline:
                     "LagTransformer", {"lags": pipeline_params["target_lags"]}
                 )
                 target_generator = TargetGenerator()
-                target_union = UnionTransformer(transformers_list=[target_lag, target_generator])
+                target_union = UnionTransformer(
+                    transformers_list=[target_lag, target_generator]
+                )
 
                 if pipeline_params["target_normalizer"] == "standard_scaler":
                     target_normalizer = transormers_factory.create_transformer(
@@ -208,9 +217,9 @@ class Pipeline:
                     current_sequential_transformers_list.append(target_lag)
 
                 else:
-                    assert (
-                        pipeline_params["target_normalizer"] == "none"
-                    ), "there is no such target_normalizer!"
+                    assert pipeline_params["target_normalizer"] == "none", (
+                        "there is no such target_normalizer!"
+                    )
 
             elif role == "date":
                 date_season = transormers_factory.create_transformer(
@@ -237,7 +246,9 @@ class Pipeline:
                 current_sequential_transformers_list.append(date_lag)
 
             elif role == "id":
-                id_encoder = transormers_factory.create_transformer("LabelEncodingTransformer", {})
+                id_encoder = transormers_factory.create_transformer(
+                    "LabelEncodingTransformer", {}
+                )
                 id_scaler = transormers_factory.create_transformer(
                     "StandardScalerTransformer",
                     {
@@ -246,7 +257,9 @@ class Pipeline:
                         "agg_by_id": False,
                     },
                 )
-                id_lag = transormers_factory.create_transformer("LagTransformer", {"lags": 1})
+                id_lag = transormers_factory.create_transformer(
+                    "LagTransformer", {"lags": 1}
+                )
                 current_sequential_transformers_list.append(id_encoder)
                 current_sequential_transformers_list.append(id_scaler)
                 current_sequential_transformers_list.append(id_lag)
@@ -328,7 +341,10 @@ class Pipeline:
             ]
         )
         id_features_mask = np.array(
-            [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
+            [
+                bool(re.match(f"{data['id_column_name']}__", feature))
+                for feature in input_features
+            ]
         )
         other_features_mask = ~(id_features_mask | date_features_mask)
 
@@ -350,10 +366,17 @@ class Pipeline:
         other_features_names = input_features[other_features_mask]
 
         return np.hstack(
-            [id_features_names, fh_feature_name, date_features_names, other_features_names]
+            [
+                id_features_names,
+                fh_feature_name,
+                date_features_names,
+                other_features_names,
+            ]
         )
 
-    def _get_multivariate_X_columns_names(self, data: dict, input_features: list) -> list:
+    def _get_multivariate_X_columns_names(
+        self, data: dict, input_features: list
+    ) -> list:
         """
         Get the column names for the FlatWideMIMO strategy from MIMO format.
 
@@ -391,7 +414,9 @@ class Pipeline:
                 feature
                 for feature in input_features
                 if feature
-                not in np.hstack([id_features_names, date_features_names, fh_features_names])
+                not in np.hstack(
+                    [id_features_names, date_features_names, fh_features_names]
+                )
             ]
         )
 
@@ -436,7 +461,10 @@ class Pipeline:
 
         # id -> "{id_column_name}__" in the beginning of the string
         id_mask = np.array(
-            [bool(re.match(f"{data['id_column_name']}__", feature)) for feature in input_features]
+            [
+                bool(re.match(f"{data['id_column_name']}__", feature))
+                for feature in input_features
+            ]
         )
 
         if self.strategy_name == "FlatWideMIMOStrategy":
@@ -452,7 +480,9 @@ class Pipeline:
             ]
         )
 
-        cycle_mask = np.array([bool(re.match(f"cycle_", feature)) for feature in input_features])
+        cycle_mask = np.array(
+            [bool(re.match("cycle_", feature)) for feature in input_features]
+        )
 
         # features per series -> "__{int}" in the end of the string shows the series except target features
         # we want to sort features by series (all for first, all for second, etc.)
@@ -462,7 +492,9 @@ class Pipeline:
 
         series_mask = np.logical_and(series_mask, ~(target_mask | cycle_mask))
 
-        other_mask = ~(target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask)
+        other_mask = ~(
+            target_mask | id_mask | fh_mask | date_mask | series_mask | cycle_mask
+        )
 
         new_order_idx = np.concatenate(
             [
@@ -486,9 +518,9 @@ class Pipeline:
             "other_features": np.sum(other_mask),
         }
 
-        assert len(new_order_idx) == len(
-            input_features
-        ), "Number of features should not change after sorting"
+        assert len(new_order_idx) == len(input_features), (
+            "Number of features should not change after sorting"
+        )
 
         return new_order_idx, counts
 
@@ -517,10 +549,12 @@ class Pipeline:
                 data, current_features
             )
         if self.multivariate:
-            current_features = self._get_multivariate_X_columns_names(data, current_features)
+            current_features = self._get_multivariate_X_columns_names(
+                data, current_features
+            )
 
-        self.features_sort_idx, self.features_groups = self.group_pipeline_output_features(
-            data, current_features
+        self.features_sort_idx, self.features_groups = (
+            self.group_pipeline_output_features(data, current_features)
         )
         self.output_features = current_features[self.features_sort_idx]
 
@@ -542,7 +576,9 @@ class Pipeline:
 
         return data
 
-    def from_mimo_to_flatwidemimo(self, data: dict, current_features: list) -> Tuple[dict, list]:
+    def from_mimo_to_flatwidemimo(
+        self, data: dict, current_features: list
+    ) -> Tuple[dict, list]:
         """
         Converts the input data from MIMO to FlatWideMIMO format.
 
@@ -572,7 +608,9 @@ class Pipeline:
             id_count = len(X.loc[:, id_features_mask].value_counts())
         else:
             id_count = len(
-                data["raw_ts_X"].iloc[data["idx_X"][:, 0]][data["id_column_name"]].value_counts()
+                data["raw_ts_X"]
+                .iloc[data["idx_X"][:, 0]][data["id_column_name"]]
+                .value_counts()
             )
 
         if self.multivariate:
@@ -582,7 +620,9 @@ class Pipeline:
             )
         else:
             unique_id = np.unique(
-                [tuple(x) for x in X.loc[:, id_features_mask].values], axis=0, return_index=1
+                [tuple(x) for x in X.loc[:, id_features_mask].values],
+                axis=0,
+                return_index=1,
             )
             sort_unique_id = unique_id[0][np.argsort(unique_id[1])]
 
@@ -607,12 +647,16 @@ class Pipeline:
 
             # get unique date feature names without lag suffix
             date_feature_names = (
-                X.columns[date_features_mask].str.replace("__lag_\d+$", "", regex=True).unique()
+                X.columns[date_features_mask]
+                .str.replace(r"__lag_\d+$", "", regex=True)
+                .unique()
             )
 
             features_df = pd.DataFrame(
                 np.repeat(
-                    X.loc[:, ~id_features_mask & ~date_features_mask].values, horizon, axis=0
+                    X.loc[:, ~id_features_mask & ~date_features_mask].values,
+                    horizon,
+                    axis=0,
                 ),
                 columns=X.loc[:, ~id_features_mask & ~date_features_mask].columns,
             )
@@ -637,7 +681,9 @@ class Pipeline:
 
         return data, X.columns
 
-    def _make_multivariate_X_y(self, data: dict, current_features: list) -> Tuple[dict, list]:
+    def _make_multivariate_X_y(
+        self, data: dict, current_features: list
+    ) -> Tuple[dict, list]:
         """Converts the input data dictionary into a multivariate
             X and y arrays.
 
@@ -652,13 +698,19 @@ class Pipeline:
         """
         X = pd.DataFrame(data["X"], columns=current_features)
 
-        date_features_colname = X.columns[X.columns.str.contains(data["date_column_name"])].values
-        id_features_colname = X.columns[X.columns.str.contains(data["id_column_name"])].values
+        date_features_colname = X.columns[
+            X.columns.str.contains(data["date_column_name"])
+        ].values
+        id_features_colname = X.columns[
+            X.columns.str.contains(data["id_column_name"])
+        ].values
 
         if id_features_colname.size == 0:
             # add temporary column with id for make multivariate merging
             id_idx = index_slicer.get_cols_idx(data["raw_ts_X"], data["id_column_name"])
-            X["temp_ID"] = index_slicer.get_slice(data["raw_ts_X"], (data["idx_X"][:, 0], id_idx))
+            X["temp_ID"] = index_slicer.get_slice(
+                data["raw_ts_X"], (data["idx_X"][:, 0], id_idx)
+            )
             id_features_colname = np.array(["temp_ID"])
 
         other_features_colname = X.columns.difference(
@@ -669,9 +721,11 @@ class Pipeline:
         other_features_idx = index_slicer.get_cols_idx(X, other_features_colname)
 
         segments_ids = np.append(
-            np.unique([tuple(x) for x in X[id_features_colname].values], axis=0, return_index=1)[
-                1
-            ],
+            np.unique(
+                [tuple(x) for x in X[id_features_colname].values],
+                axis=0,
+                return_index=1,
+            )[1],
             len(X),
         )
         segments_ids = np.sort(segments_ids)
@@ -701,9 +755,9 @@ class Pipeline:
         new_columns = np.hstack((date_features_colname, final_other_features_colname))
 
         if data["y"] is not None:
-            data["y"] = index_slicer.get_slice(data["y"], (segments_ids_array, None)).reshape(
-                len(segments_ids_array), -1
-            )
+            data["y"] = index_slicer.get_slice(
+                data["y"], (segments_ids_array, None)
+            ).reshape(len(segments_ids_array), -1)
 
         return data, new_columns
 
@@ -726,19 +780,25 @@ class Pipeline:
 
         id_feature_colname = np.array(["ID"])
         fh_feature_colname = np.array(["FH"])
-        date_features_colname = X.columns[X.columns.str.contains(data["date_column_name"])].values
+        date_features_colname = X.columns[
+            X.columns.str.contains(data["date_column_name"])
+        ].values
         other_features_colname = [
             col
             for col in X.columns.values
             if col
-            not in np.hstack([id_feature_colname, date_features_colname, fh_feature_colname])
+            not in np.hstack(
+                [id_feature_colname, date_features_colname, fh_feature_colname]
+            )
         ]
 
         date_features_idx = index_slicer.get_cols_idx(X, date_features_colname)
         other_features_idx = index_slicer.get_cols_idx(X, other_features_colname)
         fh_feature_idx = index_slicer.get_cols_idx(X, fh_feature_colname)
 
-        segments_ids = np.append(np.unique(X[id_feature_colname], return_index=1)[1], len(X))
+        segments_ids = np.append(
+            np.unique(X[id_feature_colname], return_index=1)[1], len(X)
+        )
         segments_ids = np.sort(segments_ids)
         segments_ids_array = np.array(
             [
@@ -765,7 +825,9 @@ class Pipeline:
             for i, feat in product(range(len(segments_ids) - 1), other_features_colname)
         ]
 
-        data["X"] = np.hstack((fh_feature_array, date_features_array, other_features_array))
+        data["X"] = np.hstack(
+            (fh_feature_array, date_features_array, other_features_array)
+        )
         new_columns = np.hstack(
             (
                 fh_feature_colname,
@@ -775,9 +837,9 @@ class Pipeline:
         )
 
         if data["y"] is not None:
-            data["y"] = index_slicer.get_slice(data["y"], (segments_ids_array, None)).reshape(
-                len(segments_ids_array), -1
-            )
+            data["y"] = index_slicer.get_slice(
+                data["y"], (segments_ids_array, None)
+            ).reshape(len(segments_ids_array), -1)
 
         return data, new_columns
 
@@ -798,14 +860,18 @@ class Pipeline:
 
         current_features = self.transformers.output_features
         if self.strategy_name == "FlatWideMIMOStrategy":
-            data, current_features = self.from_mimo_to_flatwidemimo(data, current_features)
+            data, current_features = self.from_mimo_to_flatwidemimo(
+                data, current_features
+            )
         if self.multivariate:
             if self.strategy_name == "FlatWideMIMOStrategy":
                 data, current_features = self._make_multivariate_X_y_flatwidemimo(
                     data, current_features
                 )
             else:
-                data, current_features = self._make_multivariate_X_y(data, current_features)
+                data, current_features = self._make_multivariate_X_y(
+                    data, current_features
+                )
 
         assert np.all(
             self.output_features == current_features[self.features_sort_idx]

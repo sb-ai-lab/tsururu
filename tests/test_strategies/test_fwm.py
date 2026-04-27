@@ -1,6 +1,8 @@
 import pandas as pd
 import pytest
 
+pytest.importorskip("catboost", reason="catboost is not installed")
+
 from tsururu.dataset import IndexSlicer, Pipeline, TSDataset
 from tsururu.model_training.trainer import MLTrainer
 from tsururu.model_training.validator import KFoldCrossValidator
@@ -54,7 +56,7 @@ PIPELINE_PARAMS_WRONG_DATE_LAGS = {
 
 
 def test_assert_date_lags_less_than_history():
-    df = pd.read_csv("tsururu/datasets/global/simulated_data_to_check.csv")
+    df = pd.read_csv("datasets/global/simulated_data_to_check.csv")
 
     dataset = TSDataset(
         data=df,

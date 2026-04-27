@@ -8,7 +8,6 @@ import pandas as pd
 import torch
 import yaml
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from torch.optim import lr_scheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR
 
 from tsururu.dataset import Pipeline
@@ -101,7 +100,9 @@ def run_experiment(config):
     lag = LagTransformer(lags=history)
     target_generator = TargetGenerator()
     union_1 = UnionTransformer(transformers_list=[lag, target_generator])
-    seq_1 = SequentialTransformer(transformers_list=[ss, union_1], input_features=["value"])
+    seq_1 = SequentialTransformer(
+        transformers_list=[ss, union_1], input_features=["value"]
+    )
     transformers = [seq_1]
 
     if config["model"]["model_type"] == "TimeMixer_NN":
@@ -113,7 +114,10 @@ def run_experiment(config):
             transform_features=True, transform_target=False, agg_by_id=False
         )
         datetime_imp = MissingValuesImputer(
-            regime="constant", constant_value=0, transform_features=True, transform_target=False
+            regime="constant",
+            constant_value=0,
+            transform_features=True,
+            transform_target=False,
         )
         seq_2 = SequentialTransformer(
             transformers_list=[datetime, datetime_ss, datetime_imp, datetime_lag],
@@ -169,12 +173,16 @@ def run_experiment(config):
 
     strategy.fit(train_dataset)
 
-    _, current_pred = strategy.predict(test_dataset, test_all=True, inverse_transform=False)
+    _, current_pred = strategy.predict(
+        test_dataset, test_all=True, inverse_transform=False
+    )
 
     stat_df = get_fitted_scaler_on_train(dataset_tsururu_path)
 
     scaled_test_dataset = deepcopy(test_dataset.data)
-    scaled_test_dataset = scaled_test_dataset.merge(stat_df, left_on="id", right_index=True)
+    scaled_test_dataset = scaled_test_dataset.merge(
+        stat_df, left_on="id", right_index=True
+    )
     scaled_test_dataset["value"] = (
         scaled_test_dataset["value"] - scaled_test_dataset["mean"]
     ) / scaled_test_dataset["std"]
@@ -194,8 +202,12 @@ def run_experiment(config):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run time series forecasting experiment.")
-    parser.add_argument("--config", type=str, required=True, help="Path to the YAML config file.")
+    parser = argparse.ArgumentParser(
+        description="Run time series forecasting experiment."
+    )
+    parser.add_argument(
+        "--config", type=str, required=True, help="Path to the YAML config file."
+    )
     parser.add_argument(
         "--output_dir",
         type=str,
@@ -214,7 +226,7 @@ if __name__ == "__main__":
 
     results = []
     for i, seed in enumerate(config["seed"]):
-        print(f"\nIteration: {i+1}, seed: {seed}")
+        print(f"\nIteration: {i + 1}, seed: {seed}")
 
         seed_everything(seed)
 

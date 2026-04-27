@@ -18,7 +18,11 @@ class Inception_Block_V1(nn.Module):
     """
 
     def __init__(
-        self, in_channels: int, out_channels: int, num_kernels: int = 6, init_weight: bool = True
+        self,
+        in_channels: int,
+        out_channels: int,
+        num_kernels: int = 6,
+        init_weight: bool = True,
     ):
         super(Inception_Block_V1, self).__init__()
         self.in_channels = in_channels
@@ -28,7 +32,9 @@ class Inception_Block_V1(nn.Module):
 
         # Create a list of convolutional layers with varying kernel sizes
         for i in range(self.num_kernels):
-            kernels.append(nn.Conv2d(in_channels, out_channels, kernel_size=2 * i + 1, padding=i))
+            kernels.append(
+                nn.Conv2d(in_channels, out_channels, kernel_size=2 * i + 1, padding=i)
+            )
         self.kernels = nn.ModuleList(kernels)
 
         # Initialize weights if specified
