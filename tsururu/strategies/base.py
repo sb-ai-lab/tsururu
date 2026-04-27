@@ -267,6 +267,10 @@ class Strategy:
                 current_train, dataset.columns_params, dataset.delta
             )
 
+            if self.is_fitted:
+                self.is_fitted = False
+                self.trainers = []
+
             fit_time, _ = self.fit(current_dataset)
             forecast_time, current_pred = self.predict(current_dataset)
 
