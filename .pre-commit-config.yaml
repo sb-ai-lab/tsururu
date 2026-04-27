@@ -14,7 +14,6 @@ repos:
         args: [--maxkb=5000]
       - id: no-commit-to-branch
         args: ['--branch', 'main', '--branch', 'master']
-        stages: ['pre-commit']
       - id: check-merge-conflict
 
 
