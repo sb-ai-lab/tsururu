@@ -72,7 +72,7 @@ class RecursiveStrategy(Strategy):
         """
         if self.is_fitted:
             raise RuntimeError("The strategy is already fitted!")
-        
+
         features_idx = index_slicer.create_idx_data(
             dataset.data,
             self.model_horizon,

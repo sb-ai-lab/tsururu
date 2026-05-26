@@ -68,7 +68,7 @@ class DirectStrategy(RecursiveStrategy):
         """
         if self.is_fitted:
             raise RuntimeError("The strategy is already fitted!")
-        
+
         self.trainers = []
 
         # intrinsic_horizon is a multiple of model_horizon
