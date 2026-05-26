@@ -9,7 +9,7 @@ nn = OptionalImport("torch.nn")
 Module = OptionalImport("torch.nn.Module")
 
 
-def get_activation_fn(activation: Union[str, Callable[[], Module]]) -> Module:
+def get_activation_fn(activation: Union[str, Callable[[], "Module"]]) -> "Module":
     """Get the activation function based on the provided name or callable.
 
     Args:
