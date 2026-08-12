@@ -28,7 +28,7 @@ class MeanMethod(BaselineEstimator):
         return y_pred
 
 
-class NaiveMethod:
+class NaiveMethod(BaselineEstimator):
     """
     For naive forecasts, we simply set all forecasts to be the value of the last observation
     """
@@ -41,16 +41,20 @@ class NaiveMethod:
         y_pred = (
             data["raw_ts_X"]
             .groupby(columns_name["id_column"])[columns_name["target_column"]]
-            .fillna(method="ffill")
-        )
+            .agg(lambda s: s.ffill().iloc[-1])
+        ).values
 
         return y_pred
 
 
-class SeasonalNaiveMethod:
+class SeasonalNaiveMethod(BaselineEstimator):
     """
     This class implements the seasonal naive forecast method. It predicts future values
     based on the values from the corresponding season in the previous cycle.
+
+    For each id, returns the last `season_length` known values (chronologically
+    ordered), one row per id. The forecast for horizon step h (1-indexed) is
+    `y_pred[id_idx, (h - 1) % season_length]`.
     """
 
     def __init__(self, season_length: int):
@@ -60,23 +64,23 @@ class SeasonalNaiveMethod:
     def predict(self, data: dict, pipeline) -> np.ndarray:
         columns_name = self._inspect_raw_ts_X_columns(data, pipeline)
 
+        group_sizes = data["raw_ts_X"].groupby(columns_name["id_column"]).size()
         assert (
-            data["raw_ts_X"].shape[0] >= self.season_length
-        ), "Dataframe does not have enough data for the given season length."
+            group_sizes.min() >= self.season_length
+        ), "Some series do not have enough data for the given season length."
 
         season_indices = data["raw_ts_X"].index % self.season_length
 
-        y_pred = np.empty(data["raw_ts_X"].shape[0])
-        for i in range(self.season_length):
-            season_data = data["raw_ts_X"][season_indices == i]
-            y_pred[season_indices == i] = season_data[[columns_name["target_column"]]].fillna(
-                method="ffill"
-            )
+        y_pred = np.stack(
+            data["raw_ts_X"]
+            .groupby(columns_name["id_column"])[columns_name["target_column"]]
+            .apply(lambda s: s.ffill().iloc[-self.season_length :].values)
+        )
 
         return y_pred
 
 
-class DriftMethod:
+class DriftMethod(BaselineEstimator):
     """
     Drift Forecasting Method fills missing values based on the drift method,
     where the drift is the average change seen in the historical data.
